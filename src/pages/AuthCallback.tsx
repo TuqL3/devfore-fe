@@ -37,11 +37,11 @@ export default function AuthCallback() {
   }, [mut]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center text-slate-400">
+    <div className="flex min-h-screen items-center justify-center text-fg-muted">
       {error ? (
         <div className="text-center">
-          <p className="text-red-400">{error}</p>
-          <a href="/login" className="text-violet-400 hover:underline">
+          <p className="text-danger">{error}</p>
+          <a href="/login" className="text-accent-soft hover:underline">
             Về trang đăng nhập
           </a>
         </div>

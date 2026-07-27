@@ -9,4 +9,12 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
+  server: {
+    // /mnt/* is a Windows drive mounted through drvfs, where inotify events
+    // never fire — without polling the watcher sees nothing and HMR dies
+    // silently. Native Linux paths keep the cheap inotify watcher.
+    watch: __dirname.startsWith('/mnt/')
+      ? { usePolling: true, interval: 300 }
+      : undefined,
+  },
 })

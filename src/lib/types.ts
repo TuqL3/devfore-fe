@@ -18,6 +18,14 @@ export interface AuthResponse extends TokenPair {
   user: User
 }
 
+export interface Level {
+  slug: string
+  label: string
+  hint: string
+  rank: number
+  course_count: number
+}
+
 export interface CourseSummary {
   id: number
   slug: string
@@ -55,6 +63,11 @@ export interface Review {
 }
 
 export interface LeaderRow {
+  rank: number
   username: string
+  avatar_url: string | null
   score: number
+  labs_completed: number
+  attempts: number
+  updated_at: string
 }

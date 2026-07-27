@@ -17,6 +17,10 @@ type Options = {
   auth?: boolean; // attach access token? default true
 };
 
+// FormData must go out untouched: the browser sets the multipart boundary, so
+// this must never be JSON-encoded or given a Content-Type header.
+const isForm = (b: unknown): b is FormData => b instanceof FormData;
+
 // request = one HTTP call to the API. If it 401s and we have a refresh token,
 // refresh once and retry. auth:false skips the token (login/public endpoints).
 export async function request<T>(path: string, opts: Options = {}): Promise<T> {
@@ -29,13 +33,18 @@ export async function request<T>(path: string, opts: Options = {}): Promise<T> {
 
 function send(path: string, opts: Options): Promise<Response> {
   const headers: Record<string, string> = {};
-  if (opts.body !== undefined) headers["Content-Type"] = "application/json";
+  if (opts.body !== undefined && !isForm(opts.body))
+    headers["Content-Type"] = "application/json";
   if (opts.auth !== false && tokens.access())
     headers.Authorization = `Bearer ${tokens.access()}`;
   return fetch(BASE + path, {
     method: opts.method ?? (opts.body !== undefined ? "POST" : "GET"),
     headers,
-    body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+    body: isForm(opts.body)
+      ? opts.body
+      : opts.body !== undefined
+        ? JSON.stringify(opts.body)
+        : undefined,
   });
 }
 

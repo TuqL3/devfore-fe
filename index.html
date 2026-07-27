@@ -5,6 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>DevForge</title>
+    <script>
+      // Set the theme class before first paint so there is no light/dark flash.
+      // Default is dark; light and system only apply once explicitly chosen.
+      var t = localStorage.getItem('theme')
+      var dark =
+        t === 'system'
+          ? matchMedia('(prefers-color-scheme: dark)').matches
+          : t !== 'light'
+      if (dark) document.documentElement.classList.add('dark')
+    </script>
   </head>
   <body>
     <div id="root"></div>

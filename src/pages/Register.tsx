@@ -3,9 +3,15 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
-import { Button, Field, Input } from '@/components/ui'
+import { Input, PasswordInput } from '@/components/ui'
 import { GoogleButton } from '@/components/GoogleButton'
-import { AuthShell } from './Login'
+import {
+  AuthShell,
+  Divider,
+  TermButton,
+  TermError,
+  TermField,
+} from '@/components/AuthShell'
 
 export default function Register() {
   const { register } = useAuth()
@@ -25,50 +31,58 @@ export default function Register() {
   const error = mut.isError
     ? mut.error instanceof ApiError
       ? mut.error.message
-      : 'Đăng ký thất bại'
+      : 'đăng ký thất bại'
     : ''
 
   return (
-    <AuthShell title="Tạo tài khoản">
+    <AuthShell cmd="register">
       <form onSubmit={onSubmit} className="space-y-4">
-        <Field label="Username">
+        <TermField flag="username" hint="tối thiểu 3 ký tự">
           <Input
+            variant="terminal"
             value={form.username}
             onChange={(e) => setForm({ ...form, username: e.target.value })}
             autoComplete="username"
+            placeholder="lukas"
             minLength={3}
             required
           />
-        </Field>
-        <Field label="Email">
+        </TermField>
+        <TermField flag="email">
           <Input
+            variant="terminal"
             type="email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
             autoComplete="email"
+            placeholder="lukas@example.com"
             required
           />
-        </Field>
-        <Field label="Mật khẩu (tối thiểu 8 ký tự)">
-          <Input
-            type="password"
+        </TermField>
+        <TermField flag="password" hint="tối thiểu 8 ký tự">
+          <PasswordInput
+            variant="terminal"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
             autoComplete="new-password"
+            placeholder="••••••••"
             minLength={8}
             required
           />
-        </Field>
-        {error && <p className="text-sm text-red-400">{error}</p>}
-        <Button type="submit" className="w-full" disabled={mut.isPending}>
-          {mut.isPending ? 'Đang xử lý…' : 'Đăng ký'}
-        </Button>
+        </TermField>
+        {error && <TermError>{error}</TermError>}
+        <TermButton type="submit" disabled={mut.isPending}>
+          {mut.isPending ? 'creating account…' : './create-account'}
+        </TermButton>
       </form>
+
+      <Divider />
       <GoogleButton />
-      <p className="text-center text-sm text-slate-400">
-        Đã có tài khoản?{' '}
-        <Link to="/login" className="text-violet-400 hover:underline">
-          Đăng nhập
+
+      <p className="font-mono text-sm text-fg-subtle">
+        # đã có tài khoản?{' '}
+        <Link to="/login" className="text-accent-soft hover:underline">
+          ./login
         </Link>
       </p>
     </AuthShell>

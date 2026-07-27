@@ -5,7 +5,7 @@ export function ProtectedRoute({ adminOnly = false }: { adminOnly?: boolean }) {
   const { user, loading, isAdmin } = useAuth();
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center text-slate-500">
+      <div className="flex min-h-screen items-center justify-center text-fg-subtle">
         Đang tải…
       </div>
     );

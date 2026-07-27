@@ -1,0 +1,378 @@
+import { useState, type FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import { useMutation } from '@tanstack/react-query'
+import { useAuth } from '@/context/AuthContext'
+import { ApiError } from '@/lib/api'
+import { Avatar } from '@/components/Avatar'
+import {
+  Button,
+  ErrorBox,
+  Field,
+  Input,
+  PasswordInput,
+} from '@/components/ui'
+import { BookIcon, LogOutIcon } from '@/components/icons'
+
+const statusLabel: Record<string, string> = {
+  active: 'đang hoạt động',
+  pending: 'chờ kích hoạt',
+  banned: 'bị khoá',
+}
+
+const statusDot: Record<string, string> = {
+  active: 'bg-emerald-500',
+  pending: 'bg-amber-500',
+  banned: 'bg-red-500',
+}
+
+const TABS = ['Thông tin', 'Mật khẩu', 'Nguy hiểm'] as const
+type Tab = (typeof TABS)[number]
+
+export default function Profile() {
+  const { user, isAdmin, logout } = useAuth()
+  const [tab, setTab] = useState<Tab>('Thông tin')
+  if (!user) return null
+
+  const joined = new Date(user.created_at)
+
+  return (
+    <div className="mx-auto max-w-3xl space-y-8">
+      <div className="relative isolate overflow-hidden rounded-2xl border border-border bg-surface p-6 sm:p-8">
+        <span
+          aria-hidden="true"
+          className="absolute -right-20 -top-24 -z-10 h-64 w-64 rounded-full bg-accent/15 blur-3xl"
+        />
+        <div className="flex flex-wrap items-center gap-5">
+          <Avatar user={user} className="h-20 w-20 rounded-xl text-2xl" />
+          <div className="min-w-0 flex-1">
+            <h1 className="text-3xl font-bold text-fg-strong">
+              {user.username}
+            </h1>
+            <p className="mt-1 break-all text-fg-muted">{user.email}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              {isAdmin && (
+                <span className="rounded-full bg-accent px-2.5 py-0.5 font-mono text-xs font-semibold text-accent-fg">
+                  admin
+                </span>
+              )}
+              <span className="flex items-center gap-1.5 rounded-full bg-muted px-2.5 py-0.5 font-mono text-xs text-fg-muted">
+                <span
+                  aria-hidden="true"
+                  className={
+                    'term-dot ' + (statusDot[user.status] ?? 'bg-zinc-500')
+                  }
+                />
+                {statusLabel[user.status] ?? user.status}
+              </span>
+              <span className="rounded-full bg-muted px-2.5 py-0.5 font-mono text-xs text-fg-muted">
+                tham gia {joined.toLocaleDateString('vi-VN')}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Same terminal framing as the rest of the site; prints only the fields
+          GET /api/me actually returns. */}
+      <div className="overflow-hidden rounded-xl border border-border bg-surface">
+        <div className="flex items-center gap-2 border-b border-border bg-muted px-4 py-2.5">
+          <span className="term-dot bg-red-400" />
+          <span className="term-dot bg-amber-400" />
+          <span className="term-dot bg-emerald-400" />
+          <span className="ml-2 font-mono text-xs text-fg-muted">
+            devforge@lab: ~
+          </span>
+        </div>
+        <div className="overflow-x-auto px-4 py-4 font-mono text-sm">
+          <div className="text-fg">
+            <span className="text-success">$</span> id
+          </div>
+          <dl className="mt-2 grid gap-x-6 gap-y-1 sm:grid-cols-[7rem_1fr]">
+            <Line label="uid" value={String(user.id)} />
+            <Line label="user" value={user.username} />
+            <Line label="email" value={user.email} />
+            <Line
+              label="groups"
+              value={user.roles?.length ? user.roles.join(',') : 'user'}
+            />
+            <Line label="status" value={user.status} />
+            <Line label="since" value={joined.toISOString().slice(0, 10)} />
+          </dl>
+          <div className="mt-3 text-success">
+            $ <span className="term-caret" />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <div className="flex flex-wrap gap-2 border-b border-border pb-px">
+          {TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={
+                'rounded-t-md px-4 py-2 text-sm font-medium transition ' +
+                (tab === t
+                  ? t === 'Nguy hiểm'
+                    ? 'border-b-2 border-danger bg-muted text-danger'
+                    : 'border-b-2 border-accent bg-muted text-fg-strong'
+                  : 'border-b-2 border-transparent text-fg-muted hover:bg-muted hover:text-fg-strong')
+              }
+            >
+              {t}
+            </button>
+          ))}
+        </div>
+
+        <div key={tab} className="page-enter min-h-80 pt-6">
+          {tab === 'Thông tin' && <ProfileForm />}
+          {tab === 'Mật khẩu' && <PasswordForm />}
+          {tab === 'Nguy hiểm' && <DangerZone />}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 border-t border-border pt-6">
+        <Link
+          to="/courses"
+          className="inline-flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
+        >
+          <BookIcon className="h-4 w-4" />
+          Khám phá khoá học
+        </Link>
+        <button
+          onClick={logout}
+          className="inline-flex items-center gap-2 rounded-md border border-border-strong px-5 py-2.5 font-medium text-fg transition hover:border-danger hover:text-danger"
+        >
+          <LogOutIcon className="h-4 w-4" />
+          Đăng xuất
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function errText(mut: { isError: boolean; error: unknown }, fallback: string) {
+  if (!mut.isError) return ''
+  return mut.error instanceof ApiError ? mut.error.message : fallback
+}
+
+function AvatarUpload() {
+  const { user, uploadAvatar } = useAuth()
+  const mut = useMutation({ mutationFn: uploadAvatar })
+
+  function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    // Reset the input so picking the same file twice still fires onChange.
+    e.target.value = ''
+    if (file) mut.mutate(file)
+  }
+
+  return (
+    <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-bg p-4">
+      {user && <Avatar user={user} className="h-16 w-16 rounded-xl text-xl" />}
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-fg">Ảnh đại diện</p>
+        <p className="mt-0.5 text-xs text-fg-subtle">
+          png, jpg, gif hoặc webp — tối đa 2MB
+        </p>
+        {mut.isError && (
+          <p className="mt-2 text-sm text-danger">
+            {errText(mut, 'Tải ảnh thất bại')}
+          </p>
+        )}
+      </div>
+      <label className="shrink-0 cursor-pointer rounded-md border border-border-strong px-4 py-2 text-sm font-medium text-fg transition hover:border-accent hover:text-accent-soft">
+        {mut.isPending ? 'Đang tải…' : 'Chọn ảnh'}
+        <input
+          type="file"
+          accept="image/png,image/jpeg,image/gif,image/webp"
+          onChange={onPick}
+          disabled={mut.isPending}
+          className="sr-only"
+        />
+      </label>
+    </div>
+  )
+}
+
+function ProfileForm() {
+  const { user, updateProfile } = useAuth()
+  const [form, setForm] = useState({
+    username: user?.username ?? '',
+    email: user?.email ?? '',
+  })
+
+  const mut = useMutation({ mutationFn: () => updateProfile(form) })
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    mut.mutate()
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-5">
+      <AvatarUpload />
+
+      <Field label="Username" hint="3-32 ký tự, chữ và số">
+        <Input
+          value={form.username}
+          onChange={(e) => setForm({ ...form, username: e.target.value })}
+          autoComplete="username"
+          minLength={3}
+          maxLength={32}
+          required
+        />
+      </Field>
+      <Field label="Email">
+        <Input
+          type="email"
+          value={form.email}
+          onChange={(e) => setForm({ ...form, email: e.target.value })}
+          autoComplete="email"
+          required
+        />
+      </Field>
+
+      {mut.isError && <ErrorBox>{errText(mut, 'Cập nhật thất bại')}</ErrorBox>}
+      {mut.isSuccess && (
+        <p className="text-sm text-success">Đã lưu thay đổi.</p>
+      )}
+      <Button type="submit" disabled={mut.isPending}>
+        {mut.isPending ? 'Đang lưu…' : 'Lưu thay đổi'}
+      </Button>
+    </form>
+  )
+}
+
+function PasswordForm() {
+  const { changePassword } = useAuth()
+  const [form, setForm] = useState({ current: '', next: '', confirm: '' })
+  const [mismatch, setMismatch] = useState(false)
+
+  const mut = useMutation({
+    mutationFn: () => changePassword(form.current, form.next),
+    onSuccess: () => setForm({ current: '', next: '', confirm: '' }),
+  })
+
+  function onSubmit(e: FormEvent) {
+    e.preventDefault()
+    // Checked here rather than server-side: the confirm field never leaves
+    // the browser, it only guards against typos.
+    const bad = form.next !== form.confirm
+    setMismatch(bad)
+    if (!bad) mut.mutate()
+  }
+
+  return (
+    <form onSubmit={onSubmit} className="space-y-5">
+      <Field label="Mật khẩu hiện tại" hint="bỏ trống nếu đăng nhập bằng Google">
+        <PasswordInput
+          value={form.current}
+          onChange={(e) => setForm({ ...form, current: e.target.value })}
+          autoComplete="current-password"
+        />
+      </Field>
+      <Field label="Mật khẩu mới" hint="tối thiểu 8 ký tự">
+        <PasswordInput
+          value={form.next}
+          onChange={(e) => setForm({ ...form, next: e.target.value })}
+          autoComplete="new-password"
+          minLength={8}
+          required
+        />
+      </Field>
+      <Field label="Nhập lại mật khẩu mới">
+        <PasswordInput
+          value={form.confirm}
+          onChange={(e) => setForm({ ...form, confirm: e.target.value })}
+          autoComplete="new-password"
+          minLength={8}
+          required
+        />
+      </Field>
+
+      {mismatch && <ErrorBox>Hai mật khẩu không khớp.</ErrorBox>}
+      {mut.isError && <ErrorBox>{errText(mut, 'Đổi mật khẩu thất bại')}</ErrorBox>}
+      {mut.isSuccess && <p className="text-sm text-success">Đã đổi mật khẩu.</p>}
+      <Button type="submit" disabled={mut.isPending}>
+        {mut.isPending ? 'Đang đổi…' : 'Đổi mật khẩu'}
+      </Button>
+    </form>
+  )
+}
+
+/**
+ * Chrome fills anything that looks like a login form, which would pre-fill both
+ * confirmation fields and defeat the point of them. `autoComplete` alone is
+ * ignored here, so the fields start read-only and open up on focus — autofill
+ * runs at render time and skips read-only inputs.
+ */
+function useNoAutofill() {
+  const [locked, setLocked] = useState(true)
+  return {
+    readOnly: locked,
+    onFocus: () => setLocked(false),
+    autoComplete: 'off' as const,
+  }
+}
+
+function DangerZone() {
+  const { user, deleteAccount } = useAuth()
+  const [password, setPassword] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const noFillName = useNoAutofill()
+  const noFillPass = useNoAutofill()
+  const mut = useMutation({ mutationFn: () => deleteAccount(password) })
+
+  // Typing the username is the guard against a reflex click; the password is
+  // the guard against someone else using a stolen session.
+  const armed = confirm === user?.username
+
+  return (
+    <div className="space-y-4 rounded-xl border border-danger/40 bg-danger/5 p-5">
+      <div>
+        <h3 className="font-semibold text-danger">Xoá tài khoản vĩnh viễn</h3>
+        <p className="mt-1 text-sm text-fg-muted">
+          Tài khoản, các khoá học đã ghi danh và toàn bộ tiến độ sẽ bị xoá khỏi
+          hệ thống. Thao tác này không thể hoàn tác.
+        </p>
+      </div>
+
+      <Field label={`Gõ "${user?.username}" để xác nhận`}>
+        <Input
+          value={confirm}
+          onChange={(e) => setConfirm(e.target.value)}
+          placeholder={user?.username}
+          spellCheck={false}
+          {...noFillName}
+        />
+      </Field>
+      <Field label="Mật khẩu" hint="bỏ trống nếu đăng nhập bằng Google">
+        <PasswordInput
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder="mật khẩu hiện tại"
+          {...noFillPass}
+        />
+      </Field>
+
+      {mut.isError && <ErrorBox>{errText(mut, 'Xoá thất bại')}</ErrorBox>}
+      <button
+        onClick={() => mut.mutate()}
+        disabled={!armed || mut.isPending}
+        className="w-full rounded-md bg-danger px-4 py-2.5 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        {mut.isPending ? 'Đang xoá…' : 'Xoá tài khoản của tôi'}
+      </button>
+    </div>
+  )
+}
+
+function Line({ label, value }: { label: string; value: string }) {
+  return (
+    <>
+      <dt className="text-accent-soft">{label}</dt>
+      <dd className="break-all text-fg-muted">{value}</dd>
+    </>
+  )
+}

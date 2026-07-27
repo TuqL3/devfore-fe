@@ -17,6 +17,14 @@ interface AuthState {
   ) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateProfile: (input: {
+    username: string;
+    email: string;
+    avatar_url?: string;
+  }) => Promise<void>;
+  uploadAvatar: (file: File) => Promise<void>;
+  changePassword: (current: string, next: string) => Promise<void>;
+  deleteAccount: (password: string) => Promise<void>;
 }
 
 const Ctx = createContext<AuthState | null>(null);
@@ -56,6 +64,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     qc.setQueryData(ME, null);
   }
 
+  // The response is the updated user, so write it straight into the cache
+  // instead of triggering another GET /api/me.
+  async function updateProfile(input: {
+    username: string;
+    email: string;
+    avatar_url?: string;
+  }) {
+    qc.setQueryData(ME, await authApi.updateMe(input));
+  }
+
+  async function uploadAvatar(file: File) {
+    qc.setQueryData(ME, await authApi.uploadAvatar(file));
+  }
+
+  async function changePassword(current: string, next: string) {
+    await authApi.changePassword({
+      current_password: current,
+      new_password: next,
+    });
+  }
+
+  // The account is gone server-side, so the local session must go too.
+  async function deleteAccount(password: string) {
+    await authApi.deleteMe({ password });
+    logout();
+  }
+
   // Fetch me() through the query so the result lands in the cache. Used after
   // the Google OAuth redirect, where the query started disabled (no token yet).
   async function refreshUser() {
@@ -71,6 +106,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     register,
     logout,
     refreshUser,
+    updateProfile,
+    uploadAvatar,
+    changePassword,
+    deleteAccount,
   };
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }

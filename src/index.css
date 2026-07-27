@@ -1,10 +1,296 @@
 @import "tailwindcss";
 
+/* Class-based dark mode instead of the default prefers-color-scheme, so the
+   3-mode switcher (light / dark / system) can force a theme. `system` simply
+   means no class is set by JS and the OS preference block below applies. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* Neutrals are zinc, accent is amber, matching devops-daily.com. The solid
+   accent is deepened to amber-700/orange-700 so white button text clears WCAG
+   AA (~4.6:1); amber-600 with white would only reach 2.9:1. Link-style accent
+   text uses --accent-soft, which stays bright. */
 :root {
+  --bg: #ffffff;
+  --surface: #fafafa;
+  --muted: #f4f4f5;
+  --border: #e4e4e7;
+  --border-strong: #d4d4d8;
+  --fg: #27272a;
+  --fg-strong: #09090b;
+  --fg-muted: #52525b;
+  --fg-subtle: #71717a;
+  --accent: #b45309;
+  --accent-hover: #92400e;
+  --accent-fg: #ffffff;
+  --accent-soft: #b45309;
+  --danger: #dc2626;
+  --success: #15803d;
+  --success-soft: #dcfce7;
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #09090b;
+  --surface: #18181b;
+  --muted: #27272a;
+  --border: #27272a;
+  --border-strong: #3f3f46;
+  --fg: #fafafa;
+  --fg-strong: #ffffff;
+  --fg-muted: #a1a1aa;
+  --fg-subtle: #71717a;
+  --accent: #c2410c;
+  --accent-hover: #9a3412;
+  --accent-fg: #ffffff;
+  --accent-soft: #fbbf24;
+  --danger: #f87171;
+  --success: #4ade80;
+  --success-soft: #14532d;
   color-scheme: dark;
 }
 
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-muted: var(--muted);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-fg: var(--fg);
+  --color-fg-strong: var(--fg-strong);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-subtle: var(--fg-subtle);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+}
+
+html {
+  scroll-behavior: smooth;
+  /* Always reserve the scrollbar track: pages and tabs of different heights
+     would otherwise shift the layout sideways as it appears and disappears. */
+  scrollbar-gutter: stable;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
 body {
-  @apply bg-slate-950 text-slate-100 antialiased;
+  @apply bg-bg text-fg antialiased;
   font-family: system-ui, "Segoe UI", Roboto, sans-serif;
+  /* Dot grid across the whole app; cards sit on it with an opaque surface. */
+  background-image: radial-gradient(
+    circle at 1px 1px,
+    var(--border) 1px,
+    transparent 0
+  );
+  background-size: 22px 22px;
+}
+
+/* Route transitions ------------------------------------------------------- */
+
+/* Replayed by remounting <main> with a key of the pathname. */
+.page-enter {
+  animation: page-in 0.28s ease-out both;
+}
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Indeterminate bar: no request reports progress, so it just sweeps. */
+.route-progress {
+  position: fixed;
+  inset-inline: 0;
+  top: 0;
+  z-index: 50;
+  height: 2px;
+  overflow: hidden;
+  pointer-events: none;
+}
+.route-progress::after {
+  content: "";
+  display: block;
+  width: 40%;
+  height: 100%;
+  background: var(--accent);
+  animation: route-progress 0.9s ease-in-out infinite;
+}
+@keyframes route-progress {
+  from {
+    transform: translateX(-110%);
+  }
+  to {
+    transform: translateX(320%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-enter {
+    animation: none;
+  }
+  .route-progress::after {
+    animation: none;
+    width: 100%;
+    opacity: 0.5;
+  }
+}
+
+/* ---------- Home hero ---------------------------------------------------- */
+
+.hero-stage {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Two blurred colour blobs drifting behind the terminal. */
+.hero-blob {
+  position: absolute;
+  z-index: -1;
+  border-radius: 9999px;
+  filter: blur(70px);
+  /* Amber at any real opacity turns into a beige smear on a white page, so the
+     glow only carries weight in dark mode. */
+  opacity: 0.12;
+  animation: hero-drift 22s ease-in-out infinite alternate;
+}
+.dark .hero-blob {
+  opacity: 0.3;
+}
+.hero-blob-a {
+  top: -18%;
+  left: -12%;
+  width: 62%;
+  aspect-ratio: 1;
+  background: #d97706;
+}
+.hero-blob-b {
+  right: -8%;
+  bottom: -22%;
+  width: 55%;
+  aspect-ratio: 1;
+  background: #f59e0b;
+  animation-duration: 27s;
+  animation-delay: -11s;
+}
+@keyframes hero-drift {
+  to {
+    transform: translate3d(8%, -7%, 0) scale(1.18);
+  }
+}
+
+/* Follows the theme like the other terminal blocks on the page. */
+.hero-term {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 0.9rem;
+  background: var(--surface);
+  box-shadow: 0 20px 45px -25px rgb(0 0 0 / 0.3);
+  animation: hero-float 7s ease-in-out infinite alternate;
+}
+.dark .hero-term {
+  box-shadow: 0 24px 60px -20px rgb(180 83 9 / 0.5);
+}
+
+@keyframes hero-float {
+  to {
+    transform: translateY(-10px);
+  }
+}
+
+.hero-term-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.8rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--muted);
+}
+.term-dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 9999px;
+}
+
+.hero-body {
+  padding: 0.9rem 1rem 1.3rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.75;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Each line fades in on its own delay (set inline); command lines also type
+   themselves out — the child inherits the parent's delay so both start together. */
+.hero-line {
+  opacity: 0;
+  animation: hero-line-in 0.35s ease-out forwards;
+}
+@keyframes hero-line-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.hero-type {
+  display: inline-block;
+  width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  vertical-align: bottom;
+  animation: hero-type 0.5s steps(28, end) forwards;
+  animation-delay: inherit;
+}
+@keyframes hero-type {
+  to {
+    width: var(--ch);
+  }
+}
+
+/* Takes the colour of whatever text it sits in. */
+.term-caret {
+  display: inline-block;
+  width: 0.55ch;
+  height: 1em;
+  background: currentColor;
+  vertical-align: text-bottom;
+  animation: term-caret 1.1s steps(1) infinite;
+}
+@keyframes term-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-blob,
+  .hero-term,
+  .hero-line,
+  .hero-type,
+  .term-caret {
+    animation: none;
+  }
+  .hero-line {
+    opacity: 1;
+  }
+  .hero-type {
+    width: auto;
+  }
 }

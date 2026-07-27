@@ -4,7 +4,7 @@ export function GoogleButton() {
   return (
     <a
       href={authApi.googleUrl()}
-      className="flex items-center justify-center gap-2 rounded-md border border-slate-700 bg-slate-900 px-4 py-2 font-medium text-slate-100 transition hover:bg-slate-800"
+      className="flex w-full items-center justify-center gap-2 rounded-md border border-border-strong bg-bg px-4 py-2.5 font-mono text-sm text-fg transition hover:border-accent hover:bg-muted"
     >
       <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
         <path
@@ -24,7 +24,7 @@ export function GoogleButton() {
           d="M43.6 20.5H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.4l6.2 5.2C41.1 36 44 30.5 44 24c0-1.2-.1-2.3-.4-3.5z"
         />
       </svg>
-      Đăng nhập với Google
+      auth --provider google
     </a>
   );
 }
