@@ -66,7 +66,9 @@ export default function Layout() {
                   </span>
                 </Link>
                 <button
-                  onClick={logout}
+                  // Signing out can now fail, and a failure means the session
+                  // is still live — the header simply stays as it was.
+                  onClick={() => void logout().catch(() => {})}
                   title="Đăng xuất"
                   aria-label="Đăng xuất"
                   className="rounded-md p-2 text-fg-subtle transition hover:bg-muted hover:text-danger"

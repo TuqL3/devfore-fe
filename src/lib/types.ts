@@ -8,14 +8,20 @@ export interface User {
   created_at: string
 }
 
-export interface TokenPair {
-  access_token: string
-  refresh_token: string
-  expires_in: number
-}
+// Login and register answer with the user only. The tokens never reach this
+// code — they arrive as HttpOnly cookies.
 
-export interface AuthResponse extends TokenPair {
-  user: User
+/** One signed-in device, as listed on the devices tab of the profile. */
+export interface Session {
+  id: string
+  user_agent: string
+  ip: string
+  /** When that device signed in — survives the session id rotating. */
+  created_at: string
+  /** When it last refreshed. */
+  last_seen: string
+  /** True for the device doing the asking. */
+  current: boolean
 }
 
 export interface Level {

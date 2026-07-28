@@ -1,6 +1,3 @@
-import { tokens } from "./tokens";
-import type { TokenPair } from "./types";
-
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
 
 export class ApiError extends Error {
@@ -14,15 +11,16 @@ export class ApiError extends Error {
 type Options = {
   method?: string;
   body?: unknown;
-  auth?: boolean; // attach access token? default true
+  auth?: boolean; // refresh-and-retry on 401? default true
 };
 
 // FormData must go out untouched: the browser sets the multipart boundary, so
 // this must never be JSON-encoded or given a Content-Type header.
 const isForm = (b: unknown): b is FormData => b instanceof FormData;
 
-// request = one HTTP call to the API. If it 401s and we have a refresh token,
-// refresh once and retry. auth:false skips the token (login/public endpoints).
+// request = one HTTP call to the API. If it 401s, refresh once and retry.
+// auth:false skips that for the refresh call itself (no point) and for public
+// endpoints (a 401 there means something other than an expired token).
 export async function request<T>(path: string, opts: Options = {}): Promise<T> {
   let res = await send(path, opts);
   if (res.status === 401 && opts.auth !== false && (await refresh())) {
@@ -35,11 +33,12 @@ function send(path: string, opts: Options): Promise<Response> {
   const headers: Record<string, string> = {};
   if (opts.body !== undefined && !isForm(opts.body))
     headers["Content-Type"] = "application/json";
-  if (opts.auth !== false && tokens.access())
-    headers.Authorization = `Bearer ${tokens.access()}`;
   return fetch(BASE + path, {
     method: opts.method ?? (opts.body !== undefined ? "POST" : "GET"),
     headers,
+    // The session is two HttpOnly cookies this code cannot read, so every call
+    // has to opt into sending them — including the cross-origin ones in dev.
+    credentials: "include",
     body: isForm(opts.body)
       ? opts.body
       : opts.body !== undefined
@@ -55,21 +54,20 @@ async function parse<T>(res: Response): Promise<T> {
   return data as T;
 }
 
-// refresh swaps the token pair. Returns false (and clears tokens) if there's no
-// refresh token or the server rejects it — the caller then surfaces the 401.
-// Concurrent refreshes are safe: the backend re-issues stateless JWTs, so two
-// racing calls both get valid tokens (no rotation to invalidate each other).
-async function refresh(): Promise<boolean> {
-  if (!tokens.refresh()) return false;
-  const res = await send("/api/auth/refresh", {
-    body: { refresh_token: tokens.refresh() },
-    auth: false,
-  });
-  if (!res.ok) {
-    tokens.clear();
-    return false;
-  }
-  const tp = (await res.json()) as TokenPair;
-  tokens.set(tp.access_token, tp.refresh_token);
-  return true;
+// The refresh cookie goes up on its own and the replacement comes back the same
+// way — nothing here to read or store.
+//
+// Sessions now rotate on every refresh, so two racing calls would burn each
+// other's cookie and sign the user out. inFlight collapses them into the one
+// request every caller awaits.
+let inFlight: Promise<boolean> | null = null;
+
+function refresh(): Promise<boolean> {
+  inFlight ??= send("/api/auth/refresh", { method: "POST", auth: false })
+    .then((res) => res.ok)
+    .catch(() => false)
+    .finally(() => {
+      inFlight = null;
+    });
+  return inFlight;
 }

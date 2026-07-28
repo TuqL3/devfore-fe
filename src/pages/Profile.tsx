@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
+import { authApi } from '@/api/auth'
 import { ApiError } from '@/lib/api'
+import type { Session } from '@/lib/types'
 import { Avatar } from '@/components/Avatar'
 import {
   Button,
@@ -25,13 +27,15 @@ const statusDot: Record<string, string> = {
   banned: 'bg-red-500',
 }
 
-const TABS = ['Thông tin', 'Mật khẩu', 'Nguy hiểm'] as const
+const TABS = ['Thông tin', 'Mật khẩu', 'Thiết bị', 'Nguy hiểm'] as const
 type Tab = (typeof TABS)[number]
 
 export default function Profile() {
   const { user, isAdmin, logout } = useAuth()
   const [tab, setTab] = useState<Tab>('Thông tin')
-  if (!user) return null
+  // Signing out — here or on another device — empties the user. Rendering
+  // nothing would leave a blank page behind.
+  if (!user) return <Navigate to="/login" replace />
 
   const joined = new Date(user.created_at)
 
@@ -126,7 +130,13 @@ export default function Profile() {
 
         <div key={tab} className="page-enter min-h-80 pt-6">
           {tab === 'Thông tin' && <ProfileForm />}
-          {tab === 'Mật khẩu' && <PasswordForm />}
+          {tab === 'Mật khẩu' && (
+            <div className="space-y-8">
+              <PasswordForm />
+              <SignOutEverywhere />
+            </div>
+          )}
+          {tab === 'Thiết bị' && <DeviceList />}
           {tab === 'Nguy hiểm' && <DangerZone />}
         </div>
       </div>
@@ -140,7 +150,7 @@ export default function Profile() {
           Khám phá khoá học
         </Link>
         <button
-          onClick={logout}
+          onClick={() => void logout().catch(() => {})}
           className="inline-flex items-center gap-2 rounded-md border border-border-strong px-5 py-2.5 font-medium text-fg transition hover:border-danger hover:text-danger"
         >
           <LogOutIcon className="h-4 w-4" />
@@ -293,11 +303,204 @@ function PasswordForm() {
 
       {mismatch && <ErrorBox>Hai mật khẩu không khớp.</ErrorBox>}
       {mut.isError && <ErrorBox>{errText(mut, 'Đổi mật khẩu thất bại')}</ErrorBox>}
-      {mut.isSuccess && <p className="text-sm text-success">Đã đổi mật khẩu.</p>}
+      {mut.isSuccess && (
+        <p className="text-sm text-success">
+          Đã đổi mật khẩu. Các thiết bị khác đã bị đăng xuất, máy này vẫn đăng
+          nhập.
+        </p>
+      )}
       <Button type="submit" disabled={mut.isPending}>
         {mut.isPending ? 'Đang đổi…' : 'Đổi mật khẩu'}
       </Button>
     </form>
+  )
+}
+
+const SESSIONS = ['sessions'] as const
+
+function DeviceList() {
+  const { logout } = useAuth()
+  const nav = useNavigate()
+  const qc = useQueryClient()
+
+  const { data, isLoading, isError } = useQuery({
+    queryKey: SESSIONS,
+    queryFn: authApi.sessions,
+    retry: false,
+  })
+
+  const mut = useMutation({
+    // Signing out the current device is exactly what logout() already does —
+    // revoke the session and clear the cookies — so reuse it rather than
+    // duplicating the cleanup here.
+    mutationFn: (s: Session) =>
+      s.current ? logout() : authApi.revokeSession(s.id),
+    onSuccess: (_r, s) => {
+      if (s.current) {
+        nav('/login', { replace: true })
+        return
+      }
+      void qc.invalidateQueries({ queryKey: SESSIONS })
+    },
+  })
+
+  if (isLoading) return <p className="text-sm text-fg-subtle">Đang tải…</p>
+  if (isError) return <ErrorBox>Không tải được danh sách thiết bị.</ErrorBox>
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-fg-muted">
+        Mỗi phiên đăng nhập còn hiệu lực trên tài khoản. Không nhận ra thiết bị
+        nào thì thoát nó ra, rồi đổi mật khẩu.
+      </p>
+
+      <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
+        {data?.map((s) => (
+          <li key={s.id} className="flex flex-wrap items-center gap-3 p-4">
+            <div className="min-w-0 flex-1">
+              <p className="flex items-center gap-2 font-medium text-fg-strong">
+                {deviceLabel(s.user_agent)}
+                {s.current && (
+                  <span className="rounded-full bg-success-soft px-2 py-0.5 font-mono text-[10px] uppercase text-success">
+                    máy này
+                  </span>
+                )}
+              </p>
+              {/* The raw header on hover: the pretty label is a guess, this is
+                  what the server actually recorded. */}
+              <p
+                className="mt-0.5 truncate font-mono text-xs text-fg-subtle"
+                title={s.user_agent}
+              >
+                {s.ip} · đăng nhập {new Date(s.created_at).toLocaleString('vi-VN')}
+              </p>
+              <p className="mt-0.5 font-mono text-xs text-fg-subtle">
+                hoạt động {timeAgo(s.last_seen)}
+              </p>
+            </div>
+            <button
+              onClick={() => mut.mutate(s)}
+              disabled={mut.isPending}
+              className="rounded-md border border-border-strong px-3 py-1.5 text-sm font-medium text-fg transition hover:border-danger hover:text-danger disabled:opacity-40"
+            >
+              {s.current ? 'Thoát máy này' : 'Thoát'}
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      {mut.isError && <ErrorBox>{errText(mut, 'Thoát thất bại')}</ErrorBox>}
+    </div>
+  )
+}
+
+/**
+ * User-Agent strings are not a format, they are a pile of history, so this is a
+ * best-effort label and the raw string stays available in the title attribute.
+ * Order matters: Edge and Opera both claim to be Chrome, and Chrome claims to
+ * be Safari.
+ */
+function deviceLabel(ua: string) {
+  const browser = /Edg\//.test(ua)
+    ? 'Edge'
+    : /OPR\//.test(ua)
+      ? 'Opera'
+      : /Firefox\//.test(ua)
+        ? 'Firefox'
+        : /Chrome\//.test(ua)
+          ? 'Chrome'
+          : /Safari\//.test(ua)
+            ? 'Safari'
+            : ''
+  const os = /iPhone|iPad/.test(ua)
+    ? 'iOS'
+    : /Android/.test(ua)
+      ? 'Android'
+      : /Mac OS X/.test(ua)
+        ? 'macOS'
+        : /Windows/.test(ua)
+          ? 'Windows'
+          : /Linux/.test(ua)
+            ? 'Linux'
+            : ''
+  if (browser && os) return `${browser} trên ${os}`
+  return browser || os || 'Thiết bị không rõ'
+}
+
+const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
+  ['second', 60],
+  ['minute', 60],
+  ['hour', 24],
+  ['day', 7],
+]
+
+// ponytail: Intl.RelativeTimeFormat is built in — no date library for this.
+function timeAgo(iso: string) {
+  const rtf = new Intl.RelativeTimeFormat('vi', { numeric: 'auto' })
+  let diff = (Date.parse(iso) - Date.now()) / 1000
+  for (const [unit, size] of UNITS) {
+    if (Math.abs(diff) < size) return rtf.format(Math.round(diff), unit)
+    diff /= size
+  }
+  return rtf.format(Math.round(diff), 'week')
+}
+
+// Changing the password already evicts the other devices. This is for the case
+// where there is nothing to change — a session left open on a machine that is
+// no longer yours.
+function SignOutEverywhere() {
+  const { logoutEverywhere } = useAuth()
+  const nav = useNavigate()
+  const [armed, setArmed] = useState(false)
+
+  const mut = useMutation({
+    mutationFn: logoutEverywhere,
+    // This device goes with the rest, so /profile has nothing left to render.
+    // Leaving explicitly beats letting it fall through to a blank page.
+    onSuccess: () => nav('/login', { replace: true }),
+  })
+
+  return (
+    <div className="space-y-4 rounded-xl border border-border bg-surface p-5">
+      <div>
+        <h3 className="font-semibold text-fg-strong">Thoát mọi thiết bị</h3>
+        <p className="mt-1 text-sm text-fg-muted">
+          Huỷ mọi phiên đăng nhập của tài khoản, kể cả máy này. Dùng khi bạn để
+          quên đăng nhập ở máy khác. Mật khẩu không đổi — đăng nhập lại như bình
+          thường.
+        </p>
+      </div>
+
+      {mut.isError && <ErrorBox>{errText(mut, 'Không thoát được')}</ErrorBox>}
+
+      {armed ? (
+        <div className="flex flex-wrap gap-3">
+          <button
+            onClick={() => mut.mutate()}
+            disabled={mut.isPending}
+            className="inline-flex items-center gap-2 rounded-md bg-danger px-4 py-2.5 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <LogOutIcon className="h-4 w-4" />
+            {mut.isPending ? 'Đang thoát…' : 'Chắc chắn, thoát hết'}
+          </button>
+          <button
+            onClick={() => setArmed(false)}
+            disabled={mut.isPending}
+            className="rounded-md border border-border-strong px-4 py-2.5 font-medium text-fg transition hover:border-accent hover:text-accent-soft"
+          >
+            Huỷ
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={() => setArmed(true)}
+          className="inline-flex items-center gap-2 rounded-md border border-border-strong px-4 py-2.5 font-medium text-fg transition hover:border-danger hover:text-danger"
+        >
+          <LogOutIcon className="h-4 w-4" />
+          Thoát mọi thiết bị
+        </button>
+      )}
+    </div>
   )
 }
 

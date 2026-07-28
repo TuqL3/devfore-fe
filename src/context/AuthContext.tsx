@@ -1,21 +1,21 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/api/auth";
-import { tokens } from "@/lib/tokens";
-import type { AuthResponse, User } from "@/lib/types";
+import type { User } from "@/lib/types";
 
 interface AuthState {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
-  setSession: (res: AuthResponse) => void;
+  setSession: (user: User) => void;
   login: (login: string, password: string) => Promise<void>;
   register: (
     username: string,
     email: string,
     password: string,
   ) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
+  logoutEverywhere: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateProfile: (input: {
     username: string;
@@ -34,21 +34,20 @@ const ME = ["me"] as const;
 export function AuthProvider({ children }: { children: ReactNode }) {
   const qc = useQueryClient();
 
-  // The current user IS the ['me'] query. Enabled only when a token exists;
-  // staleTime Infinity means it hydrates once and then lives in the cache,
-  // written directly by login/logout below.
+  // The current user IS the ['me'] query. It always runs now: the session is a
+  // cookie this code cannot see, so asking the server is the only way to find
+  // out whether anyone is signed in. staleTime Infinity means it hydrates once
+  // and then lives in the cache, written directly by login/logout below.
   const { data, isLoading } = useQuery({
     queryKey: ME,
     queryFn: authApi.me,
-    enabled: !!tokens.access(),
     retry: false,
     staleTime: Infinity,
   });
   const user = data ?? null;
 
-  function setSession(res: AuthResponse) {
-    tokens.set(res.access_token, res.refresh_token);
-    qc.setQueryData(ME, res.user);
+  function setSession(u: User) {
+    qc.setQueryData(ME, u);
   }
 
   async function login(login: string, password: string) {
@@ -59,8 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(await authApi.register({ username, email, password }));
   }
 
-  function logout() {
-    tokens.clear();
+  // Only the server can clear an HttpOnly cookie, so signing out is a request,
+  // not a local delete — and the cache is cleared only once that request lands.
+  // Clearing it on failure would show a signed-out UI while the cookies, and
+  // therefore the session, are still very much alive.
+  async function logout() {
+    await authApi.logout();
+    qc.setQueryData(ME, null);
+  }
+
+  // Drops the sessions on every other device too — the "I left myself logged in
+  // somewhere" path. Same rule: the cache follows the server, not the click.
+  async function logoutEverywhere() {
+    await authApi.logoutAll();
     qc.setQueryData(ME, null);
   }
 
@@ -85,10 +95,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }
 
-  // The account is gone server-side, so the local session must go too.
+  // The account is gone server-side and its sessions went with it, so there is
+  // nothing left to revoke — only the cache to clear.
   async function deleteAccount(password: string) {
     await authApi.deleteMe({ password });
-    logout();
+    qc.setQueryData(ME, null);
   }
 
   // Fetch me() through the query so the result lands in the cache. Used after
@@ -105,6 +116,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     register,
     logout,
+    logoutEverywhere,
     refreshUser,
     updateProfile,
     uploadAvatar,
