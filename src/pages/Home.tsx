@@ -90,7 +90,10 @@ function Terminal() {
 
 function Hero() {
   return (
-    <section className="grid items-center gap-12 py-8 md:grid-cols-2">
+    // Fills the first screen so the rest of the page starts below the fold.
+    // 6.5rem is the sticky header plus <main>'s top padding; svh rather than
+    // dvh so a mobile toolbar collapsing doesn't resize the hero mid-scroll.
+    <section className="grid min-h-[calc(100svh-6.5rem)] items-center gap-12 py-8 md:grid-cols-2">
       <div className="space-y-6">
         <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted">
           <span className="term-dot bg-emerald-400" />
@@ -154,7 +157,7 @@ function Section({
   return (
     <section
       id={id}
-      className="scroll-mt-24 space-y-6 border-t border-border pt-10"
+      className="reveal scroll-mt-24 space-y-6 border-t border-border pt-10"
     >
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
@@ -296,7 +299,7 @@ function Levels() {
     <Section title="Chọn theo trình độ" subtitle="Vào thẳng mức phù hợp với bạn.">
       {/* flex-1 instead of a fixed 3-column grid: with only two levels the
           cards stretch to fill the row rather than leaving a hole. */}
-      <div className="flex flex-wrap gap-4">
+      <div className="reveal-stagger flex flex-wrap gap-4">
         {levels.map((l) => (
           <Link
             key={l.slug}
@@ -350,7 +353,7 @@ function FeaturedCourses() {
       {featured && featured.length === 0 && (
         <p className="text-fg-subtle">Chưa có khoá học nào được xuất bản.</p>
       )}
-      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="reveal-stagger grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {featured?.map((c) => (
           <CourseCard key={c.id} c={c} />
         ))}
@@ -370,7 +373,7 @@ export default function Home() {
         title="Cách hoạt động"
         subtitle="Ba bước, không cài đặt gì trên máy."
       >
-        <div className="grid gap-6 md:grid-cols-3">
+        <div className="reveal-stagger grid gap-6 md:grid-cols-3">
           {STEPS.map((s, i) => (
             <div
               key={s.title}
@@ -455,7 +458,7 @@ export default function Home() {
         </div>
       </Section>
 
-      <section className="relative isolate overflow-hidden rounded-2xl border border-border bg-surface px-6 py-12 text-center">
+      <section className="reveal relative isolate overflow-hidden rounded-2xl border border-border bg-surface px-6 py-12 text-center">
         <span
           aria-hidden="true"
           className="absolute -top-24 left-1/2 -z-10 h-56 w-[36rem] -translate-x-1/2 rounded-full bg-accent/20 blur-3xl"

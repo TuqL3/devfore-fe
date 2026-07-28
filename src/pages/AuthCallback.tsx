@@ -1,7 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { useMutation } from "@tanstack/react-query";
-import { tokens } from "@/lib/tokens";
 import { useAuth } from "@/context/AuthContext";
 
 export default function AuthCallback() {
@@ -10,31 +8,17 @@ export default function AuthCallback() {
   const [error, setError] = useState("");
   const ran = useRef(false);
 
-  const mut = useMutation({
-    mutationFn: refreshUser,
-    onSuccess: () => nav("/", { replace: true }),
-    onError: () => {
-      tokens.clear();
-      setError("Không lấy được thông tin người dùng");
-    },
-  });
-
-  // Google redirects here with tokens in the URL fragment. Parse once (StrictMode
-  // double-invoke guarded by ran), store them, then load the user via mutation.
+  // The server set the session cookies on the redirect, so there is nothing in
+  // the URL to read — this page only has to find out who we now are.
+  // Guarded by ran because StrictMode invokes effects twice in development.
   useEffect(() => {
     if (ran.current) return;
     ran.current = true;
 
-    const frag = new URLSearchParams(window.location.hash.slice(1));
-    const access = frag.get("access_token");
-    const refresh = frag.get("refresh_token");
-    if (!access || !refresh) {
-      setError("Thiếu token trong phản hồi");
-      return;
-    }
-    tokens.set(access, refresh);
-    mut.mutate();
-  }, [mut]);
+    refreshUser()
+      .then(() => nav("/", { replace: true }))
+      .catch(() => setError("Không lấy được thông tin người dùng"));
+  }, [refreshUser, nav]);
 
   return (
     <div className="flex min-h-screen items-center justify-center text-fg-muted">

@@ -147,6 +147,50 @@ body {
   }
 }
 
+/* Scroll reveal ----------------------------------------------------------- */
+
+/* Each block fades up as it scrolls into view. A CSS view() timeline, not an
+   IntersectionObserver: no JS, no React re-render, and it runs off the main
+   thread. The hidden start state lives inside @supports, so a browser without
+   scroll-driven animations shows the content outright instead of blank. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal,
+    .reveal-stagger > * {
+      /* ease-out, not linear: the block covers most of the travel early and
+         then settles, so it reads as being drawn upwards and coming to rest
+         rather than as a slab bolted to the scrollbar. */
+      animation: reveal-in ease-out both;
+      animation-timeline: view();
+      /* Starts the moment the block's top edge touches the bottom of the
+         screen and finishes 380px of scrolling later. A length, not a
+         percentage: a percentage is relative to the block's own height, so
+         tall sections would crawl and short ones would snap. */
+      animation-range: entry 0% entry 380px;
+    }
+    /* Cards sitting on the same row all cross the fold together, so they need
+       an explicit offset to arrive one after another. Rows further down the
+       page stagger by themselves — each element has its own timeline. */
+    .reveal-stagger > *:nth-child(2) {
+      animation-range: entry 80px entry 460px;
+    }
+    .reveal-stagger > *:nth-child(3) {
+      animation-range: entry 160px entry 540px;
+    }
+  }
+}
+@keyframes reveal-in {
+  from {
+    opacity: 0;
+    /* Far enough that the rise is the effect; 18px only read as a flicker. */
+    transform: translateY(64px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
 /* ---------- Home hero ---------------------------------------------------- */
 
 .hero-stage {

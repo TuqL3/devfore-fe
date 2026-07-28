@@ -1,12 +1,27 @@
 import { request } from '@/lib/api'
-import type { AuthResponse, User } from '@/lib/types'
+import type { Session, User } from '@/lib/types'
 
 export const authApi = {
   register: (body: { username: string; email: string; password: string }) =>
-    request<AuthResponse>('/api/auth/register', { body, auth: false }),
+    request<User>('/api/auth/register', { body, auth: false }),
 
   login: (body: { login: string; password: string }) =>
-    request<AuthResponse>('/api/auth/login', { body, auth: false }),
+    request<User>('/api/auth/login', { body, auth: false }),
+
+  // Ends this browser's session. auth:false because an expired access token is
+  // the most ordinary reason to be logging out — retrying would be pointless.
+  logout: () =>
+    request<void>('/api/auth/logout', { method: 'POST', auth: false }),
+
+  // Ends every session on the account, on every device.
+  logoutAll: () => request<void>('/api/auth/logout-all', { method: 'POST' }),
+
+  sessions: () => request<Session[]>('/api/auth/sessions'),
+
+  revokeSession: (id: string) =>
+    request<void>(`/api/auth/sessions/${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    }),
 
   me: () => request<User>('/api/me'),
 
