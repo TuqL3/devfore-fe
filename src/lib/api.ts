@@ -2,9 +2,14 @@ const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** Stable token from the server for cases where the status alone is ambiguous
+   *  — an unverified account and a banned one are both 403 but lead to
+   *  different screens. Absent on most errors. */
+  code?: string;
+  constructor(status: number, message: string, code?: string) {
     super(message);
     this.status = status;
+    this.code = code;
   }
 }
 
@@ -50,7 +55,8 @@ function send(path: string, opts: Options): Promise<Response> {
 async function parse<T>(res: Response): Promise<T> {
   if (res.status === 204) return undefined as T; // No Content
   const data = await res.json().catch(() => null);
-  if (!res.ok) throw new ApiError(res.status, data?.error ?? `HTTP ${res.status}`);
+  if (!res.ok)
+    throw new ApiError(res.status, data?.error ?? `HTTP ${res.status}`, data?.code);
   return data as T;
 }
 

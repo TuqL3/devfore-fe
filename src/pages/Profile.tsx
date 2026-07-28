@@ -6,6 +6,7 @@ import { authApi } from '@/api/auth'
 import { ApiError } from '@/lib/api'
 import type { Session } from '@/lib/types'
 import { Avatar } from '@/components/Avatar'
+import { SignOutButton } from '@/components/SignOutButton'
 import {
   Button,
   ErrorBox,
@@ -31,7 +32,7 @@ const TABS = ['Thông tin', 'Mật khẩu', 'Thiết bị', 'Nguy hiểm'] as co
 type Tab = (typeof TABS)[number]
 
 export default function Profile() {
-  const { user, isAdmin, logout } = useAuth()
+  const { user, isAdmin } = useAuth()
   const [tab, setTab] = useState<Tab>('Thông tin')
   // Signing out — here or on another device — empties the user. Rendering
   // nothing would leave a blank page behind.
@@ -149,13 +150,10 @@ export default function Profile() {
           <BookIcon className="h-4 w-4" />
           Khám phá khoá học
         </Link>
-        <button
-          onClick={() => void logout().catch(() => {})}
-          className="inline-flex items-center gap-2 rounded-md border border-border-strong px-5 py-2.5 font-medium text-fg transition hover:border-danger hover:text-danger"
-        >
+        <SignOutButton className="inline-flex items-center gap-2 rounded-md border border-border-strong px-5 py-2.5 font-medium text-fg transition hover:border-danger hover:text-danger">
           <LogOutIcon className="h-4 w-4" />
           Đăng xuất
-        </button>
+        </SignOutButton>
       </div>
     </div>
   )

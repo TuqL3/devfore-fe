@@ -5,6 +5,7 @@ import { ThemeToggle } from '@/components/ThemeToggle'
 import { Logo } from '@/components/Logo'
 import { RouteProgress } from '@/components/RouteProgress'
 import { Avatar } from '@/components/Avatar'
+import { SignOutButton } from '@/components/SignOutButton'
 import { BookIcon, LogOutIcon } from '@/components/icons'
 import { useLevels } from '@/lib/levels'
 
@@ -18,7 +19,7 @@ function navClass({ isActive }: { isActive: boolean }) {
 }
 
 export default function Layout() {
-  const { user, isAdmin, logout } = useAuth()
+  const { user, isAdmin } = useAuth()
   const { pathname } = useLocation()
 
   // BrowserRouter keeps the old scroll offset across navigations; a new page
@@ -65,16 +66,12 @@ export default function Layout() {
                     )}
                   </span>
                 </Link>
-                <button
-                  // Signing out can now fail, and a failure means the session
-                  // is still live — the header simply stays as it was.
-                  onClick={() => void logout().catch(() => {})}
+                <SignOutButton
                   title="Đăng xuất"
-                  aria-label="Đăng xuất"
                   className="rounded-md p-2 text-fg-subtle transition hover:bg-muted hover:text-danger"
                 >
                   <LogOutIcon className="h-4 w-4" />
-                </button>
+                </SignOutButton>
               </>
             ) : (
               <>

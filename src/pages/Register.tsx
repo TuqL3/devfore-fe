@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { useAuth } from '@/context/AuthContext'
+import { authApi } from '@/api/auth'
 import { ApiError } from '@/lib/api'
 import { Input, PasswordInput } from '@/components/ui'
 import { GoogleButton } from '@/components/GoogleButton'
@@ -14,13 +14,16 @@ import {
 } from '@/components/AuthShell'
 
 export default function Register() {
-  const { register } = useAuth()
   const nav = useNavigate()
   const [form, setForm] = useState({ username: '', email: '', password: '' })
 
   const mut = useMutation({
-    mutationFn: () => register(form.username, form.email, form.password),
-    onSuccess: () => nav('/', { replace: true }),
+    mutationFn: () => authApi.register(form),
+    // No session yet — the account is pending until the emailed code comes
+    // back. The server echoes the address it stored, so the next screen works
+    // off that rather than whatever casing was typed here.
+    onSuccess: ({ email }) =>
+      nav(`/verify-email?email=${encodeURIComponent(email)}`, { replace: true }),
   })
 
   function onSubmit(e: FormEvent) {
@@ -74,6 +77,9 @@ export default function Register() {
         <TermButton type="submit" disabled={mut.isPending}>
           {mut.isPending ? 'creating account…' : './create-account'}
         </TermButton>
+        <p className="font-mono text-xs text-fg-subtle">
+          # sẽ gửi mã xác thực 6 số tới email của bạn
+        </p>
       </form>
 
       <Divider />
