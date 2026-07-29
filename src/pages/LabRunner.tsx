@@ -3,8 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { labsApi } from '@/api/labs'
+import { coursesApi } from '@/api/courses'
 import { ApiError } from '@/lib/api'
-import type { LabDetail, LabSession, LabTask } from '@/lib/types'
+import type { Lab, LabDetail, LabSession, LabTask } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
 import { Avatar } from '@/components/Avatar'
 import { LabTerminal } from '@/components/LabTerminal'
@@ -30,6 +31,27 @@ export default function LabRunner() {
     queryFn: () => labsApi.detail(slug, labSlug),
   })
   const current = useQuery({ queryKey: ['lab-session'], queryFn: labsApi.current })
+
+  // Same query key the course page uses, so arriving from there costs nothing.
+  // The labs come back in order_idx order, which is what makes prev/next here
+  // a lookup rather than a second endpoint to keep in step with the first.
+  const course = useQuery({
+    queryKey: ['course', slug],
+    queryFn: () => coursesApi.detail(slug),
+  })
+  const siblings = course.data?.labs ?? []
+  const at = siblings.findIndex((l) => l.slug === labSlug)
+  const prevLab: Lab | undefined = at > 0 ? siblings[at - 1] : undefined
+  const nextLab: Lab | undefined =
+    at >= 0 && at < siblings.length - 1 ? siblings[at + 1] : undefined
+
+  // The component stays mounted when only the slug changes, so the step counter
+  // would otherwise carry over and open the next lab on question four.
+  useEffect(() => {
+    setStep(0)
+    setTab('Nhiệm vụ')
+    setNotice('')
+  }, [labSlug])
 
   const start = useMutation({
     mutationFn: () => labsApi.start(labSlug),
@@ -71,6 +93,9 @@ export default function LabRunner() {
         session={mine ? session : null}
         onStop={() => session && stop.mutate(session.id)}
         stopping={stop.isPending}
+        prevLab={prevLab}
+        nextLab={nextLab}
+        position={at >= 0 ? `${at + 1}/${siblings.length}` : ''}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -154,12 +179,18 @@ function TopBar({
   session,
   onStop,
   stopping,
+  prevLab,
+  nextLab,
+  position,
 }: {
   courseSlug: string
   lab?: LabDetail
   session: LabSession | null
   onStop: () => void
   stopping: boolean
+  prevLab?: Lab
+  nextLab?: Lab
+  position: string
 }) {
   const { user } = useAuth()
   return (
@@ -183,6 +214,9 @@ function TopBar({
 
       <span className="truncate text-sm text-fg-muted">
         {lab ? `Lab: ${lab.title}` : 'Đang tải…'}
+        {position && (
+          <span className="ml-2 font-mono text-xs text-fg-subtle">{position}</span>
+        )}
       </span>
 
       <div className="ml-auto flex items-center gap-3">
@@ -193,6 +227,11 @@ function TopBar({
         >
           Nộp bài
         </button>
+
+        <div className="flex items-center gap-1">
+          <LabArrow to={courseSlug} lab={prevLab} dir="prev" />
+          <LabArrow to={courseSlug} lab={nextLab} dir="next" />
+        </div>
         {session && (
           <button
             onClick={onStop}
@@ -211,6 +250,41 @@ function TopBar({
         {user && <Avatar user={user} className="h-8 w-8 text-xs" />}
       </div>
     </header>
+  )
+}
+
+/** A span rather than a disabled Link at the ends of the course: react-router
+    has no disabled state, and a link that navigates nowhere still looks
+    clickable and still takes focus. */
+function LabArrow({
+  to,
+  lab,
+  dir,
+}: {
+  to: string
+  lab?: Lab
+  dir: 'prev' | 'next'
+}) {
+  const Chevron = dir === 'prev' ? ChevronLeftIcon : ChevronRightIcon
+  const box =
+    'flex h-8 w-8 items-center justify-center rounded-md border border-border-strong '
+
+  if (!lab)
+    return (
+      <span className={box + 'text-fg-subtle opacity-40'} aria-hidden="true">
+        <Chevron className="h-4 w-4" />
+      </span>
+    )
+
+  return (
+    <Link
+      to={`/courses/${to}/labs/${lab.slug}`}
+      title={lab.title}
+      aria-label={(dir === 'prev' ? 'Lab trước: ' : 'Lab sau: ') + lab.title}
+      className={box + 'text-fg-muted transition hover:border-accent hover:text-accent-soft'}
+    >
+      <Chevron className="h-4 w-4" />
+    </Link>
   )
 }
 
