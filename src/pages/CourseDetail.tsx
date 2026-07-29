@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { coursesApi } from '@/api/courses'
 import { useAuth } from '@/context/AuthContext'
 import type { CourseDetail as Course, Lab } from '@/lib/types'
@@ -339,9 +341,9 @@ function ReviewsTab({ slug }: { slug: string }) {
       {data.map((r) => (
         <div key={r.id} className="rounded-lg border border-border bg-surface p-5">
           <h4 className="font-medium text-fg-strong">{r.title}</h4>
-          <pre className="mt-2 whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">
-            {r.content_md}
-          </pre>
+          <div className="prose prose-zinc dark:prose-invert mt-2 max-w-none text-sm prose-pre:overflow-x-auto">
+            <Markdown remarkPlugins={[remarkGfm]}>{r.content_md}</Markdown>
+          </div>
         </div>
       ))}
     </div>

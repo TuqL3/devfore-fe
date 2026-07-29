@@ -2,8 +2,24 @@ import { request } from '@/lib/api'
 import type { Session, User } from '@/lib/types'
 
 export const authApi = {
+  // Signing up no longer signs you in: the account is held until the emailed
+  // code comes back. The echoed address is what the verify screen runs on.
   register: (body: { username: string; email: string; password: string }) =>
-    request<User>('/api/auth/register', { body, auth: false }),
+    request<{ email: string }>('/api/auth/register', { body, auth: false }),
+
+  verifyEmail: (body: { email: string; code: string }) =>
+    request<User>('/api/auth/verify-email', { body, auth: false }),
+
+  resendCode: (body: { email: string }) =>
+    request<void>('/api/auth/resend-code', { body, auth: false }),
+
+  // Answers the same way for an unknown address, so the UI must not treat a
+  // success as proof the account exists.
+  forgotPassword: (body: { email: string }) =>
+    request<void>('/api/auth/forgot-password', { body, auth: false }),
+
+  resetPassword: (body: { token: string; password: string }) =>
+    request<void>('/api/auth/reset-password', { body, auth: false }),
 
   login: (body: { login: string; password: string }) =>
     request<User>('/api/auth/login', { body, auth: false }),

@@ -1,6 +1,7 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/api/auth";
+import { ApiError } from "@/lib/api";
 import type { User } from "@/lib/types";
 
 interface AuthState {
@@ -9,11 +10,9 @@ interface AuthState {
   isAdmin: boolean;
   setSession: (user: User) => void;
   login: (login: string, password: string) => Promise<void>;
-  register: (
-    username: string,
-    email: string,
-    password: string,
-  ) => Promise<void>;
+  /** Entering the signup code is what creates the session — registering alone
+   *  does not, so that step lives here and register() does not. */
+  verifyEmail: (email: string, code: string) => Promise<void>;
   logout: () => Promise<void>;
   logoutEverywhere: () => Promise<void>;
   refreshUser: () => Promise<void>;
@@ -36,15 +35,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // The current user IS the ['me'] query. It always runs now: the session is a
   // cookie this code cannot see, so asking the server is the only way to find
-  // out whether anyone is signed in. staleTime Infinity means it hydrates once
-  // and then lives in the cache, written directly by login/logout below.
-  const { data, isLoading } = useQuery({
+  // out whether anyone is signed in. Login/logout write the cache directly; the
+  // staleTime keeps that from costing a request on every mount.
+  //
+  // It still has to re-ask on focus, because the session can die on someone
+  // else's screen — revoked from another device, or logged out everywhere — and
+  // this tab would otherwise keep rendering a signed-in UI off a cache no
+  // request ever contradicts.
+  const { data, isLoading, error } = useQuery({
     queryKey: ME,
     queryFn: authApi.me,
     retry: false,
-    staleTime: Infinity,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
-  const user = data ?? null;
+  // react-query keeps the last good data on error, which is right for a flaky
+  // network and wrong for a 401: that one is the server saying the session is
+  // gone, so it must win over the cache.
+  const user =
+    error instanceof ApiError && error.status === 401 ? null : (data ?? null);
 
   function setSession(u: User) {
     qc.setQueryData(ME, u);
@@ -54,8 +63,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSession(await authApi.login({ login, password }));
   }
 
-  async function register(username: string, email: string, password: string) {
-    setSession(await authApi.register({ username, email, password }));
+  async function verifyEmail(email: string, code: string) {
+    setSession(await authApi.verifyEmail({ email, code }));
   }
 
   // Only the server can clear an HttpOnly cookie, so signing out is a request,
@@ -114,7 +123,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: !!user?.roles?.includes("admin"),
     setSession,
     login,
-    register,
+    verifyEmail,
     logout,
     logoutEverywhere,
     refreshUser,

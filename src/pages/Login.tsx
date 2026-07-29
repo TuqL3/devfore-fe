@@ -22,6 +22,13 @@ export default function Login() {
   const mut = useMutation({
     mutationFn: () => login(form.login, form.password),
     onSuccess: () => nav('/', { replace: true }),
+    // The password was right but the account never finished signing up. They
+    // have nothing to fix here, so hand them straight to the code screen.
+    onError: (e) => {
+      if (e instanceof ApiError && e.code === 'email_not_verified') {
+        nav(`/verify-email?email=${encodeURIComponent(form.login)}`)
+      }
+    },
   })
 
   function onSubmit(e: FormEvent) {
@@ -38,6 +45,12 @@ export default function Login() {
 
   return (
     <AuthShell cmd="login">
+      {/* Reset revokes every session, so they land back here — say why. */}
+      {params.get('reset') === '1' && !mut.isError && (
+        <p className="font-mono text-sm text-success">
+          ✓ đã đổi mật khẩu, đăng nhập lại
+        </p>
+      )}
       <form onSubmit={onSubmit} className="space-y-4">
         <TermField flag="user">
           <Input
@@ -49,7 +62,17 @@ export default function Login() {
             required
           />
         </TermField>
-        <TermField flag="password">
+        <TermField
+          flag="password"
+          hint={
+            <Link
+              to="/forgot-password"
+              className="text-accent-soft hover:underline"
+            >
+              # quên mật khẩu?
+            </Link>
+          }
+        >
           <PasswordInput
             variant="terminal"
             value={form.password}

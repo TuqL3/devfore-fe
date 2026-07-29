@@ -65,7 +65,8 @@ export function TermField({
   children,
 }: {
   flag: string
-  hint?: string
+  /** Node, not string: some hints are links ("quên?" next to the password). */
+  hint?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
