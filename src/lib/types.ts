@@ -77,3 +77,26 @@ export interface LeaderRow {
   attempts: number
   updated_at: string
 }
+
+export interface LabTask {
+  id: number
+  title: string
+  points: number
+  order_idx: number
+}
+
+export interface LabDetail extends Lab {
+  tasks: LabTask[]
+}
+
+export interface LabSession {
+  id: string
+  lab_id: number
+  status: 'running' | 'ended' | 'expired'
+  started_at: string
+  expires_at: string
+  seconds_left: number
+  /** Path only. The websocket origin is derived from the API base so dev and
+   *  prod do not need two different values here. */
+  terminal_path: string
+}

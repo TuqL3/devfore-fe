@@ -100,7 +100,7 @@ export default function CourseDetail() {
           {/* key replays the fade; min-h stops the short tabs from collapsing
               the page height as you switch. */}
           <div key={tab} className="page-enter min-h-80 pt-6">
-            {tab === 'Nội dung khoá học' && <ContentTab labs={course.labs} />}
+            {tab === 'Nội dung khoá học' && <ContentTab labs={course.labs} slug={course.slug} />}
             {tab === 'Ôn tập' && <ReviewsTab slug={slug} />}
             {tab === 'Bảng xếp hạng' && <LeaderboardTab slug={slug} />}
             {tab === 'Trạng thái' && <StatusTab course={course} />}
@@ -286,7 +286,7 @@ function Empty({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ContentTab({ labs }: { labs: Lab[] }) {
+function ContentTab({ labs, slug }: { labs: Lab[]; slug: string }) {
   if (labs.length === 0)
     return (
       <Empty>
@@ -308,7 +308,10 @@ function ContentTab({ labs }: { labs: Lab[] }) {
           <span className="absolute left-0 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface font-mono text-sm text-accent-soft">
             {i + 1}
           </span>
-          <div className="rounded-lg border border-border bg-surface p-4 transition hover:border-accent">
+          <Link
+            to={`/courses/${slug}/labs/${l.slug}`}
+            className="block rounded-lg border border-border bg-surface p-4 transition hover:border-accent"
+          >
             <h4 className="font-medium text-fg-strong">{l.title}</h4>
             <div className="mt-2 flex flex-wrap gap-2 font-mono text-xs text-fg-muted">
               <span className="rounded bg-muted px-2 py-0.5">
@@ -321,7 +324,7 @@ function ContentTab({ labs }: { labs: Lab[] }) {
                 {l.points} điểm
               </span>
             </div>
-          </div>
+          </Link>
         </li>
       ))}
     </ol>

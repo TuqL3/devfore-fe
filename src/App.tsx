@@ -10,6 +10,7 @@ import Home from '@/pages/Home'
 import Courses from '@/pages/Courses'
 import CourseDetail from '@/pages/CourseDetail'
 import Profile from '@/pages/Profile'
+import LabRunner from '@/pages/LabRunner'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
 export default function App() {
@@ -29,6 +30,7 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<Profile />} />
+          <Route path="/courses/:slug/labs/:labSlug" element={<LabRunner />} />
         </Route>
       </Route>
     </Routes>
