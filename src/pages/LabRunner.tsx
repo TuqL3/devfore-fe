@@ -1,15 +1,13 @@
 import { useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, Navigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { labsApi } from '@/api/labs'
 import { coursesApi } from '@/api/courses'
-import { ApiError } from '@/lib/api'
 import type { Lab, LabDetail, LabSession, LabTask } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
 import { Avatar } from '@/components/Avatar'
 import { LabTerminal } from '@/components/LabTerminal'
-import { LabStartModal, type StartPhase } from '@/components/LabStartModal'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -25,11 +23,13 @@ export default function LabRunner() {
   const qc = useQueryClient()
   const [step, setStep] = useState(0)
   const [tab, setTab] = useState<Tab>('Nhiệm vụ')
-  const [notice, setNotice] = useState('')
-  const [startError, setStartError] = useState('')
   // Set by the terminal itself once the shell is attached. Nothing earlier is a
   // truthful signal that the lab is usable.
   const [attached, setAttached] = useState(false)
+  // Why the session ended on its own — an hour elapsed, or the student typed
+  // exit. Held so the screen can say so instead of bouncing them back to the
+  // course page with no explanation.
+  const [ended, setEnded] = useState('')
 
   const lab = useQuery({
     queryKey: ['lab', slug, labSlug],
@@ -55,23 +55,10 @@ export default function LabRunner() {
   useEffect(() => {
     setStep(0)
     setTab('Nhiệm vụ')
-    setNotice('')
-    setStartError('')
+    setEnded('')
     setAttached(false)
   }, [labSlug])
 
-  const start = useMutation({
-    mutationFn: () => labsApi.start(labSlug),
-    onSuccess: (s) => {
-      setNotice('')
-      qc.setQueryData(['lab-session'], s)
-    },
-    onError: (e) => {
-      setStartError(
-        e instanceof ApiError ? e.message : 'không khởi động được lab',
-      )
-    },
-  })
   const stop = useMutation({
     mutationFn: (id: string) => labsApi.stop(id),
     onSettled: () => {
@@ -80,7 +67,6 @@ export default function LabRunner() {
       // onClosed never fires on this path and attached has to be cleared here
       // or the modal never comes back and the pane just sits empty.
       setAttached(false)
-      setNotice('')
     },
   })
 
@@ -89,20 +75,13 @@ export default function LabRunner() {
   const tasks = lab.data?.tasks ?? []
   const task: LabTask | undefined = tasks[step]
 
-  // The terminal mounts as soon as there is a session and connects behind the
-  // modal, so lifting the modal reveals a shell that is already live rather than
-  // an empty box that then starts loading.
-  const phase: StartPhase = attached
-    ? 'idle' // unused once attached; the modal is gone
-    : session && mine
-      ? 'connecting'
-      : session
-        ? 'blocked'
-        : start.isPending
-          ? 'creating'
-          : startError
-            ? 'failed'
-            : 'idle'
+  // Starting a lab belongs to the course page, so this screen is only ever
+  // reached with a container already running. Anyone who typed the URL, or came
+  // back to a stale tab, goes there to start one rather than being shown a
+  // terminal with nothing behind it.
+  if (!current.isLoading && !mine && !stop.isPending && !ended) {
+    return <Navigate to={`/courses/${slug}`} replace />
+  }
 
   if (lab.isError) {
     return (
@@ -160,11 +139,6 @@ export default function LabRunner() {
             <TabBody tab={tab} task={task} lab={lab.data} />
           </div>
 
-          {notice && (
-            <p className="border-t border-danger/30 bg-danger/10 px-4 py-2.5 text-sm text-danger">
-              {notice}
-            </p>
-          )}
         </aside>
 
         <main className="flex min-w-0 flex-1 flex-col bg-[#12141c]">
@@ -188,28 +162,54 @@ export default function LabRunner() {
                 terminalPath={session.terminal_path}
                 onReady={() => setAttached(true)}
                 onClosed={(reason) => {
-                  setNotice(reason)
+                  setEnded(reason)
                   setAttached(false)
                   qc.setQueryData(['lab-session'], null)
                 }}
               />
             )}
 
-            {!attached && !current.isLoading && (
-              <LabStartModal
-                phase={phase}
-                lab={lab.data}
-                courseSlug={slug}
-                error={startError}
-                onStart={() => {
-                  setStartError('')
-                  start.mutate()
-                }}
-              />
+            {ended && <EndedPanel reason={ended} courseSlug={slug} />}
+
+            {/* The container exists by the time this screen renders; what is
+                left is the websocket attaching a shell to it. A spinner over
+                the pane beats an empty black box that fills in later. */}
+            {!attached && !ended && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2.5 bg-[#12141c] text-sm text-zinc-400">
+                <span
+                  aria-hidden="true"
+                  className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+                />
+                Đang mở terminal…
+              </div>
             )}
           </div>
         </main>
       </div>
+    </div>
+  )
+}
+
+/** Covers the terminal once the session is gone. The container has already been
+    removed at this point, so there is nothing to go back to — only the reason
+    and a way out. */
+function EndedPanel({
+  reason,
+  courseSlug,
+}: {
+  reason: string
+  courseSlug: string
+}) {
+  return (
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[#12141c] p-6 text-center">
+      <p className="text-sm text-zinc-300">Phiên thực hành đã kết thúc</p>
+      <p className="max-w-sm text-sm text-zinc-500">{reason}</p>
+      <Link
+        to={`/courses/${courseSlug}`}
+        className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:bg-accent-hover"
+      >
+        Về khoá học để bắt đầu lại
+      </Link>
     </div>
   )
 }

@@ -4,6 +4,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { coursesApi } from '@/api/courses'
+import { labsApi } from '@/api/labs'
+import { ApiError } from '@/lib/api'
+import { LabStartModal, type StartPhase } from '@/components/LabStartModal'
 import { useAuth } from '@/context/AuthContext'
 import type { CourseDetail as Course, Lab } from '@/lib/types'
 import { useLevels } from '@/lib/levels'
@@ -287,6 +290,23 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 function ContentTab({ labs, slug }: { labs: Lab[]; slug: string }) {
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+  const [picked, setPicked] = useState<Lab | null>(null)
+  const [error, setError] = useState('')
+
+  const start = useMutation({
+    mutationFn: (labSlug: string) => labsApi.start(labSlug),
+    onSuccess: (s, labSlug) => {
+      qc.setQueryData(['lab-session'], s)
+      // The lab screen is only ever entered with a container already running,
+      // which is what lets it open straight into a terminal.
+      navigate(`/courses/${slug}/labs/${labSlug}`)
+    },
+    onError: (e) =>
+      setError(e instanceof ApiError ? e.message : 'không khởi động được lab'),
+  })
+
   if (labs.length === 0)
     return (
       <Empty>
@@ -294,40 +314,74 @@ function ContentTab({ labs, slug }: { labs: Lab[]; slug: string }) {
         Khoá học chưa có bài lab nào.
       </Empty>
     )
+
+  const phase: StartPhase = start.isPending
+    ? 'creating'
+    : error
+      ? // 409 is the one-session-per-user rule, which needs its own explanation
+        // rather than the raw message under a retry button that would 409 again.
+        start.error instanceof ApiError && start.error.status === 409
+        ? 'blocked'
+        : 'failed'
+      : 'idle'
+
   return (
-    <ol className="relative space-y-3">
-      {labs.map((l, i) => (
-        <li key={l.id} className="relative pl-12">
-          {/* Rail connecting the step markers, stopped short of the last one. */}
-          {i < labs.length - 1 && (
-            <span
-              aria-hidden="true"
-              className="absolute left-[15px] top-9 h-full w-px bg-border"
-            />
-          )}
-          <span className="absolute left-0 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface font-mono text-sm text-accent-soft">
-            {i + 1}
-          </span>
-          <Link
-            to={`/courses/${slug}/labs/${l.slug}`}
-            className="block rounded-lg border border-border bg-surface p-4 transition hover:border-accent"
-          >
-            <h4 className="font-medium text-fg-strong">{l.title}</h4>
-            <div className="mt-2 flex flex-wrap gap-2 font-mono text-xs text-fg-muted">
-              <span className="rounded bg-muted px-2 py-0.5">
-                {l.duration_minutes} phút
-              </span>
-              <span className="rounded bg-muted px-2 py-0.5">
-                {l.task_count} task
-              </span>
-              <span className="rounded bg-muted px-2 py-0.5 text-accent-soft">
-                {l.points} điểm
-              </span>
-            </div>
-          </Link>
-        </li>
-      ))}
-    </ol>
+    <>
+      <ol className="relative space-y-3">
+        {labs.map((l, i) => (
+          <li key={l.id} className="relative pl-12">
+            {/* Rail connecting the step markers, stopped short of the last one. */}
+            {i < labs.length - 1 && (
+              <span
+                aria-hidden="true"
+                className="absolute left-[15px] top-9 h-full w-px bg-border"
+              />
+            )}
+            <span className="absolute left-0 top-2 flex h-8 w-8 items-center justify-center rounded-full border border-border bg-surface font-mono text-sm text-accent-soft">
+              {i + 1}
+            </span>
+            <button
+              onClick={() => {
+                setError('')
+                start.reset()
+                setPicked(l)
+              }}
+              className="block w-full rounded-lg border border-border bg-surface p-4 text-left transition hover:border-accent"
+            >
+              <h4 className="font-medium text-fg-strong">{l.title}</h4>
+              <div className="mt-2 flex flex-wrap gap-2 font-mono text-xs text-fg-muted">
+                <span className="rounded bg-muted px-2 py-0.5">
+                  {l.duration_minutes} phút
+                </span>
+                <span className="rounded bg-muted px-2 py-0.5">
+                  {l.task_count} task
+                </span>
+                <span className="rounded bg-muted px-2 py-0.5 text-accent-soft">
+                  {l.points} điểm
+                </span>
+              </div>
+            </button>
+          </li>
+        ))}
+      </ol>
+
+      {picked && (
+        <LabStartModal
+          phase={phase}
+          lab={picked}
+          error={error}
+          onStart={() => {
+            setError('')
+            start.mutate(picked.slug)
+          }}
+          onClose={() => {
+            setPicked(null)
+            setError('')
+            start.reset()
+          }}
+        />
+      )}
+    </>
   )
 }
 
