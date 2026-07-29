@@ -71,17 +71,8 @@ export default function LabRunner() {
   })
 
   const session = current.data ?? null
-  const mine = session && lab.data ? session.lab_id === lab.data.id : false
   const tasks = lab.data?.tasks ?? []
   const task: LabTask | undefined = tasks[step]
-
-  // Starting a lab belongs to the course page, so this screen is only ever
-  // reached with a container already running. Anyone who typed the URL, or came
-  // back to a stale tab, goes there to start one rather than being shown a
-  // terminal with nothing behind it.
-  if (!current.isLoading && !mine && !stop.isPending && !ended) {
-    return <Navigate to={`/courses/${slug}`} replace />
-  }
 
   if (lab.isError) {
     return (
@@ -92,6 +83,27 @@ export default function LabRunner() {
         </Link>
       </div>
     )
+  }
+
+  // "Is this session for this lab" needs both answers: the session carries a
+  // lab_id, the URL carries a slug. Until both queries have landed the question
+  // has no answer, and undefined says so rather than guessing false.
+  const resolved = !current.isLoading && !lab.isLoading
+  const mine = resolved
+    ? Boolean(session && lab.data && session.lab_id === lab.data.id)
+    : undefined
+
+  // Starting a lab belongs to the course page, so this screen is only ever
+  // reached with a container already running. Anyone who typed the URL, or came
+  // back to a stale tab, goes there to start one rather than being shown a
+  // terminal with nothing behind it.
+  //
+  // Only a resolved false redirects. Arriving from the start dialog lands here
+  // with the session already in the cache but the lab still loading; reading
+  // that as "not mine" bounced every student straight back to the course page
+  // the instant they pressed Bắt đầu làm bài.
+  if (mine === false && !stop.isPending && !ended) {
+    return <Navigate to={`/courses/${slug}`} replace />
   }
 
   return (

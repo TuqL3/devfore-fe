@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import type { Lab } from '@/lib/types'
 import { ClockIcon, TerminalIcon } from '@/components/icons'
 
@@ -33,7 +34,21 @@ export function LabStartModal({ phase, lab, error, onStart, onClose }: Props) {
     return () => window.removeEventListener('keydown', onKey)
   }, [busy, onClose])
 
-  return (
+  // Restores whatever was there rather than clearing it, so this stays correct
+  // if anything else ever sets overflow on the body.
+  useEffect(() => {
+    const previous = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = previous
+    }
+  }, [])
+
+  // Rendered into body, not where it is written. The tab content it sits under
+  // carries .page-enter, whose keyframes animate a transform, and a transformed
+  // ancestor becomes the containing block for position:fixed — the backdrop then
+  // covers that column instead of the viewport.
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
       onClick={() => !busy && onClose()}
@@ -121,7 +136,8 @@ export function LabStartModal({ phase, lab, error, onStart, onClose }: Props) {
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 
