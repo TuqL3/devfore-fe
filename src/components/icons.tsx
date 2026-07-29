@@ -99,3 +99,28 @@ export const LogOutIcon = (p: Props) => (
     <path d="M16 17l5-5-5-5M21 12H9" />
   </Icon>
 )
+
+export const ClockIcon = (p: Props) => (
+  <Icon {...p}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 7v5l3 2" />
+  </Icon>
+)
+
+export const ChevronLeftIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M15 18l-6-6 6-6" />
+  </Icon>
+)
+
+export const ChevronRightIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M9 18l6-6-6-6" />
+  </Icon>
+)
+
+export const StopIcon = (p: Props) => (
+  <Icon {...p}>
+    <rect x="6" y="6" width="12" height="12" rx="1.5" />
+  </Icon>
+)

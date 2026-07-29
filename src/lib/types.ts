@@ -81,6 +81,9 @@ export interface LeaderRow {
 export interface LabTask {
   id: number
   title: string
+  /** Empty when the author has not written one; the hint tab says so rather
+   *  than showing a blank panel. */
+  hint: string
   points: number
   order_idx: number
 }
