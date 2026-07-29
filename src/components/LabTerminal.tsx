@@ -6,18 +6,23 @@ import { terminalURL } from '@/api/labs'
 
 type Props = {
   terminalPath: string
+  /** Fires when the shell is actually attached, which is what the start modal
+   *  waits for. The POST that created the container returns well before this. */
+  onReady?: () => void
   onClosed: (reason: string) => void
 }
 
 /** Keystrokes go up as binary frames and control messages as text, matching what
  *  the server splits on. Sending resize as just another line of input would let
  *  anything a student types be read as a command. */
-export function LabTerminal({ terminalPath, onClosed }: Props) {
+export function LabTerminal({ terminalPath, onReady, onClosed }: Props) {
   const host = useRef<HTMLDivElement>(null)
   // The callback is read at close time, not capture time, so a re-render of the
   // parent does not tear down the socket and drop the session with it.
   const closed = useRef(onClosed)
   closed.current = onClosed
+  const ready = useRef(onReady)
+  ready.current = onReady
 
   useEffect(() => {
     const el = host.current
@@ -54,6 +59,7 @@ export function LabTerminal({ terminalPath, onClosed }: Props) {
     ws.onopen = () => {
       sendResize()
       term.focus()
+      ready.current?.()
     }
     ws.onmessage = (e) => {
       term.write(

@@ -9,6 +9,7 @@ import type { Lab, LabDetail, LabSession, LabTask } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
 import { Avatar } from '@/components/Avatar'
 import { LabTerminal } from '@/components/LabTerminal'
+import { LabStartModal, type StartPhase } from '@/components/LabStartModal'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -25,6 +26,10 @@ export default function LabRunner() {
   const [step, setStep] = useState(0)
   const [tab, setTab] = useState<Tab>('Nhiệm vụ')
   const [notice, setNotice] = useState('')
+  const [startError, setStartError] = useState('')
+  // Set by the terminal itself once the shell is attached. Nothing earlier is a
+  // truthful signal that the lab is usable.
+  const [attached, setAttached] = useState(false)
 
   const lab = useQuery({
     queryKey: ['lab', slug, labSlug],
@@ -51,6 +56,8 @@ export default function LabRunner() {
     setStep(0)
     setTab('Nhiệm vụ')
     setNotice('')
+    setStartError('')
+    setAttached(false)
   }, [labSlug])
 
   const start = useMutation({
@@ -59,18 +66,43 @@ export default function LabRunner() {
       setNotice('')
       qc.setQueryData(['lab-session'], s)
     },
-    onError: (e) =>
-      setNotice(e instanceof ApiError ? e.message : 'không khởi động được lab'),
+    onError: (e) => {
+      setStartError(
+        e instanceof ApiError ? e.message : 'không khởi động được lab',
+      )
+    },
   })
   const stop = useMutation({
     mutationFn: (id: string) => labsApi.stop(id),
-    onSettled: () => qc.setQueryData(['lab-session'], null),
+    onSettled: () => {
+      qc.setQueryData(['lab-session'], null)
+      // Unmounting the terminal detaches its close handler on purpose, so
+      // onClosed never fires on this path and attached has to be cleared here
+      // or the modal never comes back and the pane just sits empty.
+      setAttached(false)
+      setNotice('')
+    },
   })
 
   const session = current.data ?? null
   const mine = session && lab.data ? session.lab_id === lab.data.id : false
   const tasks = lab.data?.tasks ?? []
   const task: LabTask | undefined = tasks[step]
+
+  // The terminal mounts as soon as there is a session and connects behind the
+  // modal, so lifting the modal reveals a shell that is already live rather than
+  // an empty box that then starts loading.
+  const phase: StartPhase = attached
+    ? 'idle' // unused once attached; the modal is gone
+    : session && mine
+      ? 'connecting'
+      : session
+        ? 'blocked'
+        : start.isPending
+          ? 'creating'
+          : startError
+            ? 'failed'
+            : 'idle'
 
   if (lab.isError) {
     return (
@@ -150,20 +182,29 @@ export default function LabRunner() {
             )}
           </div>
 
-          <div className="min-h-0 flex-1 p-2">
-            {session && mine ? (
+          <div className="relative min-h-0 flex-1 p-2">
+            {session && mine && (
               <LabTerminal
                 terminalPath={session.terminal_path}
+                onReady={() => setAttached(true)}
                 onClosed={(reason) => {
                   setNotice(reason)
+                  setAttached(false)
                   qc.setQueryData(['lab-session'], null)
                 }}
               />
-            ) : (
-              <StartPanel
-                busy={start.isPending || current.isLoading}
-                blocked={Boolean(session && !mine)}
-                onStart={() => start.mutate()}
+            )}
+
+            {!attached && !current.isLoading && (
+              <LabStartModal
+                phase={phase}
+                lab={lab.data}
+                courseSlug={slug}
+                error={startError}
+                onStart={() => {
+                  setStartError('')
+                  start.mutate()
+                }}
               />
             )}
           </div>
@@ -376,34 +417,6 @@ function Prose({ text, empty }: { text?: string; empty: string }) {
   )
 }
 
-function StartPanel({
-  busy,
-  blocked,
-  onStart,
-}: {
-  busy: boolean
-  blocked: boolean
-  onStart: () => void
-}) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
-      <p className="max-w-sm text-sm text-zinc-400">
-        {blocked
-          ? 'Bạn đang có một phiên lab khác đang chạy. Mỗi lúc chỉ được mở một phiên.'
-          : 'Container riêng của bạn sẽ được tạo và tự xoá sau 60 phút.'}
-      </p>
-      {!blocked && (
-        <button
-          onClick={onStart}
-          disabled={busy}
-          className="rounded-md bg-accent px-5 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover disabled:opacity-60"
-        >
-          {busy ? 'Đang khởi động…' : 'Bắt đầu làm bài'}
-        </button>
-      )}
-    </div>
-  )
-}
 
 /** Counts from expires_at rather than ticking down a number handed over once, so
     a backgrounded tab wakes up showing the real remaining time. */
