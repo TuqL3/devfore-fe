@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { labsApi } from '@/api/labs'
 import { coursesApi } from '@/api/courses'
-import type { Lab, LabDetail, LabSession, LabTask } from '@/lib/types'
+import type { CheckResult, Lab, LabDetail, LabSession, LabTask } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
 import { Avatar } from '@/components/Avatar'
 import { LabTerminal } from '@/components/LabTerminal'
@@ -68,6 +68,15 @@ export default function LabRunner() {
       // or the modal never comes back and the pane just sits empty.
       setAttached(false)
     },
+  })
+
+  // Grading runs the task's script inside this session's container, so it is
+  // addressed by session rather than by lab. The verdict is all the screen
+  // keeps: past passes are not shown, so there is nothing to write back.
+  // Scoring itself is the server's, and it already ignores repeat passes.
+  const check = useMutation({
+    mutationFn: (v: { sessionID: string; taskID: number; selected: number[] }) =>
+      labsApi.check(v.sessionID, v.taskID, v.selected),
   })
 
   const session = current.data ?? null
@@ -148,7 +157,25 @@ export default function LabRunner() {
           </nav>
 
           <div key={tab + step} className="page-enter min-h-0 flex-1 overflow-y-auto p-4">
-            <TabBody tab={tab} task={task} lab={lab.data} />
+            <TabBody
+              tab={tab}
+              task={task}
+              lab={lab.data}
+              // A verdict belongs to the task it was asked about. Comparing the
+              // id is what stops the previous task's "chưa đúng" from greeting
+              // the student on the next one.
+              result={check.variables?.taskID === task?.id ? check.data : undefined}
+              failed={check.variables?.taskID === task?.id && check.isError}
+              checking={check.isPending}
+              onCheck={(selected) =>
+                session &&
+                task &&
+                check.mutate({ sessionID: session.id, taskID: task.id, selected })
+              }
+              onReset={() => check.reset()}
+              onNext={() => setStep((s) => Math.min(tasks.length - 1, s + 1))}
+              hasNext={step < tasks.length - 1}
+            />
           </div>
 
         </aside>
@@ -381,10 +408,26 @@ function TabBody({
   tab,
   task,
   lab,
+  result,
+  failed,
+  checking,
+  onCheck,
+  onReset,
+  onNext,
+  hasNext,
 }: {
   tab: Tab
   task?: LabTask
   lab?: LabDetail
+  /** The verdict of the last check on *this* task, if there was one. */
+  result?: CheckResult
+  failed: boolean
+  checking: boolean
+  /** Indexes ticked on a choice question; empty for a script one. */
+  onCheck: (selected: number[]) => void
+  onReset: () => void
+  onNext: () => void
+  hasNext: boolean
 }) {
   if (tab === 'Hướng dẫn')
     return <Prose text={lab?.description_md} empty="Bài này chưa có hướng dẫn." />
@@ -401,17 +444,205 @@ function TabBody({
     )
 
   return (
+    <TaskBody
+      // Keyed by task so the ticks, and any half-finished retry, belong to the
+      // question on screen rather than following the student to the next one.
+      key={task.id}
+      task={task}
+      result={result}
+      failed={failed}
+      checking={checking}
+      onCheck={onCheck}
+      onReset={onReset}
+      onNext={onNext}
+      hasNext={hasNext}
+    />
+  )
+}
+
+/** The question itself. Split out of TabBody so the ticked answers can live in
+ *  state that resets with the task rather than persisting across questions. */
+function TaskBody({
+  task,
+  result,
+  failed,
+  checking,
+  onCheck,
+  onReset,
+  onNext,
+  hasNext,
+}: {
+  task: LabTask
+  result?: CheckResult
+  failed: boolean
+  checking: boolean
+  onCheck: (selected: number[]) => void
+  /** Drops the last verdict, which starts a fresh attempt. */
+  onReset: () => void
+  onNext: () => void
+  hasNext: boolean
+}) {
+  const [picked, setPicked] = useState<number[]>([])
+  const choice = task.kind === 'choice'
+
+  // Everything on screen describes THIS attempt. Having passed the task before —
+  // in an earlier session, or before pressing retry — is deliberately not shown:
+  // reopening a question with last time's answer already marked correct is not
+  // answering it again, it is reading the answer.
+  const verdict = result
+
+  const retry = () => {
+    setPicked([])
+    onReset()
+  }
+
+  return (
     <div className="space-y-4">
       <p className="leading-relaxed text-fg">{task.title}</p>
       <div className="flex items-center gap-2 font-mono text-xs">
         <span className="rounded bg-muted px-2 py-0.5 text-accent-soft">
           {task.points} điểm
         </span>
+        {verdict?.passed && (
+          <span className="rounded bg-success-soft px-2 py-0.5 text-success">
+            đã xong
+          </span>
+        )}
       </div>
-      <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
-        Gõ lệnh vào terminal bên phải để hoàn thành. Nút kiểm tra sẽ có khi phần
-        chấm điểm được làm.
-      </p>
+
+      {choice && (
+        <ul className="space-y-2">
+          {task.options.map((text, i) => {
+            const ticked = picked.includes(i)
+            // Colour follows the verdict, not the selection: after answering,
+            // green and red are what tell a student which of their ticks was
+            // the right one, and an accent-coloured tick says nothing.
+            const state = verdict && ticked ? (verdict.passed ? 'right' : 'wrong') : 'open'
+            return (
+              <li key={i}>
+                <label
+                  className={
+                    'flex items-start gap-2.5 rounded-md border px-3 py-2.5 text-sm transition ' +
+                    (verdict ? 'cursor-default ' : 'cursor-pointer ') +
+                    (state === 'right'
+                      ? 'border-success/60 bg-success-soft text-success'
+                      : state === 'wrong'
+                        ? 'border-danger/60 bg-danger/10 text-danger'
+                        : ticked
+                          ? 'border-accent bg-accent/5 text-fg-strong'
+                          : 'border-border text-fg hover:border-border-strong')
+                  }
+                >
+                  {/* Checkboxes throughout: how many answers are right is part of
+                      what the question asks, and radios would give it away. */}
+                  <input
+                    type="checkbox"
+                    checked={ticked}
+                    disabled={checking || Boolean(verdict)}
+                    onChange={(e) =>
+                      setPicked((p) =>
+                        e.target.checked ? [...p, i] : p.filter((x) => x !== i),
+                      )
+                    }
+                    className={
+                      'mt-0.5 h-4 w-4 shrink-0 ' +
+                      (state === 'right'
+                        ? 'accent-[var(--success)]'
+                        : state === 'wrong'
+                          ? 'accent-[var(--danger)]'
+                          : 'accent-[var(--accent)]')
+                    }
+                  />
+                  <span>{text}</span>
+                </label>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      {verdict?.passed ? (
+        <div className="space-y-2">
+          {hasNext ? (
+            <button
+              onClick={onNext}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
+            >
+              Câu hỏi tiếp theo
+              <ChevronRightIcon className="h-4 w-4" />
+            </button>
+          ) : (
+            <p className="rounded-md border border-border-strong px-3 py-2.5 text-center text-sm text-fg-muted">
+              Đây là câu cuối của bài lab.
+            </p>
+          )}
+          {/* Only where a second attempt can honestly come out differently. */}
+          {!choice && (
+            <button
+              onClick={retry}
+              className="w-full text-sm text-fg-muted transition hover:text-fg-strong"
+            >
+              Kiểm tra lại
+            </button>
+          )}
+        </div>
+      ) : verdict && !verdict.passed ? (
+        <button
+          onClick={retry}
+          className="inline-flex w-full items-center justify-center rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
+        >
+          {choice ? 'Trả lời lại' : 'Thử lại'}
+        </button>
+      ) : (
+        <button
+          onClick={() => onCheck(picked)}
+          disabled={checking || (choice && picked.length === 0)}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-70"
+        >
+          {checking && (
+            <span
+              aria-hidden="true"
+              className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
+            />
+          )}
+          {checking ? 'Đang kiểm tra…' : choice ? 'Trả lời' : 'Đã hoàn thành'}
+        </button>
+      )}
+
+      {verdict?.passed && (
+        <p className="rounded-md border border-success/40 bg-success-soft px-3 py-2.5 text-sm text-success">
+          Câu trả lời chính xác!
+          {verdict.points_awarded > 0 && ` +${verdict.points_awarded} điểm`}
+          {verdict.lab_completed && ' — bạn đã hoàn thành cả bài lab.'}
+        </p>
+      )}
+      {verdict && !verdict.passed && (
+        <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
+          {choice
+            ? 'Chưa đúng. Câu này có thể có nhiều đáp án — xem tab Gợi ý nếu cần.'
+            : task.kind === 'command'
+              ? 'Chưa thấy lệnh nào khớp. Chạy lệnh trong terminal rồi bấm lại — xem tab Gợi ý nếu cần.'
+              : 'Chưa đạt. Làm trong terminal rồi bấm kiểm tra lại — xem tab Gợi ý nếu cần.'}
+        </p>
+      )}
+      {failed && (
+        <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
+          Không chấm được lúc này. Kiểm tra phiên lab còn chạy rồi thử lại.
+        </p>
+      )}
+
+      {task.kind === 'script' && !verdict?.passed && (
+        <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
+          Gõ lệnh vào terminal bên phải, xong thì bấm nút trên. Bài chấm theo kết
+          quả trong container, không theo câu lệnh bạn gõ.
+        </p>
+      )}
+      {task.kind === 'command' && !verdict?.passed && (
+        <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
+          Chạy lệnh trong terminal bên phải, xong thì bấm nút trên. Câu này chấm
+          theo lệnh bạn đã gõ, nên gõ đúng lệnh chứ đừng chỉ đọc.
+        </p>
+      )}
     </div>
   )
 }

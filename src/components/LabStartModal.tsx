@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import { Link } from 'react-router-dom'
 import type { Lab } from '@/lib/types'
 import { ClockIcon, TerminalIcon } from '@/components/icons'
 
@@ -11,11 +12,26 @@ type Props = {
   phase: StartPhase
   lab: Lab
   error?: string
+  /** Route of the session that is in the way, when there is one to go back to. */
+  runningHref?: string
+  /** Ends that session from here. The rule is one container at a time, so being
+   *  told about it without being able to act on it is a dead end. */
+  onStopRunning?: () => void
+  stopping?: boolean
   onStart: () => void
   onClose: () => void
 }
 
-export function LabStartModal({ phase, lab, error, onStart, onClose }: Props) {
+export function LabStartModal({
+  phase,
+  lab,
+  error,
+  runningHref,
+  onStopRunning,
+  stopping = false,
+  onStart,
+  onClose,
+}: Props) {
   const startRef = useRef<HTMLButtonElement>(null)
   const busy = phase === 'creating'
 
@@ -68,11 +84,33 @@ export function LabStartModal({ phase, lab, error, onStart, onClose }: Props) {
         </h2>
 
         {phase === 'blocked' ? (
-          <p className="mt-4 text-sm leading-relaxed text-fg-muted">
-            Bạn đang có một phiên lab khác chạy dở. Mỗi lúc chỉ được mở một
-            container — hãy quay lại phiên đó và kết thúc trước khi bắt đầu bài
-            này.
-          </p>
+          <>
+            <p className="mt-4 text-sm leading-relaxed text-fg-muted">
+              Bạn đang có một phiên lab khác chạy dở. Mỗi lúc chỉ được mở một
+              container — kết thúc phiên đó rồi mới bắt đầu bài này.
+            </p>
+            {onStopRunning && (
+              <button
+                onClick={onStopRunning}
+                disabled={stopping}
+                className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-70"
+              >
+                {stopping && <Spinner />}
+                {stopping ? 'Đang đóng…' : 'Kết thúc phiên đang chạy'}
+              </button>
+            )}
+            {/* Only offered when the session still resolves to a route. A lab or
+                course removed under a running session leaves the button above as
+                the only way out, which is why it does not depend on this. */}
+            {runningHref && (
+              <Link
+                to={runningHref}
+                className="mt-2 block text-center text-sm text-accent-soft hover:underline"
+              >
+                Hoặc mở lại phiên đang chạy →
+              </Link>
+            )}
+          </>
         ) : (
           <>
             <div className="mt-4 flex flex-wrap gap-2 font-mono text-xs">

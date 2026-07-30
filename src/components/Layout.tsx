@@ -46,6 +46,11 @@ export default function Layout() {
               <BookIcon className="h-4 w-4" />
               Khoá học
             </NavLink>
+            {isAdmin && (
+              <NavLink to="/admin" className={navClass}>
+                Quản trị
+              </NavLink>
+            )}
           </div>
           <div className="flex items-center gap-2 text-sm">
             <ThemeToggle />

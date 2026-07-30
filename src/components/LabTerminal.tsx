@@ -31,11 +31,42 @@ export function LabTerminal({ terminalPath, onReady, onClosed }: Props) {
     const term = new Terminal({
       fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
       fontSize: 13,
+      lineHeight: 1.3,
+      letterSpacing: 0.3,
       cursorBlink: true,
+      cursorStyle: 'bar',
+      // Enough to scroll back through a long ls or a build log; the session is
+      // short-lived, so this never grows into real memory.
+      scrollback: 2000,
       // The container is the only thing that ever writes here, so nothing is
       // echoed locally: what shows up is what the shell actually sent back.
       convertEol: false,
-      theme: { background: '#0b0e14', foreground: '#d4d7dd' },
+      // The full palette, not just background and foreground: anything the shell
+      // colours — ls, grep, the prompt — falls back to xterm's default ANSI set
+      // otherwise, which is the one bright primary look the rest of the app is not.
+      theme: {
+        background: '#0b0e14',
+        foreground: '#d4d7dd',
+        cursor: '#7fd1a0',
+        cursorAccent: '#0b0e14',
+        selectionBackground: '#2a3348',
+        black: '#1c2028',
+        red: '#e06c75',
+        green: '#7fd1a0',
+        yellow: '#e5c07b',
+        blue: '#75aadb',
+        magenta: '#c678dd',
+        cyan: '#56b6c2',
+        white: '#d4d7dd',
+        brightBlack: '#6b7280',
+        brightRed: '#f08a92',
+        brightGreen: '#98e0b6',
+        brightYellow: '#f0d19b',
+        brightBlue: '#93c0e8',
+        brightMagenta: '#d79ae8',
+        brightCyan: '#7fcfd8',
+        brightWhite: '#f0f2f5',
+      },
     })
     const fit = new FitAddon()
     term.loadAddon(fit)

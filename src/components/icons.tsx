@@ -33,6 +33,21 @@ export const TerminalIcon = (p: Props) => (
   </Icon>
 )
 
+export const UsersIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M16 19v-1a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v1" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 19v-1a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8" />
+  </Icon>
+)
+
+export const ChartIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M3 3v18h18" />
+    <path d="M7 15l4-5 3 3 5-7" />
+  </Icon>
+)
+
 export const SunIcon = (p: Props) => (
   <Icon {...p}>
     <circle cx="12" cy="12" r="4" />

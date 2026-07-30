@@ -1,5 +1,5 @@
 import { request } from "@/lib/api";
-import type { LabDetail, LabSession } from "@/lib/types";
+import type { CheckResult, LabDetail, LabSession } from "@/lib/types";
 
 export const labsApi = {
   detail: (courseSlug: string, labSlug: string) =>
@@ -19,6 +19,14 @@ export const labsApi = {
 
   stop: (id: string) =>
     request<void>(`/api/lab-sessions/${id}`, { method: "DELETE" }),
+
+  /** Grades one task against the running container. Scoped to the session
+   *  because that is what decides which container the check runs in. */
+  check: (sessionID: string, taskID: number, selected: number[] = []) =>
+    request<CheckResult>(
+      `/api/lab-sessions/${sessionID}/tasks/${taskID}/check`,
+      { method: "POST", body: { selected } },
+    ),
 };
 
 /** The terminal lives on the API host, not the Vite dev server, and the scheme
