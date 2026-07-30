@@ -10,6 +10,7 @@ import Home from '@/pages/Home'
 import Courses from '@/pages/Courses'
 import CourseDetail from '@/pages/CourseDetail'
 import Profile from '@/pages/Profile'
+import LabRunner from '@/pages/LabRunner'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
 export default function App() {
@@ -21,6 +22,13 @@ export default function App() {
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/auth/callback" element={<AuthCallback />} />
+
+      {/* The lab runner owns the whole viewport — a site header above a terminal
+          steals rows from it and puts a second nav in front of someone who is
+          meant to be looking at one thing. */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/courses/:slug/labs/:labSlug" element={<LabRunner />} />
+      </Route>
 
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
