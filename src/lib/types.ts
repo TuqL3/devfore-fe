@@ -39,6 +39,9 @@ export interface CourseSummary {
   description: string
   image_url: string | null
   level: string
+  /** Only ever 'published' outside the admin listing, which is the one place
+   *  drafts are visible. */
+  status: 'draft' | 'published'
   lab_count: number
   student_count: number
   published_at: string | null
@@ -81,6 +84,11 @@ export interface LeaderRow {
 export interface LabTask {
   id: number
   title: string
+  /** 'script' làm trong terminal, 'choice' chọn đáp án, 'command' gõ lệnh. */
+  kind: 'script' | 'choice' | 'command'
+  /** Chỉ phần chữ của các lựa chọn — đáp án đúng nằm ở server. Rỗng với
+   *  nhiệm vụ thực hành. */
+  options: string[]
   /** Empty when the author has not written one; the hint tab says so rather
    *  than showing a blank panel. */
   hint: string
@@ -92,9 +100,24 @@ export interface LabDetail extends Lab {
   tasks: LabTask[]
 }
 
+/** What one press of the check button changed. `points_awarded` is 0 for a task
+ *  that was already passed, which is what makes a retry free. */
+export interface CheckResult {
+  passed: boolean
+  points_awarded: number
+  lab_completed: boolean
+}
+
 export interface LabSession {
   id: string
   lab_id: number
+  /** Where the session lives. Empty only if the lab or course row went away
+   *  under a session that is still running — the id is still enough to end it. */
+  lab_slug: string
+  course_slug: string
+  /** Tasks of this lab the student has already passed, in any session. Sent with
+   *  the session so a reload restores the ticks. */
+  passed_task_ids: number[]
   status: 'running' | 'ended' | 'expired'
   started_at: string
   expires_at: string

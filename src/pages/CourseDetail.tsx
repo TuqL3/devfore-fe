@@ -310,8 +310,32 @@ function ContentTab({ labs, slug }: { labs: Lab[]; slug: string }) {
       // which is what lets it open straight into a terminal.
       navigate(`/courses/${slug}/labs/${labSlug}`)
     },
+    onError: (e) => {
+      setError(e instanceof ApiError ? e.message : 'không khởi động được lab')
+      // A 409 means the server knows about a session this page does not — one
+      // started in another tab. Refetch it, or the dialog reports the block with
+      // nothing to end and no route to follow.
+      if (e instanceof ApiError && e.status === 409) {
+        qc.invalidateQueries({ queryKey: ['lab-session'] })
+      }
+    },
+  })
+
+  // Ending the session that is in the way, from the dialog that reports it. The
+  // slot is what the student is actually blocked on, and it is not always
+  // reachable from the lab screen: the running session can belong to a course
+  // they are not on and may not remember.
+  const stopRunning = useMutation({
+    mutationFn: (id: string) => labsApi.stop(id),
+    onSuccess: () => {
+      qc.setQueryData(['lab-session'], null)
+      // The dialog is showing a rejection that no longer applies; clearing both
+      // is what turns it back into a Start button.
+      setError('')
+      start.reset()
+    },
     onError: (e) =>
-      setError(e instanceof ApiError ? e.message : 'không khởi động được lab'),
+      setError(e instanceof ApiError ? e.message : 'không đóng được phiên cũ'),
   })
 
   const open = (l: Lab) => {
@@ -400,6 +424,13 @@ function ContentTab({ labs, slug }: { labs: Lab[]; slug: string }) {
           phase={phase}
           lab={picked}
           error={error}
+          runningHref={
+            running?.course_slug && running.lab_slug
+              ? `/courses/${running.course_slug}/labs/${running.lab_slug}`
+              : undefined
+          }
+          onStopRunning={running ? () => stopRunning.mutate(running.id) : undefined}
+          stopping={stopRunning.isPending}
           onStart={() => {
             setError('')
             start.mutate(picked.slug)
