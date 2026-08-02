@@ -146,6 +146,21 @@ export interface ReportAnswer {
   attempts: number | null
 }
 
+/** Một tin nhắn trong phòng chat chung. `username` được chụp lại lúc gửi — đổi
+ *  tên không viết lại lịch sử. `user_id` null khi tài khoản đã bị xoá. */
+export interface ChatMessage {
+  id: number
+  user_id: number | null
+  username: string
+  body: string
+  created_at: string
+}
+
+export interface ChatHistory {
+  messages: ChatMessage[]
+  online: number
+}
+
 /** Đăng nhập dừng giữa chừng vì tài khoản có lớp thứ hai. Chưa có phiên nào
  *  được tạo — token này chỉ cho phép đúng một việc: gửi mã lên. */
 export interface MFAChallenge {

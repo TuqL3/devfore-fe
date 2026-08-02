@@ -13,6 +13,7 @@ import CourseDetail from '@/pages/CourseDetail'
 import Profile from '@/pages/Profile'
 import LabRunner from '@/pages/LabRunner'
 import LabHistory from '@/pages/LabHistory'
+import Chat from '@/pages/Chat'
 import LabReport from '@/pages/LabReport'
 import Admin from '@/pages/Admin'
 import AdminDashboard from '@/pages/AdminDashboard'
@@ -47,6 +48,7 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<Profile />} />
           <Route path="/history" element={<LabHistory />} />
+          <Route path="/chat" element={<Chat />} />
           {/* One screen for both ways in: opened from the list, or landed on
               straight after handing a lab in, which adds ?done=1. */}
           <Route path="/history/:id" element={<LabReport />} />

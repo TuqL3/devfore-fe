@@ -6,7 +6,7 @@ import { Logo } from '@/components/Logo'
 import { RouteProgress } from '@/components/RouteProgress'
 import { Avatar } from '@/components/Avatar'
 import { SignOutButton } from '@/components/SignOutButton'
-import { BookIcon, ClockIcon, LogOutIcon } from '@/components/icons'
+import { BookIcon, ClockIcon, LogOutIcon, UsersIcon } from '@/components/icons'
 import { useLevels } from '@/lib/levels'
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -51,6 +51,14 @@ export default function Layout() {
               <NavLink to="/history" className={navClass}>
                 <ClockIcon className="h-4 w-4" />
                 Lịch sử
+              </NavLink>
+            )}
+            {/* The room needs an account to post in, so it is not offered to
+                anyone who cannot. */}
+            {user && (
+              <NavLink to="/chat" className={navClass}>
+                <UsersIcon className="h-4 w-4" />
+                Chat
               </NavLink>
             )}
             {isAdmin && (
