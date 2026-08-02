@@ -2,14 +2,20 @@ import { createContext, useContext, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { authApi } from "@/api/auth";
 import { ApiError } from "@/lib/api";
-import type { User } from "@/lib/types";
+import { isMFAChallenge } from "@/lib/types";
+import type { MFAChallenge, User } from "@/lib/types";
 
 interface AuthState {
   user: User | null;
   loading: boolean;
   isAdmin: boolean;
   setSession: (user: User) => void;
-  login: (login: string, password: string) => Promise<void>;
+  /** Resolves to a challenge when the account has a second factor, and to null
+   *  when the password alone was enough and the session is already live. The
+   *  caller has to handle both — a challenge is not a session. */
+  login: (login: string, password: string) => Promise<MFAChallenge | null>;
+  /** Second half of a two-factor login. Creates the session. */
+  loginMFA: (challenge: string, code: string) => Promise<void>;
   /** Entering the signup code is what creates the session — registering alone
    *  does not, so that step lives here and register() does not. */
   verifyEmail: (email: string, code: string) => Promise<void>;
@@ -60,7 +66,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   async function login(login: string, password: string) {
-    setSession(await authApi.login({ login, password }));
+    const out = await authApi.login({ login, password });
+    if (isMFAChallenge(out)) return out;
+    setSession(out);
+    return null;
+  }
+
+  async function loginMFA(challenge: string, code: string) {
+    setSession(await authApi.loginMFA({ challenge, code }));
   }
 
   async function verifyEmail(email: string, code: string) {
@@ -123,6 +136,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     isAdmin: !!user?.roles?.includes("admin"),
     setSession,
     login,
+    loginMFA,
     verifyEmail,
     logout,
     logoutEverywhere,

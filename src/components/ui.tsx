@@ -102,6 +102,75 @@ export function Field({
   )
 }
 
+/** The raised surface every admin block sits on. One depth for the whole app:
+ *  a card is `surface`, anything nested inside it stays `muted` and flat, so
+ *  "is this a block or part of a block" reads without counting borders. */
+export function Card({
+  className = '',
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={
+        'rounded-xl border border-border bg-surface shadow-sm ' + className
+      }
+      {...props}
+    />
+  )
+}
+
+/** A number worth putting at the top of a screen: icon chip, label, the figure,
+ *  and a short rule in the same hue. `tint` is a Tailwind colour name rather
+ *  than a theme token — these four accents exist only here, and four one-off
+ *  tokens would cost more than they explain.
+ *  ponytail: literal classes, not `bg-${tint}-500/10` — Tailwind only ships
+ *  classes it can see in the source. */
+const TINTS = {
+  amber: 'bg-amber-500/12 text-amber-600 dark:text-amber-400',
+  emerald: 'bg-emerald-500/12 text-emerald-600 dark:text-emerald-400',
+  sky: 'bg-sky-500/12 text-sky-600 dark:text-sky-400',
+  violet: 'bg-violet-500/12 text-violet-600 dark:text-violet-400',
+} as const
+
+const RULES = {
+  amber: 'bg-amber-500',
+  emerald: 'bg-emerald-500',
+  sky: 'bg-sky-500',
+  violet: 'bg-violet-500',
+} as const
+
+export function StatCard({
+  label,
+  value,
+  icon: Icon,
+  tint,
+}: {
+  label: string
+  value: React.ReactNode
+  icon: (p: { className?: string }) => React.ReactElement
+  tint: keyof typeof TINTS
+}) {
+  return (
+    <Card className="p-4">
+      <div className="flex items-center gap-2">
+        <span
+          className={'grid h-7 w-7 place-items-center rounded-md ' + TINTS[tint]}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="text-xs font-medium text-fg-muted">{label}</span>
+      </div>
+      <p className="mt-3 text-3xl font-bold tabular-nums text-fg-strong">
+        {value}
+      </p>
+      <span
+        className={'mt-2 block h-1 w-10 rounded-full ' + RULES[tint]}
+        aria-hidden="true"
+      />
+    </Card>
+  )
+}
+
 export function ErrorBox({ children }: { children: React.ReactNode }) {
   return (
     <p

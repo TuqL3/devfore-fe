@@ -11,3 +11,15 @@ export function timeAgo(iso: string): string {
   if (seconds < 30 * DAY) return `${Math.floor(seconds / DAY)} ngày trước`
   return new Date(iso).toLocaleDateString('vi-VN')
 }
+
+/** Absolute, not "3 ngày trước": two attempts at the same lab are told apart by
+ *  when they were, and a relative label makes them read as the same row twice. */
+export function formatWhen(iso: string): string {
+  return new Date(iso).toLocaleString('vi-VN', {
+    hour: '2-digit',
+    minute: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  })
+}

@@ -139,3 +139,23 @@ export const StopIcon = (p: Props) => (
     <rect x="6" y="6" width="12" height="12" rx="1.5" />
   </Icon>
 )
+
+export const SearchIcon = (p: Props) => (
+  <Icon {...p}>
+    <circle cx="11" cy="11" r="7" />
+    <path d="m20 20-3.5-3.5" />
+  </Icon>
+)
+
+export const PlusIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="M12 5v14M5 12h14" />
+  </Icon>
+)
+
+export const LayersIcon = (p: Props) => (
+  <Icon {...p}>
+    <path d="m12 3 9 5-9 5-9-5 9-5Z" />
+    <path d="m3 13 9 5 9-5" />
+  </Icon>
+)

@@ -12,7 +12,12 @@ import Courses from '@/pages/Courses'
 import CourseDetail from '@/pages/CourseDetail'
 import Profile from '@/pages/Profile'
 import LabRunner from '@/pages/LabRunner'
+import LabHistory from '@/pages/LabHistory'
+import LabReport from '@/pages/LabReport'
 import Admin from '@/pages/Admin'
+import AdminDashboard from '@/pages/AdminDashboard'
+import AdminUsers from '@/pages/AdminUsers'
+import AdminAudit from '@/pages/AdminAudit'
 import AdminCourse from '@/pages/AdminCourse'
 import AdminCourseForm from '@/pages/AdminCourseForm'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -41,6 +46,10 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<Profile />} />
+          <Route path="/history" element={<LabHistory />} />
+          {/* One screen for both ways in: opened from the list, or landed on
+              straight after handing a lab in, which adds ?done=1. */}
+          <Route path="/history/:id" element={<LabReport />} />
         </Route>
 
         {/* The guard here only keeps the screen out of sight; every admin
@@ -48,9 +57,12 @@ export default function App() {
             client and anyone can edit a client. */}
         <Route element={<ProtectedRoute adminOnly />}>
           <Route path="/admin" element={<AdminLayout />}>
-            {/* /admin has no screen of its own yet — the dashboard that would
-                live there is not built, so it opens the section that is. */}
-            <Route index element={<Navigate to="/admin/courses" replace />} />
+            {/* /admin itself stays a redirect rather than rendering the
+                dashboard twice under two URLs. */}
+            <Route index element={<Navigate to="/admin/dashboard" replace />} />
+            <Route path="dashboard" element={<AdminDashboard />} />
+            <Route path="users" element={<AdminUsers />} />
+            <Route path="audit" element={<AdminAudit />} />
             <Route path="courses" element={<Admin />} />
             {/* Static before param: /admin/courses/new must not be read as a
                 course whose id is "new". */}
