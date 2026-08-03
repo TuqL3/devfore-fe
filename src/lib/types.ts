@@ -59,6 +59,15 @@ export interface Lab {
   points: number
 }
 
+/** Một khoá học viên đã đăng ký, kèm tiến độ của chính họ. Điểm và số lab đã
+ *  xong lấy từ course_scores — cùng nguồn với bảng xếp hạng, nên hai chỗ không
+ *  thể nói khác nhau. */
+export interface EnrolledCourse extends CourseSummary {
+  score: number
+  labs_completed: number
+  enrolled_at: string
+}
+
 export interface CourseDetail extends CourseSummary {
   enrolled: boolean
   labs: Lab[]

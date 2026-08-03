@@ -103,8 +103,14 @@ export default function CourseDetail() {
           {/* key replays the fade; min-h stops the short tabs from collapsing
               the page height as you switch. */}
           <div key={tab} className="page-enter min-h-80 pt-6">
-            {tab === 'Nội dung khoá học' && <ContentTab labs={course.labs} slug={course.slug} />}
-            {tab === 'Ôn tập' && <ReviewsTab slug={slug} />}
+            {tab === 'Nội dung khoá học' && (
+              <ContentTab
+                labs={course.labs}
+                slug={course.slug}
+                enrolled={course.enrolled}
+              />
+            )}
+            {tab === 'Ôn tập' && <ReviewsTab slug={slug} courseID={course.id} />}
             {tab === 'Bảng xếp hạng' && <LeaderboardTab slug={slug} />}
             {tab === 'Trạng thái' && <StatusTab course={course} />}
           </div>
@@ -289,7 +295,16 @@ function Empty({ children }: { children: React.ReactNode }) {
   )
 }
 
-function ContentTab({ labs, slug }: { labs: Lab[]; slug: string }) {
+function ContentTab({
+  labs,
+  slug,
+  enrolled,
+}: {
+  labs: Lab[]
+  slug: string
+  enrolled: boolean
+}) {
+  const { user } = useAuth()
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [picked, setPicked] = useState<Lab | null>(null)
@@ -339,6 +354,14 @@ function ContentTab({ labs, slug }: { labs: Lab[]; slug: string }) {
   })
 
   const open = (l: Lab) => {
+    // Nobody signed in: the dialog behind this would offer a Start that the
+    // server answers with a 401, so send them where they have to go anyway.
+    // Checked before the running-session branch, which cannot apply to a caller
+    // with no session at all.
+    if (!user) {
+      navigate('/login')
+      return
+    }
     // Already have a container for this very lab — a half-finished attempt, or
     // one left behind by a reload. Go back to it instead of offering a Start
     // that the server would reject and a dialog that would explain the rejection.
@@ -375,6 +398,16 @@ function ContentTab({ labs, slug }: { labs: Lab[]; slug: string }) {
 
   return (
     <>
+      {/* Said before the click, not after it. The server refuses an unenrolled
+          start with this same rule, but hearing it from a failed dialog reads as
+          a fault rather than as a step that was skipped. */}
+      {!enrolled && (
+        <p className="mb-4 rounded-md border border-border bg-muted px-4 py-2.5 text-sm text-fg-muted">
+          Cần <span className="font-medium text-fg-strong">đăng ký học</span> trước
+          khi bắt đầu lab. Nút đăng ký ở khung bên phải.
+        </p>
+      )}
+
       <ol className="relative space-y-3">
         {labs.map((l, i) => (
           <li key={l.id} className="relative pl-12">
@@ -446,16 +479,35 @@ function ContentTab({ labs, slug }: { labs: Lab[]; slug: string }) {
   )
 }
 
-function ReviewsTab({ slug }: { slug: string }) {
+function ReviewsTab({ slug, courseID }: { slug: string; courseID: number }) {
+  const { isAdmin } = useAuth()
   const { data, isLoading } = useQuery({
     queryKey: ['course', slug, 'reviews'],
     queryFn: () => coursesApi.reviews(slug),
   })
+  // The way in to editing what is on this screen. Shown to admins only, and
+  // here rather than only in the admin section, because this is the page
+  // somebody is looking at when they decide a note needs changing.
+  const editLink = isAdmin && (
+    <Link
+      to={`/admin/courses/${courseID}?tab=on-tap`}
+      className="inline-block text-sm text-accent-soft hover:underline"
+    >
+      Quản lý bài ôn tập →
+    </Link>
+  )
+
   if (isLoading) return <BlockSkeleton />
   if (!data || data.length === 0)
-    return <Empty>Chưa có nội dung ôn tập.</Empty>
+    return (
+      <div className="space-y-3">
+        <Empty>Chưa có nội dung ôn tập.</Empty>
+        {editLink && <div className="text-center">{editLink}</div>}
+      </div>
+    )
   return (
     <div className="space-y-4">
+      {editLink && <div className="flex justify-end">{editLink}</div>}
       {data.map((r) => (
         <div key={r.id} className="rounded-lg border border-border bg-surface p-5">
           <h4 className="font-medium text-fg-strong">{r.title}</h4>
