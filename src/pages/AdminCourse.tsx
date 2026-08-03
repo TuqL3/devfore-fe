@@ -6,8 +6,10 @@ import {
   adminApi,
   type AdminLab,
   type AdminOption,
+  type AdminReview,
   type AdminTask,
   type LabInput,
+  type ReviewInput,
   type TaskInput,
 } from '@/api/admin'
 import { ApiError } from '@/lib/api'
@@ -30,6 +32,15 @@ const EMPTY_LAB: LabInput = {
   lab_image_id: null,
   order_idx: 0,
 }
+
+const EMPTY_REVIEW: ReviewInput = { title: '', content_md: '', order_idx: 0 }
+
+const TABS = ['Lab', 'Ôn tập'] as const
+type Tab = (typeof TABS)[number]
+
+// The tab in the URL is ascii, so a link survives being pasted somewhere that
+// mangles the query string. 'Lab' is the default and writes no parameter at all.
+const TAB_SLUG: Record<Tab, string> = { Lab: 'lab-list', 'Ôn tập': 'on-tap' }
 
 const EMPTY_TASK: TaskInput = {
   title: '',
@@ -77,12 +88,29 @@ export default function AdminCourse() {
 
   const [labForm, setLabForm] = useState<LabInput | null>(null)
   const [editingLab, setEditingLab] = useState<AdminLab | null>(null)
-  // Which lab is open lives in the URL, not in state: it survives a reload, it
-  // can be linked to, and Back steps between labs instead of leaving the page.
+  // Which lab is open, and which tab, live in the URL rather than in state: they
+  // survive a reload, they can be linked to, and Back steps between them instead
+  // of leaving the page. Both are written through a merge, so setting one does
+  // not silently drop the other.
   const [params, setParams] = useSearchParams()
   const selectedID = Number(params.get('lab')) || null
+  const patchParams = (
+    changes: Record<string, string | null>,
+    opts?: { replace?: boolean },
+  ) => {
+    const next = new URLSearchParams(params)
+    for (const [k, v] of Object.entries(changes)) {
+      if (v === null) next.delete(k)
+      else next.set(k, v)
+    }
+    setParams(next, opts)
+  }
   const setSelectedID = (id: number | null) =>
-    setParams(id ? { lab: String(id) } : {}, { replace: !id })
+    patchParams({ lab: id ? String(id) : null }, { replace: !id })
+
+  const tab: Tab = params.get('tab') === TAB_SLUG['Ôn tập'] ? 'Ôn tập' : 'Lab'
+  const setTab = (t: Tab) =>
+    patchParams({ tab: t === 'Lab' ? null : TAB_SLUG[t] })
   const [error, setError] = useState('')
 
   const courses = useQuery({ queryKey: ['admin-courses'], queryFn: adminApi.courses })
@@ -92,6 +120,13 @@ export default function AdminCourse() {
   const labs = useQuery({
     queryKey: ['admin-labs', courseID],
     queryFn: () => adminApi.labs(courseID),
+    enabled: Number.isFinite(courseID) && courseID > 0,
+  })
+  // Only for the count on the tab. Same key as the panel's own query, so react
+  // query serves both from one fetch rather than asking twice.
+  const reviews = useQuery({
+    queryKey: ['admin-reviews', courseID],
+    queryFn: () => adminApi.reviews(courseID),
     enabled: Number.isFinite(courseID) && courseID > 0,
   })
   // Read back out of the list, so an edit to the lab is reflected here without
@@ -168,9 +203,37 @@ export default function AdminCourse() {
         {course?.title ?? 'Nội dung khoá học'}
       </h1>
       <p className="mt-1 text-sm text-fg-muted">
-        Mỗi lab là một phiên terminal. Mỗi nhiệm vụ là một câu hỏi được chấm bằng
-        script chạy trong container của học viên.
+        {tab === 'Lab'
+          ? 'Mỗi lab là một phiên terminal. Mỗi nhiệm vụ là một câu hỏi được chấm bằng script chạy trong container của học viên.'
+          : 'Tài liệu của cả khoá, hiện ở tab Ôn tập của học viên. Không chấm điểm, không cần container.'}
       </p>
+
+      {/* Same tabs the student sees on the course page, so editing a course and
+          reading it are the same shape. Counts sit next to the label rather than
+          in a chip — two numbers, and the row stays one line on a phone. */}
+      <div className="mt-5 flex flex-wrap gap-2 border-b border-border pb-px">
+        {TABS.map((t) => {
+          const count = t === 'Lab' ? labs.data?.length : reviews.data?.length
+          return (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              aria-current={tab === t ? 'page' : undefined}
+              className={
+                'rounded-t-md px-4 py-2 text-sm font-medium transition ' +
+                (tab === t
+                  ? 'border-b-2 border-accent bg-muted text-fg-strong'
+                  : 'border-b-2 border-transparent text-fg-muted hover:bg-muted hover:text-fg-strong')
+              }
+            >
+              {t}
+              {count !== undefined && count > 0 && (
+                <span className="ml-2 font-mono text-xs text-fg-subtle">{count}</span>
+              )}
+            </button>
+          )
+        })}
+      </div>
 
       {error && (
         <div className="mt-4">
@@ -178,9 +241,12 @@ export default function AdminCourse() {
         </div>
       )}
 
-      {/* A narrow rail of labs and one wide work area, rather than two equal
-          columns: picking a lab is a glance, editing one is the job, and the
-          forms on the right are the widest thing on the screen. */}
+      {tab === 'Ôn tập' ? (
+        <ReviewPanel courseID={courseID} onError={fail} clearError={() => setError('')} />
+      ) : (
+      /* A narrow rail of labs and one wide work area, rather than two equal
+         columns: picking a lab is a glance, editing one is the job, and the
+         forms on the right are the widest thing on the screen. */
       <div className="mt-6 grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]">
         <Card className="self-start lg:sticky lg:top-8">
           <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
@@ -326,7 +392,185 @@ export default function AdminCourse() {
           )}
         </section>
       </div>
+      )}
     </div>
+  )
+}
+
+/** The "Ôn tập" tab of a course, from the author's side. Plain markdown with no
+ *  container behind it — nothing here is graded, it is the material a student
+ *  reads before or after doing the labs. */
+function ReviewPanel({
+  courseID,
+  onError,
+  clearError,
+}: {
+  courseID: number
+  onError: (e: unknown) => void
+  clearError: () => void
+}) {
+  const qc = useQueryClient()
+  const [form, setForm] = useState<ReviewInput | null>(null)
+  const [editing, setEditing] = useState<AdminReview | null>(null)
+
+  const reviews = useQuery({
+    queryKey: ['admin-reviews', courseID],
+    queryFn: () => adminApi.reviews(courseID),
+  })
+
+  const done = () => {
+    qc.invalidateQueries({ queryKey: ['admin-reviews', courseID] })
+    setForm(null)
+    setEditing(null)
+    clearError()
+  }
+
+  const save = useMutation({
+    mutationFn: (input: ReviewInput) =>
+      editing
+        ? adminApi.updateReview(editing.id, input)
+        : adminApi.createReview(courseID, input),
+    onSuccess: done,
+    onError,
+  })
+
+  const remove = useMutation({
+    mutationFn: (reviewID: number) => adminApi.deleteReview(reviewID),
+    onSuccess: done,
+    onError,
+  })
+
+  const open = (r: AdminReview | null) => {
+    setEditing(r)
+    setForm(
+      r
+        ? { title: r.title, content_md: r.content_md, order_idx: r.order_idx }
+        : EMPTY_REVIEW,
+    )
+  }
+
+  return (
+    <Card className="mt-6">
+      <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <h2 className="min-w-0 font-semibold text-fg-strong">
+          {form ? (editing ? 'Sửa bài ôn tập' : 'Bài ôn tập mới') : 'Danh sách bài ôn tập'}
+        </h2>
+        {!form && (
+          <Button className="shrink-0 px-2.5 py-1.5 text-sm" onClick={() => open(null)}>
+            <PlusIcon className="h-4 w-4" />
+            Thêm
+          </Button>
+        )}
+      </div>
+
+      {form ? (
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            save.mutate(form)
+          }}
+          className="space-y-4 px-4 py-4"
+        >
+          <Field label="Tiêu đề">
+            <Input
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              placeholder="Bảng lệnh cần nhớ"
+              autoFocus
+              required
+            />
+          </Field>
+
+          <Field label="Nội dung">
+            <MarkdownEditor
+              value={form.content_md}
+              onChange={(v) => setForm({ ...form, content_md: v })}
+              placeholder={'## Tóm tắt\n\n| Lệnh | Việc |\n| --- | --- |'}
+            />
+          </Field>
+
+          {/* Only when editing: a new note is appended to the end by the server,
+              so offering a position on create would be a field that lies. */}
+          {editing && (
+            <Field label="Thứ tự">
+              <Input
+                type="number"
+                min={0}
+                value={form.order_idx}
+                onChange={(e) =>
+                  setForm({ ...form, order_idx: Number(e.target.value) || 0 })
+                }
+              />
+            </Field>
+          )}
+
+          <div className="flex gap-2">
+            <Button type="submit" disabled={save.isPending}>
+              {save.isPending ? 'Đang lưu…' : editing ? 'Lưu' : 'Thêm bài'}
+            </Button>
+            <button
+              type="button"
+              onClick={() => {
+                setForm(null)
+                setEditing(null)
+              }}
+              className="rounded-md px-3 py-2 text-sm text-fg-muted transition hover:text-fg-strong"
+            >
+              Huỷ
+            </button>
+          </div>
+        </form>
+      ) : reviews.isLoading ? (
+        <p className="px-4 py-6 text-sm text-fg-subtle">Đang tải…</p>
+      ) : reviews.data?.length === 0 ? (
+        <p className="px-4 py-8 text-center text-sm text-fg-subtle">
+          Khoá này chưa có bài ôn tập nào.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border">
+          {reviews.data?.map((r) => (
+            <li key={r.id} className="px-4 py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="font-medium text-fg-strong">{r.title}</p>
+                  <p className="mt-0.5 font-mono text-xs text-fg-subtle">
+                    #{r.order_idx}
+                  </p>
+                </div>
+                <div className="flex shrink-0 gap-1 text-sm">
+                  <button
+                    onClick={() => open(r)}
+                    className="rounded px-2 py-0.5 text-xs text-accent-soft transition hover:bg-muted"
+                  >
+                    Sửa
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (confirm(`Xoá bài ôn tập "${r.title}"? Không khôi phục được.`)) {
+                        remove.mutate(r.id)
+                      }
+                    }}
+                    className="rounded px-2 py-0.5 text-xs text-danger transition hover:bg-danger/10"
+                  >
+                    Xoá
+                  </button>
+                </div>
+              </div>
+              {/* Rendered rather than shown as source: what an author needs to
+                  check is how the table or the code block comes out. */}
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs text-fg-muted select-none">
+                  Xem nội dung
+                </summary>
+                <div className="mt-2 rounded-md border border-border bg-bg px-3 py-2">
+                  <Prose>{r.content_md}</Prose>
+                </div>
+              </details>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   )
 }
 

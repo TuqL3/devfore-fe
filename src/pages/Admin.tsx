@@ -322,11 +322,14 @@ function RowActions({
 }) {
   return (
     <>
+      {/* "Nội dung" rather than "Lab & nhiệm vụ": the page behind it also holds
+          the revision notes now, and a link that names only half of what is
+          there is a link nobody clicks looking for the other half. */}
       <Link
         to={`/admin/courses/${course.id}`}
         className="rounded px-2 py-1 text-sm text-accent-soft transition hover:bg-muted"
       >
-        Lab &amp; nhiệm vụ
+        Nội dung
       </Link>
       <Link
         to={`/admin/courses/${course.id}/edit`}

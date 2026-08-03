@@ -60,6 +60,16 @@ export type TaskInput = {
 
 export type AdminTask = TaskInput & { id: number };
 
+/** Một bài trong tab Ôn tập của khoá học. Không thuộc lab nào — nó là tài liệu
+ *  của cả khoá, đọc được mà không cần mở container. */
+export type ReviewInput = {
+  title: string;
+  content_md: string;
+  order_idx: number;
+};
+
+export type AdminReview = ReviewInput & { id: number };
+
 export type LabImage = {
   id: number;
   name: string;
@@ -143,6 +153,24 @@ export const adminApi = {
 
   deleteTask: (taskID: number) =>
     request<void>(`/api/admin/tasks/${taskID}`, { method: "DELETE" }),
+
+  reviews: (courseID: number) =>
+    request<AdminReview[]>(`/api/admin/courses/${courseID}/reviews`),
+
+  createReview: (courseID: number, input: ReviewInput) =>
+    request<AdminReview>(`/api/admin/courses/${courseID}/reviews`, {
+      method: "POST",
+      body: input,
+    }),
+
+  updateReview: (reviewID: number, input: ReviewInput) =>
+    request<AdminReview>(`/api/admin/reviews/${reviewID}`, {
+      method: "PUT",
+      body: input,
+    }),
+
+  deleteReview: (reviewID: number) =>
+    request<void>(`/api/admin/reviews/${reviewID}`, { method: "DELETE" }),
 
   stats: () => request<AdminStats>("/api/admin/stats"),
 
