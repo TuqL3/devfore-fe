@@ -100,7 +100,6 @@ export default function Chat() {
                 : 'Chỉ hai người đọc được'}
             </p>
           </div>
-          <NotifyToggle />
           <ConnBadge status={status} online={pages?.[0]?.online} />
         </header>
 
@@ -116,36 +115,20 @@ export default function Chat() {
           onLoadOlder={history.fetchNextPage}
           canSend={status === 'open'}
           placeholder={status === 'open' ? 'Nhập tin nhắn…' : 'Đang kết nối lại…'}
-          onSend={(body) => send(body, target ?? 0)}
+          // Notifications are on by default and there is no switch for them, so
+          // the permission is asked for here rather than from a button: sending
+          // a message is a real user gesture, which is what a browser requires,
+          // and it only ever happens once — after the first answer the call
+          // returns it without prompting again.
+          onSend={(body) => {
+            void askNotifyPermission()
+            send(body, target ?? 0)
+          }}
           onEdit={edit}
           onDelete={remove}
         />
       </section>
     </div>
-  )
-}
-
-/** Offers the desktop-notification permission on a click.
- *
- *  Never on page load: a permission prompt that appears before anyone has done
- *  anything is the prompt every browser has trained people to dismiss, and a
- *  dismissal is permanent. */
-function NotifyToggle() {
-  const [perm, setPerm] = useState<NotificationPermission | 'unsupported'>(() =>
-    typeof Notification === 'undefined' ? 'unsupported' : Notification.permission,
-  )
-
-  if (perm !== 'default') return null
-
-  return (
-    <button
-      type="button"
-      onClick={() => askNotifyPermission().then(setPerm)}
-      title="Hiện thông báo khi có tin nhắn riêng lúc bạn đang ở tab khác"
-      className="shrink-0 rounded-full border border-border-strong px-2.5 py-0.5 text-xs font-medium text-fg-muted transition hover:text-fg-strong"
-    >
-      Bật thông báo
-    </button>
   )
 }
 

@@ -24,9 +24,11 @@ export function notify(m: ChatMessage) {
   }
 }
 
-/** Asks for notification permission. Called from a button, never on load: a
- *  prompt that appears before anyone has done anything is the prompt every
- *  browser has trained people to dismiss, and a dismissal is permanent. */
+/** Asks for notification permission. Called when somebody sends their first
+ *  message, never on load: a prompt that appears before anyone has done
+ *  anything is the prompt every browser has trained people to dismiss, and a
+ *  dismissal is permanent. Returns the standing answer without prompting once
+ *  it has one. */
 export async function askNotifyPermission(): Promise<NotificationPermission> {
   if (typeof Notification === 'undefined') return 'denied'
   if (Notification.permission !== 'default') return Notification.permission
