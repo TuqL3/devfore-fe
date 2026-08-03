@@ -146,19 +146,49 @@ export interface ReportAnswer {
   attempts: number | null
 }
 
-/** Một tin nhắn trong phòng chat chung. `username` được chụp lại lúc gửi — đổi
- *  tên không viết lại lịch sử. `user_id` null khi tài khoản đã bị xoá. */
+/** Một tin nhắn. `username` chụp lại lúc gửi — đổi tên không viết lại lịch sử.
+ *  `peer_id` null là phòng chung, có giá trị là tin nhắn riêng. Tin đã xoá giữ
+ *  lại hàng nhưng `body` rỗng, để id và thứ tự không xô lệch chỗ người khác
+ *  đang đọc. */
 export interface ChatMessage {
   id: number
   user_id: number | null
   username: string
+  peer_id: number | null
   body: string
   created_at: string
+  edited_at: string | null
+  deleted_at: string | null
+}
+
+/** Sự kiện đẩy qua socket. `update` là tin đã có bị sửa hoặc xoá — client thay
+ *  thế theo id chứ không nối thêm. */
+export interface ChatEvent {
+  kind: 'message' | 'update'
+  message: ChatMessage
 }
 
 export interface ChatHistory {
   messages: ChatMessage[]
   online: number
+}
+
+/** Một cuộc trò chuyện riêng trong sidebar. Phòng chung không nằm ở đây — nó
+ *  luôn tồn tại, một hàng nói điều đó là một hàng có thể mất. */
+export interface ChatConversation {
+  peer_id: number
+  username: string
+  avatar_url: string | null
+  last_body: string
+  last_at: string | null
+  last_deleted: boolean
+}
+
+/** Một người trong danh bạ, để bắt đầu trò chuyện riêng. */
+export interface ChatPerson {
+  id: number
+  username: string
+  avatar_url: string | null
 }
 
 /** Đăng nhập dừng giữa chừng vì tài khoản có lớp thứ hai. Chưa có phiên nào
