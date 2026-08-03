@@ -18,10 +18,20 @@ export default function Login() {
   const nav = useNavigate()
   const [params] = useSearchParams()
   const [form, setForm] = useState({ login: '', password: '' })
+  // Set when the password was right and the account has a second factor. The
+  // password step is done at that point and is not repeated — this screen swaps
+  // for the code one rather than adding a field to it.
+  const [challenge, setChallenge] = useState<string | null>(null)
 
   const mut = useMutation({
     mutationFn: () => login(form.login, form.password),
-    onSuccess: () => nav('/', { replace: true }),
+    onSuccess: (mfa) => {
+      if (mfa) {
+        setChallenge(mfa.challenge)
+        return
+      }
+      nav('/', { replace: true })
+    },
     // The password was right but the account never finished signing up. They
     // have nothing to fix here, so hand them straight to the code screen.
     onError: (e) => {
@@ -42,6 +52,10 @@ export default function Login() {
       ? mut.error.message
       : 'đăng nhập thất bại'
     : (params.get('error') ?? '')
+
+  if (challenge) {
+    return <MFAStep challenge={challenge} onBack={() => setChallenge(null)} />
+  }
 
   return (
     <AuthShell cmd="login">
@@ -97,6 +111,80 @@ export default function Login() {
           ./register
         </Link>
       </p>
+    </AuthShell>
+  )
+}
+
+/** The second step, for accounts with a second factor. A screen of its own
+ *  rather than a field appended to the first: the password is already accepted
+ *  by the time this renders, and showing it again invites re-typing something
+ *  the server is no longer asking for.
+ *
+ *  A challenge is spent on the first submission whatever the answer, so a wrong
+ *  code means going back for a new one. That is deliberate on the server side —
+ *  it caps one token at one guess — and this screen says so rather than looking
+ *  broken. */
+function MFAStep({
+  challenge,
+  onBack,
+}: {
+  challenge: string
+  onBack: () => void
+}) {
+  const { loginMFA } = useAuth()
+  const nav = useNavigate()
+  const [code, setCode] = useState('')
+
+  const mut = useMutation({
+    mutationFn: () => loginMFA(challenge, code),
+    onSuccess: () => nav('/', { replace: true }),
+  })
+
+  const error = mut.isError
+    ? mut.error instanceof ApiError
+      ? mut.error.message
+      : 'xác thực thất bại'
+    : ''
+
+  return (
+    <AuthShell cmd="login --mfa">
+      <p className="font-mono text-sm text-fg-subtle">
+        # mở ứng dụng xác thực và nhập mã 6 số, hoặc dán một recovery code
+      </p>
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          mut.mutate()
+        }}
+        className="space-y-4"
+      >
+        <TermField flag="code">
+          <Input
+            variant="terminal"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            // One-time-code tells a phone keyboard to offer the code it just
+            // saw, which is the difference between typing six digits and not.
+            autoComplete="one-time-code"
+            inputMode="text"
+            autoFocus
+            placeholder="123456"
+            required
+          />
+        </TermField>
+        {error && <TermError>{error}</TermError>}
+        <TermButton type="submit" disabled={mut.isPending || code.trim() === ''}>
+          {mut.isPending ? 'verifying…' : './verify'}
+        </TermButton>
+      </form>
+
+      <button
+        type="button"
+        onClick={onBack}
+        className="font-mono text-sm text-accent-soft hover:underline"
+      >
+        # nhập sai? quay lại đăng nhập để lấy mã mới
+      </button>
     </AuthShell>
   )
 }

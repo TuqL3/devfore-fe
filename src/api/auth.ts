@@ -1,5 +1,5 @@
 import { request } from '@/lib/api'
-import type { Session, User } from '@/lib/types'
+import type { MFAChallenge, Session, TOTPStatus, User } from '@/lib/types'
 
 export const authApi = {
   // Signing up no longer signs you in: the account is held until the emailed
@@ -21,8 +21,33 @@ export const authApi = {
   resetPassword: (body: { token: string; password: string }) =>
     request<void>('/api/auth/reset-password', { body, auth: false }),
 
+  // Two shapes, one endpoint: a plain user when the password was enough, or a
+  // challenge when the account has a second factor. The caller has to branch on
+  // mfa_required — treating a challenge as a user would show a signed-in UI over
+  // a session that does not exist.
   login: (body: { login: string; password: string }) =>
-    request<User>('/api/auth/login', { body, auth: false }),
+    request<User | MFAChallenge>('/api/auth/login', { body, auth: false }),
+
+  loginMFA: (body: { challenge: string; code: string }) =>
+    request<User>('/api/auth/login/mfa', { body, auth: false }),
+
+  totpStatus: () => request<TOTPStatus>('/api/me/totp'),
+
+  // The only response that ever carries the secret. Once confirmed it cannot be
+  // read back, which is what the recovery codes are for.
+  totpStart: () =>
+    request<{ secret: string; uri: string; qr: string }>('/api/me/totp/start', {
+      method: 'POST',
+    }),
+
+  // Shows the recovery codes once and never again.
+  totpConfirm: (code: string) =>
+    request<{ recovery_codes: string[] }>('/api/me/totp/confirm', {
+      body: { code },
+    }),
+
+  totpDisable: (password: string) =>
+    request<void>('/api/me/totp', { method: 'DELETE', body: { password } }),
 
   // Ends this browser's session. auth:false because an expired access token is
   // the most ordinary reason to be logging out — retrying would be pointless.

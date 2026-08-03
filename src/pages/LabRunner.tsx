@@ -1,35 +1,46 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate, useParams } from 'react-router-dom'
+import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { labsApi } from '@/api/labs'
 import { coursesApi } from '@/api/courses'
-import type { CheckResult, Lab, LabDetail, LabSession, LabTask } from '@/lib/types'
+import type { CheckResult, LabDetail, LabSession, LabTask } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
 import { Avatar } from '@/components/Avatar'
 import { LabTerminal } from '@/components/LabTerminal'
+import { ConfirmModal } from '@/components/ConfirmModal'
+import { Prose as Markdown } from '@/components/MarkdownEditor'
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ClockIcon,
-  StopIcon,
+  TerminalIcon,
 } from '@/components/icons'
 
-const TABS = ['Nhiệm vụ', 'Gợi ý', 'Hướng dẫn'] as const
+const TABS = ['Nhiệm vụ', 'Gợi ý', 'Trợ lý'] as const
+
+/** How the question is marked, said on the card so a student knows whether to
+    look at the terminal or at the options. */
+const KIND_LABEL: Record<LabTask['kind'], string> = {
+  script: 'Thực hành',
+  command: 'Gõ lệnh',
+  choice: 'Lý thuyết',
+}
 type Tab = (typeof TABS)[number]
 
 export default function LabRunner() {
   const { slug = '', labSlug = '' } = useParams()
   const qc = useQueryClient()
+  const navigate = useNavigate()
   const [step, setStep] = useState(0)
   const [tab, setTab] = useState<Tab>('Nhiệm vụ')
   // Set by the terminal itself once the shell is attached. Nothing earlier is a
   // truthful signal that the lab is usable.
   const [attached, setAttached] = useState(false)
-  // Why the session ended on its own — an hour elapsed, or the student typed
-  // exit. Held so the screen can say so instead of bouncing them back to the
-  // course page with no explanation.
-  const [ended, setEnded] = useState('')
+  // Ending removes the container and everything in it. Both buttons that do it
+  // go through this dialog rather than doing it on the first click.
+  const [confirmStop, setConfirmStop] = useState(false)
+  const [confirmSubmit, setConfirmSubmit] = useState(false)
 
   const lab = useQuery({
     queryKey: ['lab', slug, labSlug],
@@ -46,17 +57,15 @@ export default function LabRunner() {
   })
   const siblings = course.data?.labs ?? []
   const at = siblings.findIndex((l) => l.slug === labSlug)
-  const prevLab: Lab | undefined = at > 0 ? siblings[at - 1] : undefined
-  const nextLab: Lab | undefined =
-    at >= 0 && at < siblings.length - 1 ? siblings[at + 1] : undefined
 
   // The component stays mounted when only the slug changes, so the step counter
   // would otherwise carry over and open the next lab on question four.
   useEffect(() => {
     setStep(0)
     setTab('Nhiệm vụ')
-    setEnded('')
     setAttached(false)
+    setPicked({})
+    setReopened({})
   }, [labSlug])
 
   const stop = useMutation({
@@ -71,16 +80,53 @@ export default function LabRunner() {
   })
 
   // Grading runs the task's script inside this session's container, so it is
-  // addressed by session rather than by lab. The verdict is all the screen
-  // keeps: past passes are not shown, so there is nothing to write back.
-  // Scoring itself is the server's, and it already ignores repeat passes.
+  // addressed by session rather than by lab. Scoring itself is the server's,
+  // and it already ignores repeat passes.
   const check = useMutation({
     mutationFn: (v: { sessionID: string; taskID: number; selected: number[] }) =>
       labsApi.check(v.sessionID, v.taskID, v.selected),
+    // The server writes the pass down; the cached session still holds the list
+    // from before it. Everything counting progress — the header, the counter,
+    // the green box on a question stepped back to — reads that list, so without
+    // this the whole screen says 0 done until the page is reloaded. Patched in
+    // place rather than refetched: the id is already known here.
+    onSuccess: (res, v) => {
+      if (!res.passed) return
+      qc.setQueryData<LabSession | null>(['lab-session'], (s) =>
+        s && !s.passed_task_ids.includes(v.taskID)
+          ? { ...s, passed_task_ids: [...s.passed_task_ids, v.taskID] }
+          : s,
+      )
+    },
   })
+
+  // Handing in ends the container the same way Stop does, so the session cache
+  // is cleared with it. The report screen reads the session back by id and does
+  // not need a running one.
+  const submit = useMutation({
+    mutationFn: (id: string) => labsApi.submit(id),
+    onSuccess: (report) => {
+      qc.setQueryData(['lab-session'], null)
+      navigate(`/history/${report.session_id}?done=1`)
+    },
+  })
+
+  // Ticks belong to the question, not to the panel showing it. Held here rather
+  // than inside the panel because switching tab or question remounts that, and
+  // stepping back to an answered question used to show empty boxes under a
+  // green "correct".
+  const [picked, setPicked] = useState<Record<number, number[]>>({})
+  // Questions the student has gone back to and started re-answering. A pass on
+  // record stops counting the moment the ticks under it change: the green box
+  // would otherwise be praising an answer that is no longer on screen.
+  const [reopened, setReopened] = useState<Record<number, boolean>>({})
 
   const session = current.data ?? null
   const tasks = lab.data?.tasks ?? []
+  // Passed in THIS attempt. The submit button and the dialog both count off it,
+  // and the server refuses a hand-in that does not agree.
+  const done = tasks.filter((t) => session?.passed_task_ids.includes(t.id)).length
+  const remainingTasks = tasks.length - done
   const task: LabTask | undefined = tasks[step]
 
   if (lab.isError) {
@@ -111,7 +157,10 @@ export default function LabRunner() {
   // with the session already in the cache but the lab still loading; reading
   // that as "not mine" bounced every student straight back to the course page
   // the instant they pressed Bắt đầu làm bài.
-  if (mine === false && !stop.isPending && !ended) {
+  // submit clears the session cache and then navigates to the report. Without
+  // it here, the render in between reads "no session" and bounces to the course
+  // page first, which wins.
+  if (mine === false && !stop.isPending && !submit.isSuccess) {
     return <Navigate to={`/courses/${slug}`} replace />
   }
 
@@ -120,13 +169,13 @@ export default function LabRunner() {
     // the terminal ends up scrolled under it.
     <div className="flex h-dvh flex-col overflow-hidden bg-bg">
       <TopBar
-        courseSlug={slug}
         lab={lab.data}
         session={mine ? session : null}
-        onStop={() => session && stop.mutate(session.id)}
+        onStop={() => setConfirmStop(true)}
+        onSubmit={() => setConfirmSubmit(true)}
+        submitting={submit.isPending}
+        remaining={remainingTasks}
         stopping={stop.isPending}
-        prevLab={prevLab}
-        nextLab={nextLab}
         position={at >= 0 ? `${at + 1}/${siblings.length}` : ''}
       />
 
@@ -135,6 +184,7 @@ export default function LabRunner() {
           <StepNav
             step={step}
             total={tasks.length}
+            done={tasks.map((t) => Boolean(session?.passed_task_ids.includes(t.id)))}
             onPrev={() => setStep((s) => Math.max(0, s - 1))}
             onNext={() => setStep((s) => Math.min(tasks.length - 1, s + 1))}
           />
@@ -165,6 +215,21 @@ export default function LabRunner() {
               // id is what stops the previous task's "chưa đúng" from greeting
               // the student on the next one.
               result={check.variables?.taskID === task?.id ? check.data : undefined}
+              // Passed in THIS attempt, before stepping away from the question.
+              // Without it a question answered a minute ago comes back looking
+              // untouched; scoped to the session, so a lab opened again starts
+              // over rather than arriving already ticked.
+              passedEarlier={Boolean(
+                task &&
+                  session?.passed_task_ids.includes(task.id) &&
+                  !reopened[task.id],
+              )}
+              picked={task ? (picked[task.id] ?? []) : []}
+              onPick={(sel) => {
+                if (!task) return
+                setPicked((p) => ({ ...p, [task.id]: sel }))
+                setReopened((r) => ({ ...r, [task.id]: true }))
+              }}
               failed={check.variables?.taskID === task?.id && check.isError}
               checking={check.isPending}
               onCheck={(selected) =>
@@ -175,6 +240,12 @@ export default function LabRunner() {
               onReset={() => check.reset()}
               onNext={() => setStep((s) => Math.min(tasks.length - 1, s + 1))}
               hasNext={step < tasks.length - 1}
+              // Same dialog the header button opens. Finishing the last question
+              // leaves the student at the bottom of this panel, and telling them
+              // to go find Nộp bài up in the header is a scroll away from where
+              // they are looking.
+              onSubmit={() => setConfirmSubmit(true)}
+              remaining={remainingTasks}
             />
           </div>
 
@@ -183,16 +254,6 @@ export default function LabRunner() {
         <main className="flex min-w-0 flex-1 flex-col bg-[#12141c]">
           <div className="flex h-10 shrink-0 items-center justify-between border-b border-white/10 px-4">
             <span className="font-mono text-sm text-zinc-300">Terminal</span>
-            {session && mine && (
-              <button
-                onClick={() => stop.mutate(session.id)}
-                disabled={stop.isPending}
-                className="inline-flex items-center gap-1.5 text-xs text-zinc-400 transition hover:text-danger disabled:opacity-50"
-              >
-                <StopIcon className="h-3 w-3" />
-                {stop.isPending ? 'Đang đóng…' : 'Kết thúc bài thực hành'}
-              </button>
-            )}
           </div>
 
           <div className="relative min-h-0 flex-1 p-2">
@@ -200,20 +261,21 @@ export default function LabRunner() {
               <LabTerminal
                 terminalPath={session.terminal_path}
                 onReady={() => setAttached(true)}
-                onClosed={(reason) => {
-                  setEnded(reason)
+                // The shell exiting means the session is over, and clearing the
+                // cache is what the guard above reads to send them back to the
+                // course page. No panel in between: there is nothing left on
+                // this screen to do.
+                onClosed={() => {
                   setAttached(false)
                   qc.setQueryData(['lab-session'], null)
                 }}
               />
             )}
 
-            {ended && <EndedPanel reason={ended} courseSlug={slug} />}
-
             {/* The container exists by the time this screen renders; what is
                 left is the websocket attaching a shell to it. A spinner over
                 the pane beats an empty black box that fills in later. */}
-            {!attached && !ended && (
+            {!attached && (
               <div className="absolute inset-0 z-10 flex items-center justify-center gap-2.5 bg-[#12141c] text-sm text-zinc-400">
                 <span
                   aria-hidden="true"
@@ -225,51 +287,72 @@ export default function LabRunner() {
           </div>
         </main>
       </div>
-    </div>
-  )
-}
 
-/** Covers the terminal once the session is gone. The container has already been
-    removed at this point, so there is nothing to go back to — only the reason
-    and a way out. */
-function EndedPanel({
-  reason,
-  courseSlug,
-}: {
-  reason: string
-  courseSlug: string
-}) {
-  return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-4 bg-[#12141c] p-6 text-center">
-      <p className="text-sm text-zinc-300">Phiên thực hành đã kết thúc</p>
-      <p className="max-w-sm text-sm text-zinc-500">{reason}</p>
-      <Link
-        to={`/courses/${courseSlug}`}
-        className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:bg-accent-hover"
-      >
-        Về khoá học để bắt đầu lại
-      </Link>
+      {confirmStop && session && (
+        <ConfirmModal
+          title="Kết thúc bài thực hành?"
+          confirmLabel={stop.isPending ? 'Đang đóng…' : 'Kết thúc'}
+          tone="danger"
+          busy={stop.isPending}
+          onClose={() => setConfirmStop(false)}
+          onConfirm={() => stop.mutate(session.id)}
+        >
+          <p>
+            Container của bạn sẽ bị xoá cùng mọi thứ bên trong. Không mở lại
+            được phiên này.
+          </p>
+          <p>
+            Điểm các nhiệm vụ đã đạt vẫn được giữ — chỉ container là mất.
+          </p>
+        </ConfirmModal>
+      )}
+
+      {confirmSubmit && session && (
+        <ConfirmModal
+          title="Nộp bài?"
+          confirmLabel={submit.isPending ? 'Đang nộp…' : 'Nộp bài'}
+          busy={submit.isPending}
+          onClose={() => setConfirmSubmit(false)}
+          onConfirm={() => submit.mutate(session.id)}
+        >
+          <p>
+            Kết quả được chốt lại và container bị xoá. Phiên này không làm tiếp
+            được.
+          </p>
+          {/* The number that decides whether they press it, said before they do
+              rather than on the screen afterwards. */}
+          <p className="text-fg">
+            Đã làm đúng{' '}
+            <strong className="text-fg-strong">{done}</strong>/{tasks.length}{' '}
+            nhiệm vụ.
+          </p>
+          {submit.isError && (
+            <p className="text-danger">Không nộp được, thử lại.</p>
+          )}
+        </ConfirmModal>
+      )}
     </div>
   )
 }
 
 function TopBar({
-  courseSlug,
   lab,
   session,
   onStop,
   stopping,
-  prevLab,
-  nextLab,
+  onSubmit,
+  submitting,
+  remaining,
   position,
 }: {
-  courseSlug: string
   lab?: LabDetail
   session: LabSession | null
   onStop: () => void
   stopping: boolean
-  prevLab?: Lab
-  nextLab?: Lab
+  onSubmit: () => void
+  submitting: boolean
+  /** Tasks still unpassed in this attempt. Handing in needs all of them done. */
+  remaining: number
   position: string
 }) {
   const { user } = useAuth()
@@ -301,17 +384,18 @@ function TopBar({
 
       <div className="ml-auto flex items-center gap-3">
         <button
-          disabled
-          title="Chấm điểm và nộp bài thuộc P4, chưa có ở bản này"
-          className="cursor-not-allowed rounded-md bg-accent px-4 py-1.5 text-sm font-semibold text-accent-fg opacity-40"
+          onClick={onSubmit}
+          disabled={!session || submitting || remaining > 0}
+          title={
+            remaining > 0
+              ? `Còn ${remaining} nhiệm vụ chưa làm đúng — xong hết mới nộp được`
+              : 'Nộp bài và xem kết quả'
+          }
+          className="rounded-md bg-accent px-4 py-1.5 text-sm font-semibold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
-          Nộp bài
+          {submitting ? 'Đang nộp…' : 'Nộp bài'}
         </button>
 
-        <div className="flex items-center gap-1">
-          <LabArrow to={courseSlug} lab={prevLab} dir="prev" />
-          <LabArrow to={courseSlug} lab={nextLab} dir="next" />
-        </div>
         {session && (
           <button
             onClick={onStop}
@@ -321,85 +405,68 @@ function TopBar({
             Kết thúc
           </button>
         )}
-        <Link
-          to={`/courses/${courseSlug}`}
-          className="text-sm text-fg-muted transition hover:text-accent-soft"
-        >
-          Thoát
-        </Link>
         {user && <Avatar user={user} className="h-8 w-8 text-xs" />}
       </div>
     </header>
   )
 }
 
-/** A span rather than a disabled Link at the ends of the course: react-router
-    has no disabled state, and a link that navigates nowhere still looks
-    clickable and still takes focus. */
-function LabArrow({
-  to,
-  lab,
-  dir,
-}: {
-  to: string
-  lab?: Lab
-  dir: 'prev' | 'next'
-}) {
-  const Chevron = dir === 'prev' ? ChevronLeftIcon : ChevronRightIcon
-  const box =
-    'flex h-8 w-8 items-center justify-center rounded-md border border-border-strong '
-
-  if (!lab)
-    return (
-      <span className={box + 'text-fg-subtle opacity-40'} aria-hidden="true">
-        <Chevron className="h-4 w-4" />
-      </span>
-    )
-
-  return (
-    <Link
-      to={`/courses/${to}/labs/${lab.slug}`}
-      title={lab.title}
-      aria-label={(dir === 'prev' ? 'Lab trước: ' : 'Lab sau: ') + lab.title}
-      className={box + 'text-fg-muted transition hover:border-accent hover:text-accent-soft'}
-    >
-      <Chevron className="h-4 w-4" />
-    </Link>
-  )
-}
-
 function StepNav({
   step,
   total,
+  done,
   onPrev,
   onNext,
 }: {
   step: number
   total: number
+  /** Task ids passed in this attempt, by position. */
+  done: boolean[]
   onPrev: () => void
   onNext: () => void
 }) {
+  const finished = done.filter(Boolean).length
+  const pct = total > 0 ? (finished / total) * 100 : 0
+
   return (
-    <div className="flex items-center justify-between gap-2 border-b border-border p-3">
-      <button
-        onClick={onPrev}
-        disabled={step === 0}
-        className="inline-flex items-center gap-1 rounded-md border border-border-strong px-2.5 py-1.5 text-sm text-fg-muted transition hover:text-fg-strong disabled:opacity-40"
-      >
-        <ChevronLeftIcon className="h-4 w-4" />
-        Quay lại
-      </button>
-      <span className="font-mono text-sm text-fg">
-        {total === 0 ? '—' : `Câu ${step + 1} / ${total}`}
-      </span>
-      <button
-        onClick={onNext}
-        disabled={step >= total - 1}
-        className="inline-flex items-center gap-1 rounded-md bg-accent px-2.5 py-1.5 text-sm font-medium text-accent-fg transition hover:bg-accent-hover disabled:opacity-40"
-      >
-        Tiếp theo
-        <ChevronRightIcon className="h-4 w-4" />
-      </button>
+    <div className="border-b border-border p-3">
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onPrev}
+          disabled={step === 0}
+          aria-label="Câu trước"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-strong text-fg-muted transition hover:text-fg-strong disabled:opacity-40"
+        >
+          <ChevronLeftIcon className="h-4 w-4" />
+        </button>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline justify-between gap-2">
+            <p className="font-mono text-sm tabular-nums text-fg-strong">
+              {total === 0 ? '—' : `Câu ${step + 1}`}
+              {total > 0 && <span className="text-fg-subtle"> / {total}</span>}
+            </p>
+            <p className="text-xs tabular-nums text-fg-subtle">
+              {finished}/{total} đã xong
+            </p>
+          </div>
+          <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-success transition-[width]"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </div>
+
+        <button
+          onClick={onNext}
+          disabled={step >= total - 1}
+          aria-label="Câu sau"
+          className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-fg transition hover:bg-accent-hover disabled:opacity-40"
+        >
+          <ChevronRightIcon className="h-4 w-4" />
+        </button>
+      </div>
     </div>
   )
 }
@@ -409,18 +476,28 @@ function TabBody({
   task,
   lab,
   result,
+  passedEarlier,
+  picked,
+  onPick,
   failed,
   checking,
   onCheck,
   onReset,
   onNext,
   hasNext,
+  onSubmit,
+  remaining,
 }: {
   tab: Tab
   task?: LabTask
   lab?: LabDetail
   /** The verdict of the last check on *this* task, if there was one. */
   result?: CheckResult
+  /** This task is already passed, from before the current verdict. */
+  passedEarlier: boolean
+  /** Indexes ticked on this task, kept by the screen so they survive a step. */
+  picked: number[]
+  onPick: (selected: number[]) => void
   failed: boolean
   checking: boolean
   /** Indexes ticked on a choice question; empty for a script one. */
@@ -428,9 +505,11 @@ function TabBody({
   onReset: () => void
   onNext: () => void
   hasNext: boolean
+  onSubmit: () => void
+  /** Questions not passed yet, so the last card can say what handing in costs. */
+  remaining: number
 }) {
-  if (tab === 'Hướng dẫn')
-    return <Prose text={lab?.description_md} empty="Bài này chưa có hướng dẫn." />
+  if (tab === 'Trợ lý') return <Assistant />
 
   if (!task)
     return <p className="text-sm text-fg-subtle">Bài này chưa có nhiệm vụ nào.</p>
@@ -444,19 +523,57 @@ function TabBody({
     )
 
   return (
-    <TaskBody
-      // Keyed by task so the ticks, and any half-finished retry, belong to the
-      // question on screen rather than following the student to the next one.
+    <>
+      {lab?.description_md?.trim() && (
+        <details className="mb-4 rounded-lg border border-border bg-surface">
+          <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-fg-strong [&::-webkit-details-marker]:hidden">
+            Hướng dẫn bài lab
+          </summary>
+          <div className="border-t border-border px-3 py-2">
+            <Prose text={lab.description_md} empty="" />
+          </div>
+        </details>
+      )}
+      <TaskBody
       key={task.id}
       task={task}
       result={result}
+      passedEarlier={passedEarlier}
+      picked={picked}
+      onPick={onPick}
       failed={failed}
       checking={checking}
       onCheck={onCheck}
       onReset={onReset}
       onNext={onNext}
       hasNext={hasNext}
-    />
+      onSubmit={onSubmit}
+      remaining={remaining}
+      />
+    </>
+  )
+}
+
+/** Placeholder for the question-answering assistant. Shipped empty on purpose:
+ *  the tab is where students will look for it, and an empty tab that says when
+ *  beats a tab that appears later and nobody notices. */
+function Assistant() {
+  return (
+    <div className="flex flex-col items-center py-12 text-center">
+      <span className="grid h-12 w-12 place-items-center rounded-full bg-muted text-fg-subtle">
+        <TerminalIcon className="h-5 w-5" />
+      </span>
+      <p className="mt-3 flex items-center gap-2 text-sm font-medium text-fg">
+        Trợ lý
+        <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-soft">
+          Beta
+        </span>
+      </p>
+      <p className="mt-1 max-w-xs text-sm text-fg-subtle">
+        Sắp có: hỏi đáp về câu hỏi đang làm ngay tại đây. Trong lúc chờ, tab Gợi ý
+        là nơi có manh mối.
+      </p>
+    </div>
   )
 }
 
@@ -465,15 +582,23 @@ function TabBody({
 function TaskBody({
   task,
   result,
+  passedEarlier,
+  picked,
+  onPick,
   failed,
   checking,
   onCheck,
   onReset,
   onNext,
   hasNext,
+  onSubmit,
+  remaining,
 }: {
   task: LabTask
   result?: CheckResult
+  passedEarlier: boolean
+  picked: number[]
+  onPick: (selected: number[]) => void
   failed: boolean
   checking: boolean
   onCheck: (selected: number[]) => void
@@ -481,33 +606,34 @@ function TaskBody({
   onReset: () => void
   onNext: () => void
   hasNext: boolean
+  onSubmit: () => void
+  remaining: number
 }) {
-  const [picked, setPicked] = useState<number[]>([])
   const choice = task.kind === 'choice'
 
-  // Everything on screen describes THIS attempt. Having passed the task before —
-  // in an earlier session, or before pressing retry — is deliberately not shown:
-  // reopening a question with last time's answer already marked correct is not
-  // answering it again, it is reading the answer.
-  const verdict = result
-
-  const retry = () => {
-    setPicked([])
-    onReset()
-  }
+  // A pass recorded for this attempt counts, so a question answered a few steps
+  // ago comes back answered rather than blank. No points on it: this is a record
+  // of what happened, not a fresh award.
+  const verdict: CheckResult | undefined =
+    result ??
+    (passedEarlier
+      ? { passed: true, points_awarded: 0, lab_completed: false }
+      : undefined)
 
   return (
     <div className="space-y-4">
-      <p className="leading-relaxed text-fg">{task.title}</p>
-      <div className="flex items-center gap-2 font-mono text-xs">
-        <span className="rounded bg-muted px-2 py-0.5 text-accent-soft">
-          {task.points} điểm
-        </span>
-        {verdict?.passed && (
-          <span className="rounded bg-success-soft px-2 py-0.5 text-success">
-            đã xong
+      <div className="overflow-hidden rounded-xl border border-border bg-bg">
+        <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2">
+          <span className="text-xs font-medium text-fg-muted">
+            {KIND_LABEL[task.kind]}
           </span>
-        )}
+          <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-accent-soft">
+            {task.points} điểm
+          </span>
+        </div>
+        <p className="px-3 py-3 leading-relaxed font-medium text-fg-strong">
+          {task.title}
+        </p>
       </div>
 
       {choice && (
@@ -522,8 +648,8 @@ function TaskBody({
               <li key={i}>
                 <label
                   className={
-                    'flex items-start gap-2.5 rounded-md border px-3 py-2.5 text-sm transition ' +
-                    (verdict ? 'cursor-default ' : 'cursor-pointer ') +
+                    'flex items-start gap-2.5 rounded-lg border px-3 py-2.5 text-sm transition ' +
+                    (checking ? 'cursor-wait ' : 'cursor-pointer ') +
                     (state === 'right'
                       ? 'border-success/60 bg-success-soft text-success'
                       : state === 'wrong'
@@ -533,17 +659,32 @@ function TaskBody({
                           : 'border-border text-fg hover:border-border-strong')
                   }
                 >
-                  {/* Checkboxes throughout: how many answers are right is part of
-                      what the question asks, and radios would give it away. */}
+                  {/* A radio where the question takes one answer: ticking a
+                      second box on a one-answer question can only be a wrong
+                      answer, and the server told us how many it takes without
+                      saying which. */}
                   <input
-                    type="checkbox"
+                    type={task.single_answer ? 'radio' : 'checkbox'}
+                    name={`task-${task.id}`}
                     checked={ticked}
-                    disabled={checking || Boolean(verdict)}
-                    onChange={(e) =>
-                      setPicked((p) =>
-                        e.target.checked ? [...p, i] : p.filter((x) => x !== i),
+                    // Only while a check is in flight. A passed question stays
+                    // answerable: coming back to one the server recorded as
+                    // passed shows no ticks, so locking it leaves the student
+                    // looking at four empty boxes they cannot touch.
+                    disabled={checking}
+                    onChange={(e) => {
+                      // Changing a tick is starting a new answer, so last one's
+                      // verdict goes with it — the red boxes described the ticks
+                      // that were there a moment ago, not these.
+                      if (verdict) onReset()
+                      onPick(
+                        task.single_answer
+                          ? [i]
+                          : e.target.checked
+                            ? [...picked, i]
+                            : picked.filter((x) => x !== i),
                       )
-                    }
+                    }}
                     className={
                       'mt-0.5 h-4 w-4 shrink-0 ' +
                       (state === 'right'
@@ -553,7 +694,10 @@ function TaskBody({
                           : 'accent-[var(--accent)]')
                     }
                   />
-                  <span>{text}</span>
+                  <span className="font-mono text-xs text-fg-subtle">
+                    {String.fromCharCode(65 + i)}.
+                  </span>
+                  <span className="min-w-0 flex-1">{text}</span>
                 </label>
               </li>
             )
@@ -561,43 +705,50 @@ function TaskBody({
         </ul>
       )}
 
+      {/* Two states, not three: passed, or the check button. A wrong answer used
+          to park a "try again" button in front of the check one, which meant two
+          clicks to do the one thing — fix it in the terminal, check again. */}
       {verdict?.passed ? (
-        <div className="space-y-2">
-          {hasNext ? (
-            <button
-              onClick={onNext}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
-            >
-              Câu hỏi tiếp theo
-              <ChevronRightIcon className="h-4 w-4" />
-            </button>
-          ) : (
-            <p className="rounded-md border border-border-strong px-3 py-2.5 text-center text-sm text-fg-muted">
-              Đây là câu cuối của bài lab.
+        hasNext ? (
+          <button
+            onClick={onNext}
+            className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
+          >
+            Câu hỏi tiếp theo
+            <ChevronRightIcon className="h-4 w-4" />
+          </button>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-center text-sm text-fg-muted">
+              {remaining === 0
+                ? 'Đây là câu cuối, bạn đã làm xong hết.'
+                : `Đây là câu cuối. Còn ${remaining} câu chưa làm đúng.`}
             </p>
-          )}
-          {/* Only where a second attempt can honestly come out differently. */}
-          {!choice && (
+            {/* The server refuses a hand-in with anything left unpassed, so the
+                button says so here rather than letting the click come back a
+                409 from a dialog the student already confirmed. */}
             <button
-              onClick={retry}
-              className="w-full text-sm text-fg-muted transition hover:text-fg-strong"
+              onClick={onSubmit}
+              disabled={remaining > 0}
+              title={
+                remaining > 0
+                  ? `Còn ${remaining} nhiệm vụ chưa làm đúng — xong hết mới nộp được`
+                  : 'Nộp bài và xem kết quả'
+              }
+              className="inline-flex w-full items-center justify-center rounded-md bg-success px-4 py-2.5 font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
             >
-              Kiểm tra lại
+              Nộp bài
             </button>
-          )}
-        </div>
-      ) : verdict && !verdict.passed ? (
-        <button
-          onClick={retry}
-          className="inline-flex w-full items-center justify-center rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
-        >
-          {choice ? 'Trả lời lại' : 'Thử lại'}
-        </button>
+          </div>
+        )
       ) : (
         <button
           onClick={() => onCheck(picked)}
           disabled={checking || (choice && picked.length === 0)}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-70"
+          className={
+            'inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover disabled:opacity-70 ' +
+            (checking ? 'disabled:cursor-wait' : 'disabled:cursor-not-allowed')
+          }
         >
           {checking && (
             <span
@@ -609,14 +760,20 @@ function TaskBody({
         </button>
       )}
 
-      {verdict?.passed && (
+      {/* result, not verdict: this is what the last press of the button said.
+          A question passed in an earlier session was not just answered, and
+          congratulating a student for ticks they have not made reads as the
+          screen answering for them. The "đã xong" badge says the rest. */}
+      {result?.passed && (
         <p className="rounded-md border border-success/40 bg-success-soft px-3 py-2.5 text-sm text-success">
           Câu trả lời chính xác!
-          {verdict.points_awarded > 0 && ` +${verdict.points_awarded} điểm`}
-          {verdict.lab_completed && ' — bạn đã hoàn thành cả bài lab.'}
+          {result.points_awarded > 0 && ` +${result.points_awarded} điểm`}
+          {result.lab_completed && ' — bạn đã hoàn thành cả bài lab.'}
         </p>
       )}
-      {verdict && !verdict.passed && (
+      {/* Gone while the next check runs: a red box under a spinner reads as the
+          verdict on the attempt being made, and it is the one before it. */}
+      {verdict && !verdict.passed && !checking && (
         <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
           {choice
             ? 'Chưa đúng. Câu này có thể có nhiều đáp án — xem tab Gợi ý nếu cần.'
@@ -647,17 +804,12 @@ function TaskBody({
   )
 }
 
-/** Plain paragraphs rather than markdown: hints are one or two sentences, and
-    pulling the renderer in here would load it on a page that does not need it. */
+/** Markdown, the same renderer the admin previews with. Plain paragraphs were
+    fine while hints were one sentence; a hint with a command or a list in it
+    used to arrive as one run-on block. */
 function Prose({ text, empty }: { text?: string; empty: string }) {
   if (!text?.trim()) return <p className="text-sm text-fg-subtle">{empty}</p>
-  return (
-    <div className="space-y-3 text-sm leading-relaxed text-fg">
-      {text.split(/\n{2,}/).map((p, i) => (
-        <p key={i}>{p}</p>
-      ))}
-    </div>
-  )
+  return <Markdown>{text}</Markdown>
 }
 
 

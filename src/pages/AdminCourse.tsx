@@ -11,7 +11,16 @@ import {
   type TaskInput,
 } from '@/api/admin'
 import { ApiError } from '@/lib/api'
-import { Button, ErrorBox, Field, Input } from '@/components/ui'
+import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
+import { MarkdownEditor, Prose } from '@/components/MarkdownEditor'
+import {
+  ArrowLeftIcon,
+  ChevronRightIcon,
+  ClockIcon,
+  LayersIcon,
+  PlusIcon,
+  TerminalIcon,
+} from '@/components/icons'
 
 const EMPTY_LAB: LabInput = {
   slug: '',
@@ -40,8 +49,18 @@ const EMPTY_OPTIONS = [
   { text: '', correct: false },
 ]
 
+const KIND_CHOICES: { value: TaskInput['kind']; label: string; hint: string }[] = [
+  { value: 'script', label: 'Thực hành', hint: 'chấm bằng script trong container' },
+  { value: 'command', label: 'Gõ lệnh', hint: 'chấm bằng lệnh học viên đã gõ' },
+  { value: 'choice', label: 'Lý thuyết', hint: 'chọn đáp án đúng' },
+]
+
+// field-sizing grows the box with what is typed instead of leaving the author
+// scrolling inside three visible rows; `rows` stays as the minimum, and as the
+// fallback where the browser does not support it yet.
 const textarea =
-  'w-full rounded-md border border-border-strong bg-bg px-3 py-2.5 text-fg outline-none ' +
+  'w-full resize-y rounded-md border border-border-strong bg-bg px-3 py-2.5 text-fg outline-none ' +
+  'field-sizing-content max-h-[60vh] ' +
   'transition placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/25'
 
 const select =
@@ -114,10 +133,36 @@ export default function AdminCourse() {
     return <p className="text-danger">Khoá học không hợp lệ.</p>
   }
 
+  const closeLabForm = () => {
+    setLabForm(null)
+    setEditingLab(null)
+  }
+
+  const openLabForm = (lab: AdminLab | null) => {
+    setEditingLab(lab)
+    setLabForm(
+      lab
+        ? {
+            slug: lab.slug,
+            title: lab.title,
+            description_md: lab.description_md,
+            duration_minutes: lab.duration_minutes,
+            lab_image_id: lab.lab_image_id,
+            order_idx: lab.order_idx,
+          }
+        : EMPTY_LAB,
+    )
+    setError('')
+  }
+
   return (
     <div>
-      <Link to="/admin/courses" className="text-sm text-accent-soft hover:underline">
-        ← Danh sách khoá học
+      <Link
+        to="/admin/courses"
+        className="inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
+      >
+        <ArrowLeftIcon className="h-3.5 w-3.5" />
+        Danh sách khoá học
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-fg-strong">
         {course?.title ?? 'Nội dung khoá học'}
@@ -133,111 +178,124 @@ export default function AdminCourse() {
         </div>
       )}
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-2">
-        <section>
-          <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-fg-strong">Lab</h2>
-            <Button
-              className="px-3 py-1.5 text-sm"
-              onClick={() => {
-                setEditingLab(null)
-                setLabForm(EMPTY_LAB)
-                setError('')
-              }}
-            >
-              Thêm lab
+      {/* A narrow rail of labs and one wide work area, rather than two equal
+          columns: picking a lab is a glance, editing one is the job, and the
+          forms on the right are the widest thing on the screen. */}
+      <div className="mt-6 grid gap-6 lg:grid-cols-[19rem_minmax(0,1fr)]">
+        <Card className="self-start lg:sticky lg:top-8">
+          <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+            <h2 className="font-semibold text-fg-strong">
+              Lab
+              {labs.data && labs.data.length > 0 && (
+                <span className="ml-1.5 font-normal text-fg-subtle">
+                  {labs.data.length}
+                </span>
+              )}
+            </h2>
+            <Button className="px-2.5 py-1.5 text-sm" onClick={() => openLabForm(null)}>
+              <PlusIcon className="h-4 w-4" />
+              Thêm
             </Button>
           </div>
 
-          {labForm && (
+          <ul className="max-h-[70vh] divide-y divide-border overflow-y-auto">
+            {labs.isLoading && (
+              <li className="px-4 py-6 text-sm text-fg-subtle">Đang tải…</li>
+            )}
+            {labs.data?.length === 0 && (
+              <li className="px-4 py-6 text-center text-sm text-fg-subtle">
+                Khoá này chưa có lab nào.
+              </li>
+            )}
+            {labs.data?.map((l) => {
+              const active = selectedID === l.id
+              return (
+                <li key={l.id} className="relative">
+                  {active && (
+                    <span
+                      className="absolute inset-y-0 left-0 w-0.5 bg-accent"
+                      aria-hidden="true"
+                    />
+                  )}
+                  <button
+                    onClick={() => {
+                      setSelectedID(l.id)
+                      closeLabForm()
+                    }}
+                    aria-current={active ? 'true' : undefined}
+                    className={
+                      'block w-full px-4 pt-3 pb-2 text-left transition ' +
+                      (active ? 'bg-muted' : 'hover:bg-muted/50')
+                    }
+                  >
+                    <span className="block font-medium text-fg-strong">{l.title}</span>
+                    <span className="mt-0.5 block truncate font-mono text-xs text-fg-subtle">
+                      {l.slug}
+                    </span>
+                    {/* Three numbers on one line, separated rather than boxed —
+                        three chips in a 19rem rail wrapped onto three rows. */}
+                    <span className="mt-1.5 flex items-center gap-1.5 font-mono text-xs text-fg-muted">
+                      <LayersIcon className="h-3.5 w-3.5" />
+                      {l.task_count}
+                      <span className="text-fg-subtle">·</span>
+                      {l.points} điểm
+                      <span className="text-fg-subtle">·</span>
+                      <ClockIcon className="h-3.5 w-3.5" />
+                      {l.duration_minutes}′
+                    </span>
+                    {/* Worth saying out loud: the session query joins lab_images
+                        inner, so a lab without one fails at Start, not at save. */}
+                    {l.lab_image_id === null && (
+                      <span className="mt-1.5 block rounded bg-danger/10 px-2 py-0.5 text-xs text-danger">
+                        chưa gán image — chưa chạy được
+                      </span>
+                    )}
+                  </button>
+                  <div
+                    className={
+                      'flex gap-1 px-3 pb-2 text-sm ' + (active ? 'bg-muted' : '')
+                    }
+                  >
+                    <button
+                      onClick={() => openLabForm(l)}
+                      className="rounded px-2 py-0.5 text-xs text-accent-soft transition hover:bg-bg"
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      onClick={() => {
+                        const msg =
+                          `Xoá lab "${l.title}"?\n\n` +
+                          `Mất theo ${l.task_count} nhiệm vụ và tiến độ học viên đã làm ở lab này. ` +
+                          `Không khôi phục được.`
+                        if (confirm(msg)) removeLab.mutate(l.id)
+                      }}
+                      className="rounded px-2 py-0.5 text-xs text-danger transition hover:bg-danger/10"
+                    >
+                      Xoá
+                    </button>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        </Card>
+
+        {/* One work area, not two stacked ones: the lab form and the questions
+            are never edited at the same time, and side by side each got half
+            the width it needed. */}
+        <section className="min-w-0">
+          {labForm ? (
             <LabForm
               value={labForm}
               editing={Boolean(editingLab)}
               images={images.data ?? []}
               saving={saveLab.isPending}
               onChange={setLabForm}
-              onCancel={() => {
-                setLabForm(null)
-                setEditingLab(null)
-              }}
+              onCancel={closeLabForm}
               onSubmit={() => saveLab.mutate(labForm)}
             />
-          )}
-
-          <ul className="mt-4 space-y-2">
-            {labs.isLoading && <li className="text-sm text-fg-subtle">Đang tải…</li>}
-            {labs.data?.length === 0 && (
-              <li className="text-sm text-fg-subtle">Khoá này chưa có lab nào.</li>
-            )}
-            {labs.data?.map((l) => (
-              <li
-                key={l.id}
-                className={
-                  'rounded-lg border p-3 transition ' +
-                  (selectedID === l.id ? 'border-accent bg-surface' : 'border-border')
-                }
-              >
-                <button
-                  onClick={() => setSelectedID(l.id)}
-                  className="block w-full text-left"
-                >
-                  <span className="font-medium text-fg-strong">{l.title}</span>
-                  <span className="ml-2 font-mono text-xs text-fg-subtle">{l.slug}</span>
-                  <div className="mt-1 flex flex-wrap gap-2 font-mono text-xs text-fg-muted">
-                    <span className="rounded bg-muted px-2 py-0.5">
-                      {l.task_count} nhiệm vụ
-                    </span>
-                    <span className="rounded bg-muted px-2 py-0.5">{l.points} điểm</span>
-                    <span className="rounded bg-muted px-2 py-0.5">
-                      {l.duration_minutes} phút
-                    </span>
-                    {/* Worth saying out loud: the session query joins lab_images
-                        inner, so a lab without one fails at Start, not at save. */}
-                    {l.lab_image_id === null && (
-                      <span className="rounded bg-danger/10 px-2 py-0.5 text-danger">
-                        chưa gán image — chưa chạy được
-                      </span>
-                    )}
-                  </div>
-                </button>
-                <div className="mt-2 flex gap-2 text-sm">
-                  <button
-                    onClick={() => {
-                      setEditingLab(l)
-                      setLabForm({
-                        slug: l.slug,
-                        title: l.title,
-                        description_md: l.description_md,
-                        duration_minutes: l.duration_minutes,
-                        lab_image_id: l.lab_image_id,
-                        order_idx: l.order_idx,
-                      })
-                      setError('')
-                    }}
-                    className="rounded px-2 py-1 text-accent-soft transition hover:bg-muted"
-                  >
-                    Sửa
-                  </button>
-                  <button
-                    onClick={() => {
-                      const msg =
-                        `Xoá lab "${l.title}"?\n\n` +
-                        `Mất theo ${l.task_count} nhiệm vụ và tiến độ học viên đã làm ở lab này. ` +
-                        `Không khôi phục được.`
-                      if (confirm(msg)) removeLab.mutate(l.id)
-                    }}
-                    className="rounded px-2 py-1 text-danger transition hover:bg-danger/10"
-                  >
-                    Xoá
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section>
-          {selected ? (
+          ) : selected ? (
             // Keyed by lab: switching labs must drop the open form, the trial
             // result and the setup box with it, all of which describe the lab
             // that was showing a moment ago.
@@ -248,9 +306,23 @@ export default function AdminCourse() {
               clearError={() => setError('')}
             />
           ) : (
-            <p className="rounded-lg border border-dashed border-border-strong p-6 text-center text-sm text-fg-subtle">
-              Chọn một lab bên trái để xem và sửa nhiệm vụ của nó.
-            </p>
+            <Card className="flex flex-col items-center px-6 py-16 text-center">
+              <span className="grid h-12 w-12 place-items-center rounded-full bg-muted text-fg-subtle">
+                <TerminalIcon className="h-5 w-5" />
+              </span>
+              <p className="mt-3 text-sm font-medium text-fg">Chưa chọn lab nào</p>
+              <p className="mt-1 max-w-xs text-sm text-fg-subtle">
+                {labs.data?.length === 0
+                  ? 'Tạo lab đầu tiên để bắt đầu thêm nhiệm vụ.'
+                  : 'Chọn một lab bên trái để xem và sửa nhiệm vụ của nó.'}
+              </p>
+              {labs.data?.length === 0 && (
+                <Button className="mt-4 px-3 py-2 text-sm" onClick={() => openLabForm(null)}>
+                  <PlusIcon className="h-4 w-4" />
+                  Thêm lab
+                </Button>
+              )}
+            </Card>
           )}
         </section>
       </div>
@@ -284,67 +356,78 @@ function LabForm({
         e.preventDefault()
         onSubmit()
       }}
-      className="mt-3 space-y-3 rounded-lg border border-border bg-surface p-4"
+      className="rounded-xl border border-border bg-surface shadow-sm"
     >
-      <h3 className="text-sm font-semibold text-fg-strong">
+      <h3 className="border-b border-border px-5 py-3 font-semibold text-fg-strong">
         {editing ? 'Sửa lab' : 'Lab mới'}
       </h3>
-      <Field label="Tiêu đề">
-        <Input value={value.title} onChange={(e) => set('title', e.target.value)} />
-      </Field>
-      <Field label="Slug" hint="duy nhất trên toàn hệ thống">
-        <Input
-          value={value.slug}
-          variant="terminal"
-          onChange={(e) => set('slug', e.target.value)}
-          placeholder="linux-lab-1"
-        />
-      </Field>
-      <Field label="Hướng dẫn" hint="hiện ở tab Hướng dẫn">
-        <textarea
-          rows={3}
-          value={value.description_md}
-          onChange={(e) => set('description_md', e.target.value)}
-          className={textarea}
-        />
-      </Field>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Thời lượng (phút)">
-          <Input
-            type="number"
-            min={1}
-            max={600}
-            value={value.duration_minutes}
-            onChange={(e) => set('duration_minutes', Number(e.target.value))}
+
+      <div className="space-y-4 p-5">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Tiêu đề">
+            <Input value={value.title} onChange={(e) => set('title', e.target.value)} />
+          </Field>
+          <Field label="Slug" hint="duy nhất trên toàn hệ thống">
+            <Input
+              value={value.slug}
+              variant="terminal"
+              onChange={(e) => set('slug', e.target.value)}
+              placeholder="linux-lab-1"
+            />
+          </Field>
+        </div>
+        <Field label="Hướng dẫn" hint="hiện ở tab Hướng dẫn">
+          <MarkdownEditor
+            rows={6}
+            value={value.description_md}
+            onChange={(v) => set('description_md', v)}
+            placeholder="Mô tả bài lab. Dùng **đậm**, `lệnh`, danh sách…"
           />
         </Field>
-        <Field label="Thứ tự">
-          <Input
-            type="number"
-            min={0}
-            value={value.order_idx}
-            onChange={(e) => set('order_idx', Number(e.target.value))}
-          />
-        </Field>
+        {/* Same as the question form: a new lab is appended by the server, so
+            its order box would be a control with no effect. */}
+        <div className="grid gap-4 sm:grid-cols-3">
+          <Field label="Thời lượng (phút)">
+            <Input
+              type="number"
+              min={1}
+              max={600}
+              value={value.duration_minutes}
+              onChange={(e) => set('duration_minutes', Number(e.target.value))}
+            />
+          </Field>
+          {editing && (
+            <Field label="Thứ tự" hint="nhỏ hiện trước">
+              <Input
+                type="number"
+                min={0}
+                value={value.order_idx}
+                onChange={(e) => set('order_idx', Number(e.target.value))}
+              />
+            </Field>
+          )}
+          <Field label="Image" hint="container học viên dùng">
+            <select
+              className={select}
+              value={value.lab_image_id ?? ''}
+              onChange={(e) =>
+                set('lab_image_id', e.target.value ? Number(e.target.value) : null)
+              }
+            >
+              <option value="">— chưa chọn —</option>
+              {images.map((im) => (
+                <option key={im.id} value={im.id}>
+                  {im.name}:{im.tag}
+                  {im.active ? '' : ' (ngừng dùng)'}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
       </div>
-      <Field label="Image" hint="container học viên sẽ dùng">
-        <select
-          className={select}
-          value={value.lab_image_id ?? ''}
-          onChange={(e) =>
-            set('lab_image_id', e.target.value ? Number(e.target.value) : null)
-          }
-        >
-          <option value="">— chưa chọn —</option>
-          {images.map((im) => (
-            <option key={im.id} value={im.id}>
-              {im.name}:{im.tag}
-              {im.active ? '' : ' (ngừng dùng)'}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <div className="flex items-center gap-3">
+
+      {/* Actions on their own bar, so a long form always ends the same way. */}
+      <div className="flex items-center gap-3 border-t border-border px-5 py-3">
         <Button type="submit" disabled={saving} className="px-3 py-2 text-sm">
           {saving ? 'Đang lưu…' : editing ? 'Lưu' : 'Tạo lab'}
         </Button>
@@ -384,15 +467,33 @@ function OptionsEditor({
         </span>
       </span>
 
+      {/* The whole row turns green when it is an answer, not just a 16px tick —
+          scanning six options for which ones are marked is the thing an author
+          does most in here. */}
       {options.map((o, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={o.correct}
-            onChange={(e) => patch(i, { correct: e.target.checked })}
+        <div
+          key={i}
+          className={
+            'flex items-center gap-2 rounded-lg border p-2 transition ' +
+            (o.correct
+              ? 'border-success/50 bg-success/10'
+              : 'border-transparent hover:bg-muted/50')
+          }
+        >
+          <label
             title="đáp án đúng"
-            className="h-4 w-4 shrink-0 accent-[var(--accent)]"
-          />
+            className="flex shrink-0 cursor-pointer items-center gap-2 pl-1"
+          >
+            <input
+              type="checkbox"
+              checked={o.correct}
+              onChange={(e) => patch(i, { correct: e.target.checked })}
+              className="h-4 w-4 accent-[var(--success)]"
+            />
+            <span className="font-mono text-xs text-fg-subtle">
+              {String.fromCharCode(65 + i)}
+            </span>
+          </label>
           <Input
             value={o.text}
             onChange={(e) => patch(i, { text: e.target.value })}
@@ -403,7 +504,8 @@ function OptionsEditor({
             onClick={() => onChange(options.filter((_, j) => j !== i))}
             disabled={options.length <= 2}
             title={options.length <= 2 ? 'cần ít nhất 2 lựa chọn' : 'xoá lựa chọn'}
-            className="shrink-0 rounded px-2 py-1 text-sm text-danger transition hover:bg-danger/10 disabled:opacity-30"
+            aria-label="Xoá lựa chọn"
+            className="shrink-0 rounded px-2 py-1 text-sm text-fg-subtle transition hover:bg-danger/10 hover:text-danger disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-subtle"
           >
             ✕
           </button>
@@ -492,56 +594,68 @@ function TaskPanel({
   const set = <K extends keyof TaskInput>(k: K, v: TaskInput[K]) =>
     form && setForm({ ...form, [k]: v })
 
-  return (
-    <>
-      <div className="flex items-center justify-between">
-        <h2 className="font-semibold text-fg-strong">
-          Nhiệm vụ — <span className="font-normal text-fg-muted">{lab.title}</span>
-        </h2>
-        <Button
-          className="px-3 py-1.5 text-sm"
-          onClick={() => {
-            closeForm()
-            setForm(EMPTY_TASK)
-            clearError()
-          }}
-        >
-          Thêm nhiệm vụ
-        </Button>
-      </div>
-
-      {form && (
+  // Built once and placed in one of two spots: at the top when adding, and in
+  // the row being edited when editing. Editing a question a screen down should
+  // not send the author back to the top of the list to find the form.
+  const formEl = form ? (
         <form
           onSubmit={(e) => {
             e.preventDefault()
             save.mutate(form)
           }}
-          className="mt-3 space-y-3 rounded-lg border border-border bg-surface p-4"
+          // Recessed rather than raised: the form is a drawer inside this card,
+          // not a second card floating on top of it.
+          className="space-y-4 bg-muted/40 px-5 py-4"
         >
-          <Field label="Loại nhiệm vụ">
-            <select
-              className={select}
-              value={form.kind}
-              onChange={(e) => {
-                const kind = e.target.value as TaskInput['kind']
-                // Switching to a choice question with no options would leave the
-                // author staring at a form with nothing to fill in.
-                setForm({
-                  ...form,
-                  kind,
-                  options:
-                    kind === 'choice' && form.options.length === 0
-                      ? EMPTY_OPTIONS
-                      : form.options,
-                })
-                trial.reset()
-              }}
-            >
-              <option value="script">Thực hành — chấm bằng script trong container</option>
-              <option value="command">Gõ lệnh — chấm bằng lệnh đã gõ</option>
-              <option value="choice">Lý thuyết — chọn đáp án</option>
-            </select>
-          </Field>
+          <h3 className="text-sm font-semibold text-fg-strong">
+            {editing ? 'Sửa nhiệm vụ' : 'Nhiệm vụ mới'}
+          </h3>
+          {/* Three cards rather than a dropdown: the kind decides which half of
+              this form appears, so it is worth seeing all three options and
+              what each one means without opening anything. */}
+          <fieldset>
+            <legend className="mb-1.5 text-sm font-medium text-fg">
+              Loại nhiệm vụ
+            </legend>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {KIND_CHOICES.map((k) => (
+                <label
+                  key={k.value}
+                  className={
+                    'cursor-pointer rounded-lg border px-3 py-2 transition ' +
+                    (form.kind === k.value
+                      ? 'border-accent bg-accent/10'
+                      : 'border-border-strong bg-bg hover:border-accent/50')
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="task-kind"
+                    className="sr-only"
+                    checked={form.kind === k.value}
+                    onChange={() => {
+                      // Switching to a choice question with no options would
+                      // leave the author staring at a form with nothing to
+                      // fill in.
+                      setForm({
+                        ...form,
+                        kind: k.value,
+                        options:
+                          k.value === 'choice' && form.options.length === 0
+                            ? EMPTY_OPTIONS
+                            : form.options,
+                      })
+                      trial.reset()
+                    }}
+                  />
+                  <span className="block text-sm font-medium text-fg-strong">
+                    {k.label}
+                  </span>
+                  <span className="mt-0.5 block text-xs text-fg-muted">{k.hint}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
 
           <Field label="Đề bài">
             <textarea
@@ -559,11 +673,11 @@ function TaskPanel({
             />
           </Field>
           <Field label="Gợi ý" hint="để trống thì tab Gợi ý tự ẩn">
-            <textarea
-              rows={2}
+            <MarkdownEditor
+              rows={5}
               value={form.hint}
-              onChange={(e) => set('hint', e.target.value)}
-              className={textarea}
+              onChange={(v) => set('hint', v)}
+              placeholder="Gợi ý cho học viên. Dùng **đậm**, `lệnh`, danh sách…"
             />
           </Field>
           {form.kind === 'choice' && (
@@ -699,7 +813,11 @@ function TaskPanel({
           </div>
             </>
           )}
-          <div className="grid gap-3 sm:grid-cols-2">
+          {/* Two small numbers, two small boxes — a full-width field for "10"
+              reads as if a lot were expected in it. Order is missing on a new
+              question because the server ignores it there and appends: offering
+              a box whose value is discarded is worse than not offering one. */}
+          <div className="flex flex-wrap gap-4">
             <Field label="Điểm">
               <Input
                 type="number"
@@ -707,18 +825,22 @@ function TaskPanel({
                 max={1000}
                 value={form.points}
                 onChange={(e) => set('points', Number(e.target.value))}
+                className="w-28"
               />
             </Field>
-            <Field label="Thứ tự">
-              <Input
-                type="number"
-                min={0}
-                value={form.order_idx}
-                onChange={(e) => set('order_idx', Number(e.target.value))}
-              />
-            </Field>
+            {editing && (
+              <Field label="Thứ tự" hint="nhỏ hiện trước">
+                <Input
+                  type="number"
+                  min={0}
+                  value={form.order_idx}
+                  onChange={(e) => set('order_idx', Number(e.target.value))}
+                  className="w-28"
+                />
+              </Field>
+            )}
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 border-t border-border pt-4">
             <Button type="submit" disabled={save.isPending} className="px-3 py-2 text-sm">
               {save.isPending ? 'Đang lưu…' : editing ? 'Lưu' : 'Tạo nhiệm vụ'}
             </Button>
@@ -731,83 +853,165 @@ function TaskPanel({
             </button>
           </div>
         </form>
+  ) : null
+
+  const startEdit = (t: AdminTask) => {
+    closeForm()
+    setEditing(t)
+    setForm({
+      title: t.title,
+      hint: t.hint,
+      kind: t.kind,
+      check_script: t.check_script,
+      options: t.options.length ? t.options : EMPTY_OPTIONS,
+      expected_commands: t.expected_commands,
+      points: t.points,
+      order_idx: t.order_idx,
+    })
+    clearError()
+  }
+
+  return (
+    <Card>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
+        <div className="min-w-0">
+          <h2 className="truncate font-semibold text-fg-strong">Nhiệm vụ</h2>
+          <p className="truncate text-xs text-fg-muted">
+            {lab.title} · {lab.task_count} nhiệm vụ · {lab.points} điểm
+          </p>
+        </div>
+        <Button
+          className="px-3 py-1.5 text-sm"
+          onClick={() => {
+            closeForm()
+            setForm(EMPTY_TASK)
+            clearError()
+          }}
+        >
+          <PlusIcon className="h-4 w-4" />
+          Thêm nhiệm vụ
+        </Button>
+      </div>
+
+      {/* Only the new-question form sits here; an edit renders inside its row. */}
+      {!editing && formEl && (
+        <div className="border-b border-border">{formEl}</div>
       )}
 
-      <ol className="mt-4 space-y-2">
-        {tasks.isLoading && <li className="text-sm text-fg-subtle">Đang tải…</li>}
-        {tasks.data?.length === 0 && (
-          <li className="text-sm text-fg-subtle">Lab này chưa có nhiệm vụ nào.</li>
+      <ol className="divide-y divide-border">
+        {tasks.isLoading && (
+          <li className="px-5 py-6 text-sm text-fg-subtle">Đang tải…</li>
+        )}
+        {tasks.data?.length === 0 && !form && (
+          <li className="px-5 py-10 text-center text-sm text-fg-subtle">
+            Lab này chưa có nhiệm vụ nào.
+          </li>
         )}
         {tasks.data?.map((t, i) => (
-          <li key={t.id} className="rounded-lg border border-border p-3">
-            <div className="flex items-start justify-between gap-3">
-              <p className="text-sm text-fg">
-                <span className="mr-2 font-mono text-xs text-fg-subtle">{i + 1}.</span>
-                {t.title}
-              </p>
-              <span className="shrink-0 rounded bg-muted px-2 py-0.5 font-mono text-xs text-accent-soft">
-                {t.points} điểm
-              </span>
-            </div>
-            {t.kind === 'command' ? (
-              <pre className="mt-2 overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
-                {t.expected_commands}
-              </pre>
-            ) : t.kind === 'choice' ? (
-              <ul className="mt-2 space-y-1 text-xs">
-                {t.options.map((o, j) => (
-                  <li
-                    key={j}
-                    className={o.correct ? 'text-success' : 'text-fg-muted'}
-                  >
-                    {o.correct ? '✓' : '○'} {o.text}
-                  </li>
-                ))}
-              </ul>
+          <li key={t.id}>
+            {editing?.id === t.id ? (
+              formEl
             ) : (
-              <pre className="mt-2 overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
-                {t.check_script || '(chưa có script — nhiệm vụ này luôn tính là đúng)'}
-              </pre>
+              // One line per question, answer key behind a disclosure. Ten
+              // questions with their options open is a screen of scrolling to
+              // reach the buttons on the last one. <details> because the browser
+              // already does this, including keyboard and find-in-page.
+              <details className="group">
+                <summary className="flex cursor-pointer list-none items-center gap-2.5 px-5 py-2.5 transition hover:bg-muted/40 [&::-webkit-details-marker]:hidden">
+                  <ChevronRightIcon className="h-3.5 w-3.5 shrink-0 text-fg-subtle transition group-open:rotate-90" />
+                  {/* Numbered by position in the list, which is the order the
+                      student meets them in — not the id. */}
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full bg-muted font-mono text-xs text-fg-muted">
+                    {i + 1}
+                  </span>
+                  {/* Clipped while closed so every row is one line; the full
+                      wording comes back when the row is opened. */}
+                  <span className="min-w-0 flex-1 truncate text-sm text-fg group-open:overflow-visible group-open:whitespace-normal">
+                    {t.title}
+                  </span>
+                  <KindBadge kind={t.kind} />
+                  <span className="shrink-0 rounded bg-muted px-2 py-0.5 font-mono text-xs text-accent-soft">
+                    {t.points}đ
+                  </span>
+                  {/* preventDefault, or the click that hits a button also toggles
+                      the row it lives in. */}
+                  <span className="flex shrink-0 gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault()
+                        startEdit(t)
+                      }}
+                      className="rounded px-2 py-1 text-xs text-accent-soft transition hover:bg-muted"
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault()
+                        if (
+                          confirm(
+                            `Xoá nhiệm vụ này?\n\n"${t.title}"\n\n` +
+                              `Điểm học viên đã nhận cho nhiệm vụ này cũng mất theo.`,
+                          )
+                        )
+                          remove.mutate(t.id)
+                      }}
+                      className="rounded px-2 py-1 text-xs text-danger transition hover:bg-danger/10"
+                    >
+                      Xoá
+                    </button>
+                  </span>
+                </summary>
+
+                <div className="px-5 pb-3 pl-16">
+                  {t.kind === 'command' ? (
+                    <pre className="overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
+                      {t.expected_commands}
+                    </pre>
+                  ) : t.kind === 'choice' ? (
+                    <ul className="space-y-1 text-xs">
+                      {t.options.map((o, j) => (
+                        <li key={j} className={o.correct ? 'text-success' : 'text-fg-muted'}>
+                          {o.correct ? '✓' : '○'} {o.text}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <pre className="overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
+                      {t.check_script ||
+                        '(chưa có script — nhiệm vụ này luôn tính là đúng)'}
+                    </pre>
+                  )}
+                  {/* The same renderer as the editor preview, so a hint reads
+                      here exactly as it will in the lab. */}
+                  {t.hint && (
+                    <div className="mt-3 border-t border-border pt-3">
+                      <p className="mb-1.5 text-xs font-medium text-fg-muted">Gợi ý</p>
+                      <Prose>{t.hint}</Prose>
+                    </div>
+                  )}
+                </div>
+              </details>
             )}
-            <div className="mt-2 flex gap-2 text-sm">
-              <button
-                onClick={() => {
-                  closeForm()
-                  setEditing(t)
-                  setForm({
-                    title: t.title,
-                    hint: t.hint,
-                    kind: t.kind,
-                    check_script: t.check_script,
-                    options: t.options.length ? t.options : EMPTY_OPTIONS,
-                    expected_commands: t.expected_commands,
-                    points: t.points,
-                    order_idx: t.order_idx,
-                  })
-                  clearError()
-                }}
-                className="rounded px-2 py-1 text-accent-soft transition hover:bg-muted"
-              >
-                Sửa
-              </button>
-              <button
-                onClick={() => {
-                  if (
-                    confirm(
-                      `Xoá nhiệm vụ này?\n\n"${t.title}"\n\n` +
-                        `Điểm học viên đã nhận cho nhiệm vụ này cũng mất theo.`,
-                    )
-                  )
-                    remove.mutate(t.id)
-                }}
-                className="rounded px-2 py-1 text-danger transition hover:bg-danger/10"
-              >
-                Xoá
-              </button>
-            </div>
           </li>
         ))}
       </ol>
-    </>
+    </Card>
+  )
+}
+
+const KINDS: Record<AdminTask['kind'], string> = {
+  script: 'Thực hành',
+  command: 'Gõ lệnh',
+  choice: 'Lý thuyết',
+}
+
+/** How the question is marked. Three kinds are marked three different ways, and
+ *  the body below only shows the answer key — not what it is. */
+function KindBadge({ kind }: { kind: AdminTask['kind'] }) {
+  return (
+    <span className="rounded bg-muted px-2 py-0.5 text-xs text-fg-muted">
+      {KINDS[kind]}
+    </span>
   )
 }

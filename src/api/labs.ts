@@ -1,5 +1,11 @@
 import { request } from "@/lib/api";
-import type { CheckResult, LabDetail, LabSession } from "@/lib/types";
+import type {
+  CheckResult,
+  LabDetail,
+  LabHistoryRow,
+  LabReport,
+  LabSession,
+} from "@/lib/types";
 
 export const labsApi = {
   detail: (courseSlug: string, labSlug: string) =>
@@ -27,6 +33,19 @@ export const labsApi = {
       `/api/lab-sessions/${sessionID}/tasks/${taskID}/check`,
       { method: "POST", body: { selected } },
     ),
+
+  /** Nộp bài: chốt kết quả, xoá container, trả luôn báo cáo — nộp xong là có
+   *  kết quả ngay, không cần gọi thêm lần nữa. */
+  submit: (sessionID: string) =>
+    request<LabReport>(`/api/lab-sessions/${sessionID}/submit`, {
+      method: "POST",
+    }),
+
+  history: () => request<LabHistoryRow[]>("/api/lab-sessions/history"),
+
+  /** Báo cáo một phiên đã kết thúc. Server từ chối khi phiên còn chạy. */
+  report: (sessionID: string) =>
+    request<LabReport>(`/api/lab-sessions/${sessionID}/report`),
 };
 
 /** The terminal lives on the API host, not the Vite dev server, and the scheme

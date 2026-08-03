@@ -1,5 +1,17 @@
 import { request } from "@/lib/api";
-import type { CourseSummary } from "@/lib/types";
+import type {
+  AdminStats,
+  AuditLogs,
+  CourseSummary,
+  ManagedUsers,
+  RunningSession,
+} from "@/lib/types";
+
+export type UserFilter = {
+  q?: string;
+  status?: "active" | "pending" | "banned" | "";
+  role?: "admin" | "student" | "";
+};
 
 /** What the course form sends. The server derives everything else — counts,
  *  timestamps, published_at — so they are deliberately not here. */
@@ -131,4 +143,44 @@ export const adminApi = {
 
   deleteTask: (taskID: number) =>
     request<void>(`/api/admin/tasks/${taskID}`, { method: "DELETE" }),
+
+  stats: () => request<AdminStats>("/api/admin/stats"),
+
+  auditLogs: (f: { action?: string; actor?: string } = {}) => {
+    const qs = new URLSearchParams();
+    if (f.action) qs.set("action", f.action);
+    if (f.actor?.trim()) qs.set("actor", f.actor.trim());
+    const suffix = qs.toString() ? `?${qs}` : "";
+    return request<AuditLogs>(`/api/admin/audit-logs${suffix}`);
+  },
+
+  runningSessions: () =>
+    request<RunningSession[]>("/api/admin/lab-sessions"),
+
+  /** Xoá container của người khác. Đáp án đã chấm vẫn giữ — chấm ghi ngay lúc
+   *  bấm, không đợi nộp. */
+  killSession: (id: string) =>
+    request<void>(`/api/admin/lab-sessions/${id}`, { method: "DELETE" }),
+
+  users: (f: UserFilter = {}) => {
+    const qs = new URLSearchParams();
+    if (f.q?.trim()) qs.set("q", f.q.trim());
+    if (f.status) qs.set("status", f.status);
+    if (f.role) qs.set("role", f.role);
+    const suffix = qs.toString() ? `?${qs}` : "";
+    return request<ManagedUsers>(`/api/admin/users${suffix}`);
+  },
+
+  /** Khoá hoặc mở khoá. `reason` chỉ dùng khi khoá, server bỏ qua lúc mở. */
+  setBanned: (id: number, banned: boolean, reason = "") =>
+    request<void>(`/api/admin/users/${id}/status`, {
+      method: "PATCH",
+      body: { banned, reason },
+    }),
+
+  setAdmin: (id: number, admin: boolean) =>
+    request<void>(`/api/admin/users/${id}/role`, {
+      method: "PATCH",
+      body: { admin },
+    }),
 };

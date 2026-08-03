@@ -7,6 +7,7 @@ import { ApiError } from '@/lib/api'
 import type { Session } from '@/lib/types'
 import { Avatar } from '@/components/Avatar'
 import { SignOutButton } from '@/components/SignOutButton'
+import { TwoFactor } from '@/components/TwoFactor'
 import {
   Button,
   ErrorBox,
@@ -134,6 +135,7 @@ export default function Profile() {
           {tab === 'Mật khẩu' && (
             <div className="space-y-8">
               <PasswordForm />
+              <TwoFactor />
               <SignOutEverywhere />
             </div>
           )}
