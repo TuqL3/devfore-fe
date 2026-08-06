@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
@@ -13,9 +13,25 @@ import {
   TermField,
 } from '@/components/AuthShell'
 
+/** Chỗ quay về sau khi đăng nhập: trang `ProtectedRoute` vừa chặn, hoặc trang
+ *  chủ khi họ tự vào /login.
+ *
+ *  Chỉ nhận đường dẫn tương đối bắt đầu bằng một dấu gạch chéo. `state` do
+ *  router giữ chứ không phải người dùng gõ, nhưng một trang đăng nhập nhảy sang
+ *  URL lấy từ dữ liệu ngoài là đúng hình dạng của open redirect, và cái chặn nó
+ *  rẻ hơn cái phải giải thích về sau. */
+function useReturnTo(): string {
+  const { state } = useLocation()
+  const from = (state as { from?: unknown } | null)?.from
+  if (typeof from !== 'string') return '/'
+  if (!from.startsWith('/') || from.startsWith('//')) return '/'
+  return from
+}
+
 export default function Login() {
   const { login } = useAuth()
   const nav = useNavigate()
+  const returnTo = useReturnTo()
   const [params] = useSearchParams()
   const [form, setForm] = useState({ login: '', password: '' })
   // Set when the password was right and the account has a second factor. The
@@ -30,7 +46,7 @@ export default function Login() {
         setChallenge(mfa.challenge)
         return
       }
-      nav('/', { replace: true })
+      nav(returnTo, { replace: true })
     },
     // The password was right but the account never finished signing up. They
     // have nothing to fix here, so hand them straight to the code screen.
@@ -133,11 +149,12 @@ function MFAStep({
 }) {
   const { loginMFA } = useAuth()
   const nav = useNavigate()
+  const returnTo = useReturnTo()
   const [code, setCode] = useState('')
 
   const mut = useMutation({
     mutationFn: () => loginMFA(challenge, code),
-    onSuccess: () => nav('/', { replace: true }),
+    onSuccess: () => nav(returnTo, { replace: true }),
   })
 
   const error = mut.isError

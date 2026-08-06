@@ -2,6 +2,7 @@ import { request } from "@/lib/api";
 import type {
   CourseSummary,
   CourseDetail,
+  EnrolledCourse,
   Level,
   Review,
   LeaderRow,
@@ -28,6 +29,10 @@ export const coursesApi = {
 
   unenroll: (slug: string) =>
     request<void>(`/api/courses/${slug}/enroll`, { method: "DELETE" }),
+
+  /** Khoá của chính người đang đăng nhập. Phạm vi do phiên quyết định, không có
+   *  id nào gửi lên đọc được đăng ký của người khác. */
+  mine: () => request<EnrolledCourse[]>("/api/me/courses"),
 
   reviews: (slug: string) =>
     request<Review[]>(`/api/courses/${slug}/reviews`, { auth: false }),

@@ -1,160 +1,154 @@
-import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 
-import { chatApi, chatSocketURL } from '@/api/chat'
+import { chatApi } from '@/api/chat'
 import { useAuth } from '@/context/AuthContext'
-import { Card, Input } from '@/components/ui'
-import { timeAgo } from '@/lib/relativeTime'
+import { useChat } from '@/context/ChatContext'
+import { askNotifyPermission, ROOM } from '@/lib/chat'
+import { Avatar } from '@/components/Avatar'
+import { ChatSidebar, type Target } from '@/components/ChatSidebar'
+import { ChatThread } from '@/components/ChatThread'
+import { UsersIcon } from '@/components/icons'
 import type { ChatMessage } from '@/lib/types'
 
-const MAX_BODY = 1000
-
-type Status = 'connecting' | 'open' | 'closed'
-
-/** The shared room.
+/** The shared room and every direct thread.
  *
- *  History comes from a plain GET and live messages from the socket. Both land
- *  in the same list, keyed by the id the database assigned — which is also what
- *  stops a message appearing twice when it arrives on the socket after already
- *  being in the history fetch. */
+ *  The socket is not here — it belongs to ChatProvider, so a message arriving
+ *  while somebody is on another page still counts. This screen only reads what
+ *  the provider holds and fetches the history the socket cannot know about. */
 export default function Chat() {
   const { user } = useAuth()
-  const [live, setLive] = useState<ChatMessage[]>([])
-  const [status, setStatus] = useState<Status>('connecting')
-  const [draft, setDraft] = useState('')
-  const ws = useRef<WebSocket | null>(null)
-  const bottom = useRef<HTMLDivElement>(null)
+  const { status, live, unread, send, edit, remove, markRead } = useChat()
+  const [target, setTarget] = useState<Target>(null)
 
-  const history = useQuery({ queryKey: ['chat-history'], queryFn: chatApi.history })
+  // Newest page first, older pages fetched as the reader scrolls up. A thread
+  // years long would otherwise arrive in one response and be laid out in full
+  // before the first line is readable.
+  const history = useInfiniteQuery({
+    queryKey: ['chat-messages', target],
+    queryFn: ({ pageParam }) =>
+      chatApi.messages(target ?? undefined, pageParam || undefined),
+    initialPageParam: 0,
+    // The oldest id of the page just read is where the next one starts. An
+    // empty page is the beginning of the conversation — stop asking. Reading
+    // the end rather than counting against the server's page size keeps the
+    // two from having to agree on a number.
+    getNextPageParam: (last) => (last.messages.length ? last.messages[0].id : undefined),
+  })
+  const conversations = useQuery({
+    queryKey: ['chat-conversations'],
+    queryFn: chatApi.conversations,
+  })
 
+  const key = target ?? ROOM
+  const pages = history.data?.pages
+  const messages = useMemo(
+    () =>
+      mergeById(
+        // Pages arrive newest-block-first; the thread reads oldest-first.
+        [...(pages ?? [])].reverse().flatMap((p) => p.messages),
+        live[key] ?? [],
+      ),
+    [pages, live, key],
+  )
+
+  // Looking at a conversation is reading it. Runs on every new message too, so
+  // a thread left open does not accumulate a count behind the reader's eyes.
+  // Keyed on the newest id rather than the count, which now also grows when
+  // older history is pulled in above.
+  const newestID = messages.at(-1)?.id
   useEffect(() => {
-    // The server closes the socket once the authorising session would have
-    // expired, so reconnecting is the normal path rather than an error one.
-    // `stopped` keeps a socket from being reopened after the page has moved on.
-    let stopped = false
-    let retry: ReturnType<typeof setTimeout> | undefined
-    let backoff = 1000
+    markRead(key)
+  }, [key, newestID, markRead])
 
-    const connect = () => {
-      if (stopped) return
-      setStatus('connecting')
-      const sock = new WebSocket(chatSocketURL())
-      ws.current = sock
-
-      sock.onopen = () => {
-        setStatus('open')
-        backoff = 1000
-      }
-      sock.onmessage = (e) => {
-        try {
-          const msg = JSON.parse(e.data) as ChatMessage
-          setLive((prev) =>
-            prev.some((m) => m.id === msg.id) ? prev : [...prev, msg],
-          )
-        } catch {
-          // A frame that is not a message is not worth breaking the room over.
-        }
-      }
-      sock.onclose = () => {
-        if (stopped) return
-        setStatus('closed')
-        retry = setTimeout(connect, backoff)
-        // Backs off to half a minute so a server that is down does not get a
-        // reconnect every second from every open tab.
-        backoff = Math.min(backoff * 2, 30_000)
-      }
-    }
-
-    connect()
-    return () => {
-      stopped = true
-      clearTimeout(retry)
-      ws.current?.close()
-    }
-  }, [])
-
-  const messages = mergeById(history.data?.messages ?? [], live)
-
-  // Only follows the bottom, so reading back through history is not yanked away
-  // by somebody else typing.
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ block: 'nearest' })
-  }, [messages.length])
-
-  const send = () => {
-    const body = draft.trim()
-    if (!body || ws.current?.readyState !== WebSocket.OPEN) return
-    ws.current.send(JSON.stringify({ body }))
-    setDraft('')
-  }
+  const rows = conversations.data?.conversations ?? []
+  const peer = rows.find((c) => c.peer_id === target)
 
   return (
-    <div className="mx-auto flex h-[calc(100dvh-8rem)] max-w-3xl flex-col gap-4 px-4 py-6">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-bold text-fg-strong">Phòng chat chung</h1>
-          <p className="mt-1 text-sm text-fg-muted">
-            Một phòng cho cả nền tảng. Lịch sử giữ lại, ai vào cũng đọc được.
-          </p>
-        </div>
-        <ConnBadge status={status} online={history.data?.online} />
-      </div>
+    <div className="mx-auto flex h-[calc(100dvh-9rem)] max-w-6xl gap-4">
+      <aside className="hidden w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-border bg-surface md:flex">
+        <ChatSidebar
+          target={target}
+          onPick={setTarget}
+          conversations={rows}
+          unread={unread}
+        />
+      </aside>
 
-      <Card className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
-          {history.isLoading ? (
-            <p className="text-center text-sm text-fg-subtle">Đang tải…</p>
-          ) : messages.length === 0 ? (
-            <p className="text-center text-sm text-fg-subtle">
-              Chưa ai nói gì. Bạn mở hàng đi.
-            </p>
+      <section className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-xl border border-border bg-surface">
+        <header className="flex items-center gap-3 border-b border-border px-4 py-3">
+          {target === null ? (
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-accent/15 text-accent-soft">
+              <UsersIcon className="h-4 w-4" />
+            </span>
           ) : (
-            messages.map((m) => (
-              <Bubble key={m.id} msg={m} mine={m.user_id === user?.id} />
-            ))
+            <Avatar
+              user={{
+                username: peer?.username ?? '?',
+                avatar_url: peer?.avatar_url ?? null,
+              }}
+              className="h-9 w-9 rounded-lg text-xs"
+            />
           )}
-          <div ref={bottom} />
-        </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate font-semibold text-fg-strong">
+              {target === null ? 'Phòng chung' : (peer?.username ?? 'Trò chuyện')}
+            </p>
+            <p className="truncate text-xs text-fg-muted">
+              {target === null
+                ? 'Mọi người trên nền tảng đều đọc được'
+                : 'Chỉ hai người đọc được'}
+            </p>
+          </div>
+          <ConnBadge status={status} online={pages?.[0]?.online} />
+        </header>
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            send()
+        {/* Remounted per conversation so the draft and the scroll position of
+            one thread do not carry into another. */}
+        <ChatThread
+          key={key}
+          messages={messages}
+          meID={user?.id}
+          loading={history.isLoading}
+          hasOlder={history.hasNextPage}
+          loadingOlder={history.isFetchingNextPage}
+          onLoadOlder={history.fetchNextPage}
+          canSend={status === 'open'}
+          placeholder={status === 'open' ? 'Nhập tin nhắn…' : 'Đang kết nối lại…'}
+          // Notifications are on by default and there is no switch for them, so
+          // the permission is asked for here rather than from a button: sending
+          // a message is a real user gesture, which is what a browser requires,
+          // and it only ever happens once — after the first answer the call
+          // returns it without prompting again.
+          onSend={(body) => {
+            void askNotifyPermission()
+            send(body, target ?? 0)
           }}
-          className="flex items-center gap-2 border-t border-border p-3"
-        >
-          <Input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            maxLength={MAX_BODY}
-            placeholder={
-              status === 'open' ? 'Nhập tin nhắn…' : 'Đang kết nối lại…'
-            }
-            disabled={status !== 'open'}
-          />
-          <button
-            type="submit"
-            disabled={status !== 'open' || draft.trim() === ''}
-            className="shrink-0 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Gửi
-          </button>
-        </form>
-      </Card>
+          onEdit={edit}
+          onDelete={remove}
+        />
+      </section>
     </div>
   )
 }
 
 /** History and the live feed overlap: a message can be in both if it arrived
- *  between the fetch and the socket opening. Keyed by id, sorted by id — the
- *  database assigned both, so every client sees the same order. */
+ *  between the fetch and the socket opening, and an edit arrives for a message
+ *  the fetch already returned. Later wins, sorted by the id the database
+ *  assigned — so every client sees the same order. */
 function mergeById(a: ChatMessage[], b: ChatMessage[]): ChatMessage[] {
   const byID = new Map<number, ChatMessage>()
   for (const m of [...a, ...b]) byID.set(m.id, m)
   return [...byID.values()].sort((x, y) => x.id - y.id)
 }
 
-function ConnBadge({ status, online }: { status: Status; online?: number }) {
+function ConnBadge({
+  status,
+  online,
+}: {
+  status: 'connecting' | 'open' | 'closed'
+  online?: number
+}) {
   const tone =
     status === 'open'
       ? 'bg-success-soft text-success'
@@ -163,42 +157,18 @@ function ConnBadge({ status, online }: { status: Status; online?: number }) {
         : 'bg-danger/10 text-danger'
   const label =
     status === 'open'
-      ? `đang kết nối${online ? ` · ${online} người` : ''}`
+      ? online
+        ? `${online} đang mở`
+        : 'đã kết nối'
       : status === 'connecting'
         ? 'đang kết nối…'
-        : 'mất kết nối — đang thử lại'
+        : 'mất kết nối'
 
   return (
-    <span className={'rounded-full px-2.5 py-0.5 text-xs font-medium ' + tone}>
+    <span
+      className={'shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ' + tone}
+    >
       {label}
     </span>
-  )
-}
-
-function Bubble({ msg, mine }: { msg: ChatMessage; mine: boolean }) {
-  return (
-    <div className={'flex ' + (mine ? 'justify-end' : 'justify-start')}>
-      <div className="max-w-[80%] min-w-0">
-        <div
-          className={
-            'flex items-baseline gap-2 text-xs ' +
-            (mine ? 'justify-end' : 'justify-start')
-          }
-        >
-          <span className="font-medium text-fg-strong">{msg.username}</span>
-          <span className="text-fg-subtle">{timeAgo(msg.created_at)}</span>
-        </div>
-        {/* Rendered as text, never as markup: this is the one place on the site
-            where one user's input reaches another user's screen. */}
-        <p
-          className={
-            'mt-1 rounded-lg px-3 py-2 text-sm break-words whitespace-pre-wrap ' +
-            (mine ? 'bg-accent text-accent-fg' : 'bg-muted text-fg')
-          }
-        >
-          {msg.body}
-        </p>
-      </div>
-    </div>
   )
 }

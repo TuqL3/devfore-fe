@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { authApi } from '@/api/auth'
+import { coursesApi } from '@/api/courses'
 import { ApiError } from '@/lib/api'
 import type { Session } from '@/lib/types'
 import { Avatar } from '@/components/Avatar'
@@ -29,7 +30,7 @@ const statusDot: Record<string, string> = {
   banned: 'bg-red-500',
 }
 
-const TABS = ['Thông tin', 'Mật khẩu', 'Thiết bị', 'Nguy hiểm'] as const
+const TABS = ['Thông tin', 'Khoá học', 'Mật khẩu', 'Thiết bị', 'Nguy hiểm'] as const
 type Tab = (typeof TABS)[number]
 
 export default function Profile() {
@@ -132,6 +133,7 @@ export default function Profile() {
 
         <div key={tab} className="page-enter min-h-80 pt-6">
           {tab === 'Thông tin' && <ProfileForm />}
+          {tab === 'Khoá học' && <MyCourses />}
           {tab === 'Mật khẩu' && (
             <div className="space-y-8">
               <PasswordForm />
@@ -202,6 +204,102 @@ function AvatarUpload() {
         />
       </label>
     </div>
+  )
+}
+
+/** The courses this student signed up for, newest first, each with how far they
+ *  got. Progress comes from the server rather than being counted here, so this
+ *  and the leaderboard can never disagree. */
+function MyCourses() {
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['my-courses'],
+    queryFn: coursesApi.mine,
+  })
+
+  if (isLoading)
+    return <p className="py-10 text-center text-sm text-fg-subtle">Đang tải…</p>
+
+  if (isError)
+    return <ErrorBox>Không tải được danh sách khoá học, thử lại.</ErrorBox>
+
+  if (!data || data.length === 0)
+    return (
+      <div className="rounded-lg border border-border bg-surface px-6 py-12 text-center">
+        <BookIcon className="mx-auto h-6 w-6 text-fg-subtle" />
+        <p className="mt-3 text-sm font-medium text-fg">Bạn chưa đăng ký khoá nào</p>
+        <p className="mt-1 text-sm text-fg-subtle">
+          Đăng ký một khoá là điều kiện để bắt đầu làm lab của nó.
+        </p>
+        <Link
+          to="/courses"
+          className="mt-4 inline-block rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:bg-accent-hover"
+        >
+          Xem danh sách khoá học
+        </Link>
+      </div>
+    )
+
+  return (
+    <ul className="space-y-3">
+      {data.map((c) => (
+        <li key={c.id}>
+          <Link
+            to={`/courses/${c.slug}`}
+            className="flex items-center gap-4 rounded-lg border border-border bg-surface p-4 transition hover:border-border-strong"
+          >
+            {c.image_url ? (
+              <img
+                src={c.image_url}
+                alt=""
+                className="h-14 w-20 shrink-0 rounded-md object-cover"
+              />
+            ) : (
+              <span className="grid h-14 w-20 shrink-0 place-items-center rounded-md bg-muted text-fg-subtle">
+                <BookIcon className="h-5 w-5" />
+              </span>
+            )}
+
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-medium text-fg-strong">{c.title}</p>
+              <p className="mt-0.5 truncate text-sm text-fg-muted">{c.description}</p>
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-xs text-fg-subtle">
+                <span>
+                  {c.labs_completed}/{c.lab_count} lab
+                </span>
+                <span>·</span>
+                <span>{c.score} điểm</span>
+                <span>·</span>
+                <span>đăng ký {c.enrolled_at.slice(0, 10)}</span>
+                {/* A course pulled back to draft stays on the shelf of somebody
+                    who already started it, so it has to say what happened. */}
+                {c.status === 'draft' && (
+                  <>
+                    <span>·</span>
+                    <span className="text-amber-500">tạm ẩn</span>
+                  </>
+                )}
+              </p>
+            </div>
+
+            {/* Bar rather than a percentage: the number is small and the shape
+                is what gets read at a glance. */}
+            <div className="hidden w-28 shrink-0 sm:block">
+              <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+                <div
+                  className="h-full rounded-full bg-accent transition-all"
+                  style={{
+                    width:
+                      c.lab_count > 0
+                        ? `${Math.min(100, (c.labs_completed / c.lab_count) * 100)}%`
+                        : '0%',
+                  }}
+                />
+              </div>
+            </div>
+          </Link>
+        </li>
+      ))}
+    </ul>
   )
 }
 

@@ -1,11 +1,15 @@
 import type { User } from '@/lib/types'
 
-/** Google avatar when there is one, otherwise the first two letters. */
+/** Google avatar when there is one, otherwise the first two letters.
+ *
+ *  Takes only the two fields it reads rather than a whole User: the chat screen
+ *  draws people it knows by name and picture alone, and demanding an email and a
+ *  role list to render initials would mean inventing them at every call site. */
 export function Avatar({
   user,
   className = 'h-7 w-7 text-xs',
 }: {
-  user: User
+  user: Pick<User, 'username' | 'avatar_url'>
   className?: string
 }) {
   if (user.avatar_url)

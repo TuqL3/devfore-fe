@@ -1,12 +1,13 @@
 import { useEffect } from 'react'
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { useChat } from '@/context/ChatContext'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Logo } from '@/components/Logo'
 import { RouteProgress } from '@/components/RouteProgress'
 import { Avatar } from '@/components/Avatar'
 import { SignOutButton } from '@/components/SignOutButton'
-import { BookIcon, ClockIcon, LogOutIcon, UsersIcon } from '@/components/icons'
+import { BookIcon, ClockIcon, LayersIcon, LogOutIcon, UsersIcon } from '@/components/icons'
 import { useLevels } from '@/lib/levels'
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -15,6 +16,33 @@ function navClass({ isActive }: { isActive: boolean }) {
     (isActive
       ? 'bg-muted font-medium text-fg-strong'
       : 'text-fg-muted hover:bg-muted hover:text-fg-strong')
+  )
+}
+
+/** The chat link, carrying the count of unread direct messages.
+ *
+ *  Direct only. The shared room is everybody's traffic, and a badge that ticks
+ *  up every time anyone says anything is a badge people learn to ignore. */
+function ChatLink() {
+  const { dmUnread } = useChat()
+  return (
+    <NavLink to="/chat" className={navClass}>
+      <span className="relative">
+        <UsersIcon className="h-4 w-4" />
+        {dmUnread > 0 && (
+          <span
+            aria-hidden="true"
+            className="absolute -top-1.5 -right-2 grid h-4 min-w-4 place-items-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-fg"
+          >
+            {dmUnread > 9 ? '9+' : dmUnread}
+          </span>
+        )}
+      </span>
+      Chat
+      {dmUnread > 0 && (
+        <span className="sr-only">{dmUnread} tin nhắn chưa đọc</span>
+      )}
+    </NavLink>
   )
 }
 
@@ -46,21 +74,21 @@ export default function Layout() {
               <BookIcon className="h-4 w-4" />
               Khoá học
             </NavLink>
-            {/* Only for someone who has a history to read. */}
-            {user && (
-              <NavLink to="/history" className={navClass}>
-                <ClockIcon className="h-4 w-4" />
-                Lịch sử
-              </NavLink>
-            )}
-            {/* The room needs an account to post in, so it is not offered to
-                anyone who cannot. */}
-            {user && (
-              <NavLink to="/chat" className={navClass}>
-                <UsersIcon className="h-4 w-4" />
-                Chat
-              </NavLink>
-            )}
+            {/* Hiện cả khi chưa đăng nhập. Giấu đi thì khách không biết trang
+                này có gì, và "đăng ký để dùng cái gì?" là câu không ai trả lời
+                được từ một thanh nav trống. Bấm vào thì `ProtectedRoute` đưa
+                sang /login rồi quay lại đúng đây. */}
+            <NavLink to="/history" className={navClass}>
+              <ClockIcon className="h-4 w-4" />
+              Lịch sử
+            </NavLink>
+            {/* Trình mô phỏng không thuộc khoá nào, nên nó là mục riêng chứ
+                không nằm trong Khoá học — khoá học để dạy, chỗ này để nghịch. */}
+            <NavLink to="/sim" className={navClass}>
+              <LayersIcon className="h-4 w-4" />
+              Mô phỏng
+            </NavLink>
+            <ChatLink />
             {isAdmin && (
               <NavLink to="/admin" className={navClass}>
                 Quản trị

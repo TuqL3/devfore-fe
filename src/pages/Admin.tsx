@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { adminApi } from '@/api/admin'
 import { ApiError } from '@/lib/api'
 import { Button, Card, StatCard } from '@/components/ui'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import {
   BookIcon,
   CheckIcon,
@@ -70,17 +71,9 @@ export default function Admin() {
     )
   }, [all, filter, query])
 
-  const onDelete = (c: CourseSummary) => {
-    // Deleting a course cascades to its labs, tasks, enrolments and scores.
-    // Naming what goes with it is the difference between a confirmation and a
-    // formality.
-    const msg =
-      `Xoá "${c.title}"?\n\n` +
-      `Mất theo: ${c.lab_count} lab (kèm nhiệm vụ), ` +
-      `${c.student_count} lượt ghi danh và toàn bộ điểm của khoá này. ` +
-      `Không khôi phục được.`
-    if (confirm(msg)) remove.mutate(c.id)
-  }
+  // Khoá đang chờ xác nhận xoá. Giữ cả object chứ không chỉ id, để hộp thoại đọc
+  // được tên và mấy con số ra mà không phải dò lại danh sách.
+  const [deleting, setDeleting] = useState<CourseSummary | null>(null)
 
   const empty = all.length === 0
 
@@ -245,7 +238,7 @@ export default function Admin() {
                       <td className="px-4 py-3 text-right whitespace-nowrap">
                         <RowActions
                           course={c}
-                          onDelete={onDelete}
+                          onDelete={setDeleting}
                           disabled={remove.isPending}
                         />
                       </td>
@@ -274,7 +267,7 @@ export default function Admin() {
                     <div className="mt-3 flex flex-wrap gap-1">
                       <RowActions
                         course={c}
-                        onDelete={onDelete}
+                        onDelete={setDeleting}
                         disabled={remove.isPending}
                       />
                     </div>
@@ -285,6 +278,36 @@ export default function Admin() {
           )}
         </Card>
       </section>
+
+      {/* Xoá một khoá kéo theo lab, nhiệm vụ, ghi danh và điểm. Gọi tên những thứ
+          mất theo mới là khác biệt giữa một lời xác nhận và một thủ tục. */}
+      {deleting && (
+        <ConfirmModal
+          title={`Xoá "${deleting.title}"?`}
+          confirmLabel={remove.isPending ? 'Đang xoá…' : 'Xoá khoá học'}
+          tone="danger"
+          busy={remove.isPending}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => {
+            remove.mutate(deleting.id)
+            setDeleting(null)
+          }}
+        >
+          <p>Mất theo:</p>
+          <ul className="ml-4 list-disc space-y-1">
+            <li>
+              <strong className="text-fg-strong">{deleting.lab_count}</strong> lab,
+              kèm toàn bộ nhiệm vụ của chúng
+            </li>
+            <li>
+              <strong className="text-fg-strong">{deleting.student_count}</strong>{' '}
+              lượt ghi danh
+            </li>
+            <li>toàn bộ điểm học viên đã kiếm được ở khoá này</li>
+          </ul>
+          <p className="text-danger">Không khôi phục được.</p>
+        </ConfirmModal>
+      )}
     </div>
   )
 }
@@ -322,11 +345,14 @@ function RowActions({
 }) {
   return (
     <>
+      {/* "Nội dung" rather than "Lab & nhiệm vụ": the page behind it also holds
+          the revision notes now, and a link that names only half of what is
+          there is a link nobody clicks looking for the other half. */}
       <Link
         to={`/admin/courses/${course.id}`}
         className="rounded px-2 py-1 text-sm text-accent-soft transition hover:bg-muted"
       >
-        Lab &amp; nhiệm vụ
+        Nội dung
       </Link>
       <Link
         to={`/admin/courses/${course.id}/edit`}

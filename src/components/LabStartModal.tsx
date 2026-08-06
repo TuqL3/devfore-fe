@@ -122,16 +122,29 @@ export function LabStartModal({
             {busy ? (
               <p className="mt-5 flex items-center gap-2.5 text-sm text-fg-strong">
                 <Spinner />
-                Đang tạo container riêng cho bạn…
+                {lab.is_sim ? 'Đang mở bài…' : 'Đang tạo container riêng cho bạn…'}
               </p>
             ) : (
               <p className="mt-4 flex items-start gap-2 text-sm leading-relaxed text-fg-muted">
                 <ClockIcon className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>
-                  Một container Linux riêng sẽ được tạo cho bạn và{' '}
-                  <strong className="text-fg">tự xoá sau 60 phút</strong>. Mọi thứ
-                  bên trong mất theo nó, nên đừng để gì quan trọng ở đấy.
-                </span>
+                {/* Bài mô phỏng không tạo container nào. Hứa một cái rồi không
+                    đưa ra là câu nói dối cuối cùng học viên đọc trước khi bắt
+                    đầu — và cũng khiến cảnh báo "mọi thứ bên trong mất theo"
+                    thành vô nghĩa. */}
+                {lab.is_sim ? (
+                  <span>
+                    Bài này không có container: bạn viết pipeline, server mô phỏng
+                    lịch chạy. Phiên{' '}
+                    <strong className="text-fg">tự đóng sau 60 phút</strong>, các
+                    lượt đã chạy vẫn xem lại được.
+                  </span>
+                ) : (
+                  <span>
+                    Một container Linux riêng sẽ được tạo cho bạn và{' '}
+                    <strong className="text-fg">tự xoá sau 60 phút</strong>. Mọi thứ
+                    bên trong mất theo nó, nên đừng để gì quan trọng ở đấy.
+                  </span>
+                )}
               </p>
             )}
 

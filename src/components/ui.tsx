@@ -4,6 +4,7 @@ import {
   type InputHTMLAttributes,
 } from 'react'
 import { AlertIcon, EyeIcon, EyeOffIcon } from '@/components/icons'
+import { parseJsonObject } from '@/lib/json'
 
 export function Button({
   className = '',
@@ -99,6 +100,64 @@ export function Field({
       </span>
       {children}
     </label>
+  )
+}
+
+/** A JSON object typed by hand. The parsed value goes up to the form; the text
+ *  being typed stays here, because `JSON.stringify(JSON.parse(x))` is not `x`
+ *  and round-tripping every keystroke would rewrite the author's indentation
+ *  under their cursor.
+ *
+ *  Broken JSON reports here and clears the value rather than sending it: the
+ *  server would refuse it anyway, and the message it sends back arrives after a
+ *  save the author thought had worked.
+ *
+ *  ponytail: a textarea, not an editor — this is one pasted object per lab, and
+ *  a JSON editor is a dependency plus a bundle for a box used twice. */
+export function JsonField({
+  label,
+  hint,
+  value,
+  onChange,
+  rows = 8,
+  placeholder,
+}: {
+  label: string
+  hint?: string
+  value: Record<string, unknown> | null
+  onChange: (v: Record<string, unknown> | null) => void
+  rows?: number
+  placeholder?: string
+}) {
+  const [text, setText] = useState(() =>
+    value ? JSON.stringify(value, null, 2) : '',
+  )
+  const [error, setError] = useState('')
+
+  const edit = (next: string) => {
+    setText(next)
+    const { value, error } = parseJsonObject(next)
+    setError(error)
+    onChange(value)
+  }
+
+  return (
+    <Field label={label} hint={error || hint}>
+      <textarea
+        rows={rows}
+        spellCheck={false}
+        value={text}
+        onChange={(e) => edit(e.target.value)}
+        placeholder={placeholder}
+        className={
+          'w-full resize-y rounded-md border bg-bg px-3 py-2.5 font-mono text-sm text-fg outline-none ' +
+          'field-sizing-content max-h-[60vh] transition placeholder:text-fg-subtle ' +
+          (error
+            ? 'border-danger focus:ring-2 focus:ring-danger/25'
+            : 'border-border-strong focus:border-accent focus:ring-2 focus:ring-accent/25')
+        }
+      />
+    </Field>
   )
 }
 

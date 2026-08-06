@@ -31,6 +31,11 @@ export type LabInput = {
   duration_minutes: number;
   /** null = chưa gán image. Lab như vậy lưu được nhưng học viên chưa mở được. */
   lab_image_id: number | null;
+  /** Kịch bản mô phỏng. Có giá trị nghĩa là lab này chạy pipeline chứ không chạy
+   *  container — server từ chối lab vừa có image vừa có kịch bản. Kiểu để lỏng
+   *  vì server cũng chỉ kiểm tới mức "là một object": hiểu được nội dung là việc
+   *  của engine, không phải của form này. */
+  sim_scenario: Record<string, unknown> | null;
   order_idx: number;
 };
 
@@ -47,18 +52,32 @@ export type TaskInput = {
   title: string;
   hint: string;
   /** 'script' chấm bằng shell trong container, 'choice' chấm bằng đáp án đã
-   *  tick, 'command' chấm bằng lệnh học viên đã gõ. */
-  kind: "script" | "choice" | "command";
+   *  tick, 'command' chấm bằng lệnh học viên đã gõ, 'sim' chấm bằng lượt chạy
+   *  pipeline gần nhất. */
+  kind: "script" | "choice" | "command" | "sim";
   /** The answer key. Only ever fetched and sent by admin screens. */
   check_script: string;
   options: AdminOption[];
   /** Các lệnh được chấp nhận, mỗi dòng một lệnh. Cũng là đáp án — admin-only. */
   expected_commands: string;
+  /** Điều kiện đạt của bài mô phỏng. Cũng là đáp án: nó nói thẳng lịch chạy mà
+   *  đề bài đang đòi, nên chỉ đi qua đúng các endpoint admin. */
+  sim_goal: Record<string, unknown> | null;
   points: number;
   order_idx: number;
 };
 
 export type AdminTask = TaskInput & { id: number };
+
+/** Một bài trong tab Ôn tập của khoá học. Không thuộc lab nào — nó là tài liệu
+ *  của cả khoá, đọc được mà không cần mở container. */
+export type ReviewInput = {
+  title: string;
+  content_md: string;
+  order_idx: number;
+};
+
+export type AdminReview = ReviewInput & { id: number };
 
 export type LabImage = {
   id: number;
@@ -143,6 +162,24 @@ export const adminApi = {
 
   deleteTask: (taskID: number) =>
     request<void>(`/api/admin/tasks/${taskID}`, { method: "DELETE" }),
+
+  reviews: (courseID: number) =>
+    request<AdminReview[]>(`/api/admin/courses/${courseID}/reviews`),
+
+  createReview: (courseID: number, input: ReviewInput) =>
+    request<AdminReview>(`/api/admin/courses/${courseID}/reviews`, {
+      method: "POST",
+      body: input,
+    }),
+
+  updateReview: (reviewID: number, input: ReviewInput) =>
+    request<AdminReview>(`/api/admin/reviews/${reviewID}`, {
+      method: "PUT",
+      body: input,
+    }),
+
+  deleteReview: (reviewID: number) =>
+    request<void>(`/api/admin/reviews/${reviewID}`, { method: "DELETE" }),
 
   stats: () => request<AdminStats>("/api/admin/stats"),
 
