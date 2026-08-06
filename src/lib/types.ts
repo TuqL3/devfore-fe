@@ -55,8 +55,67 @@ export interface Lab {
   description_md: string
   duration_minutes: number
   order_idx: number
+  /** Bắt đầu bài này có tạo container không. Nằm ở danh sách để hộp thoại trước
+   *  nút Bắt đầu thôi hứa một container mà lab mô phỏng không bao giờ tạo. */
+  is_sim: boolean
   task_count: number
   points: number
+}
+
+/** Một step trong catalog của lab mô phỏng: mất bao lâu và làm gì với những
+ *  thứ quanh nó. Không có trường nào là bí mật — học viên phải đọc được hết
+ *  thì mới viết được pipeline. */
+export interface SimStepSpec {
+  seconds: number
+  /** Khoá cache mà công việc của step này thuộc về. Job phải tự khai khoá đó
+   *  mới được giảm giá — quên khai chính là lỗi bài học muốn dạy. */
+  cacheable?: string
+  produces?: string
+  consumes?: string
+  /** Phần trăm số lượt hỏng, 0..100. */
+  flaky?: number
+}
+
+/** Một pipeline tác giả viết sẵn, bấm một cái là nạp vào ô soạn.
+ *
+ *  Bài học ở đây là một phép so sánh — cùng chừng ấy việc, xếp hai kiểu thì mất
+ *  hai khoảng thời gian khác nhau — mà so sánh thì cần đủ hai vế. Một ô soạn
+ *  trống bắt người mới tự nghĩ ra cả hai. */
+export interface SimExample {
+  title: string
+  /** Một dòng nói cách xếp này tốn bao nhiêu và vì sao. */
+  note?: string
+  pipeline: string
+}
+
+/** Nửa do tác giả viết của một lab mô phỏng. `null` nghĩa là lab container. */
+export interface SimScenario {
+  version: number
+  runner_count: number
+  cache_restore_seconds?: number
+  catalog: Record<string, SimStepSpec>
+  /** Engine không đọc trường này; nó chỉ để dựng mấy nút mẫu. */
+  examples?: SimExample[]
+}
+
+/** Một lượt trong hội thoại nhờ AI dựng kịch bản. Lượt `assistant` mang JSON
+ *  kịch bản lần trước, nên câu tiếp theo có thể là "đổi runner thành 4" thay vì
+ *  phải mô tả lại từ đầu. */
+export interface SimGenTurn {
+  role: "user" | "assistant"
+  text: string
+}
+
+/** Kết quả một lượt nhờ AI. `scenario` đã qua `CheckScenario` và từng ví dụ đã
+ *  qua `Parse` **trên server** — thứ tới đây là thứ bấm Chạy được.
+ *
+ *  `attempts` là số lần server phải hỏi model. Bằng 2 nghĩa là lần đầu engine
+ *  không chạy được và chính câu báo lỗi của engine đã sửa nó. Hiện ra cho người
+ *  dùng thấy, vì đó là khác biệt giữa một câu trả lời may mắn và một câu đã kiểm. */
+export interface SimGenResult {
+  scenario: SimScenario
+  notes: string
+  attempts: number
 }
 
 /** Một khoá học viên đã đăng ký, kèm tiến độ của chính họ. Điểm và số lab đã
@@ -93,8 +152,9 @@ export interface LeaderRow {
 export interface LabTask {
   id: number
   title: string
-  /** 'script' làm trong terminal, 'choice' chọn đáp án, 'command' gõ lệnh. */
-  kind: 'script' | 'choice' | 'command'
+  /** 'script' làm trong terminal, 'choice' chọn đáp án, 'command' gõ lệnh,
+   *  'sim' chấm theo lượt chạy pipeline gần nhất. */
+  kind: 'script' | 'choice' | 'command' | 'sim'
   /** Chỉ phần chữ của các lựa chọn — đáp án đúng nằm ở server. Rỗng với
    *  nhiệm vụ thực hành. */
   options: string[]
@@ -109,7 +169,85 @@ export interface LabTask {
 }
 
 export interface LabDetail extends Lab {
+  /** Có giá trị thì đây là lab mô phỏng: không có container, không có terminal,
+   *  học viên viết pipeline. `null` là lab container như cũ. Đây là thứ duy
+   *  nhất phân biệt hai loại — không có cờ thứ hai để lệch với nó. */
+  sim_scenario: SimScenario | null
   tasks: LabTask[]
+}
+
+/** Một mô phỏng trong danh sách. Nội dung nằm trong code (`src/sims/`), không
+ *  trong database và không có màn quản trị — xem chú thích ở `registry.ts`. */
+export interface SimEntry {
+  slug: string
+  title: string
+  /** Engine nào chạy nó. Quyết định cả cách vẽ kết quả. */
+  engine: 'cicd'
+  category: string
+  tags: string[]
+  scenario: SimScenario
+  /** Trả lời "đây là gì" — thẻ đầu tiên, và bản rút gọn trên danh sách. */
+  description: string
+  /** Cú pháp và luật của riêng mô phỏng này. Rỗng thì mục đó tự ẩn. */
+  guide: string
+  /** Người dùng có được sửa catalog không.
+   *
+   *  Chỉ đúng với mô phỏng tự dựng. Mô phỏng tác giả viết là **cứng**: bộ step
+   *  và số giây của nó chính là bài học, và một ô mời sửa nó đi ngay bên dưới
+   *  vừa mâu thuẫn với bài học vừa mời người mới đi chệch khỏi nó. */
+  editable?: boolean
+}
+
+/** Một step trong kết quả chạy. `cached` nghĩa là công việc được khôi phục chứ
+ *  không phải làm lại. `flaky` bật với mọi step tác giả khai là flaky, hỏng hay
+ *  không — cờ chứ không phải câu chữ, để chỗ đọc lại không phải so khớp văn. */
+export interface SimRunStep {
+  uses: string
+  start: number
+  end: number
+  status: 'success' | 'failed' | 'skipped'
+  cached?: boolean
+  cache_key?: string
+  flaky?: boolean
+  reason?: string
+}
+
+/** `runner` là -1 với job không bao giờ chạy. `skipped` khác `failed`: job đó
+ *  không có kết quả của riêng nó, gọi là hỏng thì chỉ sai chỗ cho học viên. */
+export interface SimRunJob {
+  name: string
+  runner: number
+  start: number
+  end: number
+  status: 'success' | 'failed' | 'skipped'
+  reason?: string
+  steps: SimRunStep[]
+}
+
+/** Một lần bấm Run, trọn vẹn. Server tính cả timeline trong một lần nên đây là
+ *  mốc thời gian chứ không phải luồng sự kiện. */
+export interface SimRunResult {
+  run_index: number
+  status: 'success' | 'failed'
+  total_seconds: number
+  /** Chuỗi job kết thúc ở job xong muộn nhất, lần ngược theo `needs`. Là xấp xỉ
+   *  khi runner ít hơn số job sẵn sàng: xếp hàng đợi runner không phải phụ
+   *  thuộc dữ liệu nên không hiện ra trong chuỗi. */
+  critical_path: string[]
+  jobs: SimRunJob[]
+  insights: string[]
+  /** Khoá cache còn ấm sau lượt này, mang sang lượt sau. */
+  warm_caches: string[]
+}
+
+/** Một lượt đã lưu. Mang theo cả pipeline vì kết quả trơ trọi thì không kiểm
+ *  lại được: không có văn bản sinh ra nó thì không phân biệt được bản phát lại
+ *  trung thực với bản viết lại. */
+export interface SimRun {
+  run_index: number
+  pipeline: string
+  result: SimRunResult
+  created_at: string
 }
 
 /** What one press of the check button changed. `points_awarded` is 0 for a task

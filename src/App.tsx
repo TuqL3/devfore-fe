@@ -21,6 +21,9 @@ import AdminUsers from '@/pages/AdminUsers'
 import AdminAudit from '@/pages/AdminAudit'
 import AdminCourse from '@/pages/AdminCourse'
 import AdminCourseForm from '@/pages/AdminCourseForm'
+import SimList from '@/pages/SimList'
+import SimPlayground from '@/pages/SimPlayground'
+import { NotFound } from '@/pages/NotFound'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
 export default function App() {
@@ -49,6 +52,14 @@ export default function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/history" element={<LabHistory />} />
           <Route path="/chat" element={<Chat />} />
+          {/* Trình mô phỏng ở dạng công cụ: không khoá học, không phiên,
+              không điểm. Cần đăng nhập vì mỗi lượt chạy tốn CPU của server,
+              không vì có gì để bảo vệ.
+              Cả hai đều nằm trong Layout như mọi trang khác — bản trước tách ra
+              toàn màn hình và kết cục là một trang không giống chỗ nào còn lại
+              của trang web. */}
+          <Route path="/sim" element={<SimList />} />
+          <Route path="/sim/:slug" element={<SimPlayground />} />
           {/* One screen for both ways in: opened from the list, or landed on
               straight after handing a lab in, which adds ?done=1. */}
           <Route path="/history/:id" element={<LabReport />} />
@@ -71,8 +82,16 @@ export default function App() {
             <Route path="courses/new" element={<AdminCourseForm />} />
             <Route path="courses/:id/edit" element={<AdminCourseForm />} />
             <Route path="courses/:id" element={<AdminCourse />} />
+            {/* Đặt trong nhánh quản trị chứ không dựa vào cái ở dưới: `/admin`
+                đã khớp rồi, nên route bắt-tất-cả ngoài kia không bao giờ tới
+                lượt — AdminLayout sẽ hiện ra với chỗ nội dung trống. */}
+            <Route path="*" element={<NotFound variant="admin" />} />
           </Route>
         </Route>
+
+        {/* Cuối cùng, và trong Layout: đường dẫn không khớp gì vẫn nên có thanh
+            điều hướng, vì thứ người lạc cần là đường ra. */}
+        <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
   )

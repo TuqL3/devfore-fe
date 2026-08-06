@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check": "node --experimental-strip-types src/lib/json.check.ts && node --experimental-strip-types src/lib/sim.check.ts"
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.20",

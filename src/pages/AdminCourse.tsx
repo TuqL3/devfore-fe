@@ -13,7 +13,8 @@ import {
   type TaskInput,
 } from '@/api/admin'
 import { ApiError } from '@/lib/api'
-import { Button, Card, ErrorBox, Field, Input } from '@/components/ui'
+import { Button, Card, ErrorBox, Field, Input, JsonField } from '@/components/ui'
+import { ConfirmModal } from '@/components/ConfirmModal'
 import { MarkdownEditor, Prose } from '@/components/MarkdownEditor'
 import {
   ArrowLeftIcon,
@@ -30,6 +31,7 @@ const EMPTY_LAB: LabInput = {
   description_md: '',
   duration_minutes: 60,
   lab_image_id: null,
+  sim_scenario: null,
   order_idx: 0,
 }
 
@@ -49,6 +51,7 @@ const EMPTY_TASK: TaskInput = {
   check_script: '',
   options: [],
   expected_commands: '',
+  sim_goal: null,
   points: 10,
   order_idx: 0,
 }
@@ -64,6 +67,7 @@ const KIND_CHOICES: { value: TaskInput['kind']; label: string; hint: string }[] 
   { value: 'script', label: 'Thực hành', hint: 'chấm bằng script trong container' },
   { value: 'command', label: 'Gõ lệnh', hint: 'chấm bằng lệnh học viên đã gõ' },
   { value: 'choice', label: 'Lý thuyết', hint: 'chọn đáp án đúng' },
+  { value: 'sim', label: 'Pipeline', hint: 'chấm bằng lượt chạy mô phỏng' },
 ]
 
 // field-sizing grows the box with what is typed instead of leaving the author
@@ -76,7 +80,31 @@ const textarea =
 
 const select =
   'w-full rounded-md border border-border-strong bg-bg px-3 py-2.5 text-fg outline-none ' +
-  'transition focus:border-accent focus:ring-2 focus:ring-accent/25'
+  'transition focus:border-accent focus:ring-2 focus:ring-accent/25 disabled:opacity-50'
+
+// Placeholder chứ không phải giá trị mặc định: một lab mô phỏng mới phải là do
+// tác giả quyết định, còn đây chỉ nói hình dạng.
+const SCENARIO_EXAMPLE = `{
+  "version": 1,
+  "runner_count": 2,
+  "cache_restore_seconds": 8,
+  "catalog": {
+    "checkout":  { "seconds": 5 },
+    "npm-ci":    { "seconds": 90, "cacheable": "node_modules" },
+    "npm-build": { "seconds": 60, "produces": "dist" },
+    "e2e":       { "seconds": 200, "flaky": 30 }
+  }
+}`
+
+const GOAL_EXAMPLE = `{
+  "all": [
+    { "run_status": "success" },
+    { "total_seconds_lte": 360 },
+    { "jobs_parallel": ["test", "build"] },
+    { "cache_hit": "node_modules" },
+    { "job_present": "lint" }
+  ]
+}`
 
 /** Labs of one course on the left, the questions of the selected lab on the
  *  right. One screen rather than two: writing a lab means writing its questions,
@@ -88,6 +116,9 @@ export default function AdminCourse() {
 
   const [labForm, setLabForm] = useState<LabInput | null>(null)
   const [editingLab, setEditingLab] = useState<AdminLab | null>(null)
+  // Lab đang chờ xác nhận xoá. Giữ cả object để hộp thoại đọc được tên và số
+  // nhiệm vụ mà không phải dò lại danh sách.
+  const [deletingLab, setDeletingLab] = useState<AdminLab | null>(null)
   // Which lab is open, and which tab, live in the URL rather than in state: they
   // survive a reload, they can be linked to, and Back steps between them instead
   // of leaving the page. Both are written through a merge, so setting one does
@@ -183,6 +214,7 @@ export default function AdminCourse() {
             description_md: lab.description_md,
             duration_minutes: lab.duration_minutes,
             lab_image_id: lab.lab_image_id,
+            sim_scenario: lab.sim_scenario,
             order_idx: lab.order_idx,
           }
         : EMPTY_LAB,
@@ -309,13 +341,18 @@ export default function AdminCourse() {
                       <ClockIcon className="h-3.5 w-3.5" />
                       {l.duration_minutes}′
                     </span>
-                    {/* Worth saying out loud: the session query joins lab_images
-                        inner, so a lab without one fails at Start, not at save. */}
-                    {l.lab_image_id === null && (
+                    {/* Worth saying out loud: a lab with neither an image nor a
+                        scenario fails at Start, not at save. A sim lab is not
+                        missing an image — it is the other kind of lab. */}
+                    {l.sim_scenario !== null ? (
+                      <span className="mt-1.5 block rounded bg-muted px-2 py-0.5 text-xs text-fg-muted">
+                        lab mô phỏng — không có container
+                      </span>
+                    ) : l.lab_image_id === null ? (
                       <span className="mt-1.5 block rounded bg-danger/10 px-2 py-0.5 text-xs text-danger">
                         chưa gán image — chưa chạy được
                       </span>
-                    )}
+                    ) : null}
                   </button>
                   <div
                     className={
@@ -329,13 +366,7 @@ export default function AdminCourse() {
                       Sửa
                     </button>
                     <button
-                      onClick={() => {
-                        const msg =
-                          `Xoá lab "${l.title}"?\n\n` +
-                          `Mất theo ${l.task_count} nhiệm vụ và tiến độ học viên đã làm ở lab này. ` +
-                          `Không khôi phục được.`
-                        if (confirm(msg)) removeLab.mutate(l.id)
-                      }}
+                      onClick={() => setDeletingLab(l)}
                       className="rounded px-2 py-0.5 text-xs text-danger transition hover:bg-danger/10"
                     >
                       Xoá
@@ -353,6 +384,10 @@ export default function AdminCourse() {
         <section className="min-w-0">
           {labForm ? (
             <LabForm
+              // Ô JSON giữ văn bản đang gõ ở bên trong nó, nên chuyển sang sửa
+              // lab khác phải dựng lại form — không thì kịch bản của lab trước
+              // ở lại trong ô.
+              key={editingLab?.id ?? 'new'}
               value={labForm}
               editing={Boolean(editingLab)}
               images={images.data ?? []}
@@ -393,6 +428,29 @@ export default function AdminCourse() {
         </section>
       </div>
       )}
+
+      {/* Xoá một lab kéo theo nhiệm vụ và tiến độ học viên đã làm ở đó. Gọi tên
+          những thứ mất theo mới là khác biệt giữa xác nhận và thủ tục. */}
+      {deletingLab && (
+        <ConfirmModal
+          title={`Xoá lab "${deletingLab.title}"?`}
+          confirmLabel={removeLab.isPending ? 'Đang xoá…' : 'Xoá lab'}
+          tone="danger"
+          busy={removeLab.isPending}
+          onClose={() => setDeletingLab(null)}
+          onConfirm={() => {
+            removeLab.mutate(deletingLab.id)
+            setDeletingLab(null)
+          }}
+        >
+          <p>
+            Mất theo{' '}
+            <strong className="text-fg-strong">{deletingLab.task_count}</strong>{' '}
+            nhiệm vụ và tiến độ học viên đã làm ở lab này.
+          </p>
+          <p className="text-danger">Không khôi phục được.</p>
+        </ConfirmModal>
+      )}
     </div>
   )
 }
@@ -412,6 +470,7 @@ function ReviewPanel({
   const qc = useQueryClient()
   const [form, setForm] = useState<ReviewInput | null>(null)
   const [editing, setEditing] = useState<AdminReview | null>(null)
+  const [deleting, setDeleting] = useState<AdminReview | null>(null)
 
   const reviews = useQuery({
     queryKey: ['admin-reviews', courseID],
@@ -545,11 +604,7 @@ function ReviewPanel({
                     Sửa
                   </button>
                   <button
-                    onClick={() => {
-                      if (confirm(`Xoá bài ôn tập "${r.title}"? Không khôi phục được.`)) {
-                        remove.mutate(r.id)
-                      }
-                    }}
+                    onClick={() => setDeleting(r)}
                     className="rounded px-2 py-0.5 text-xs text-danger transition hover:bg-danger/10"
                   >
                     Xoá
@@ -569,6 +624,31 @@ function ReviewPanel({
             </li>
           ))}
         </ul>
+      )}
+
+      {deleting && (
+        <ConfirmModal
+          title="Xoá bài ôn tập?"
+          confirmLabel={remove.isPending ? 'Đang xoá…' : 'Xoá'}
+          tone="danger"
+          busy={remove.isPending}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => {
+            remove.mutate(deleting.id)
+            setDeleting(null)
+          }}
+        >
+          <p>
+            Bài <strong className="text-fg-strong">{deleting.title}</strong> sẽ mất.
+          </p>
+          {/* Không chấm điểm nên không ai mất tiến độ — nói ra để người xoá khỏi
+              phải đoán. */}
+          <p>
+            Không ai mất tiến độ gì: bài ôn tập là tài liệu để đọc, không phải bài
+            có điểm.
+          </p>
+          <p className="text-danger">Không khôi phục được.</p>
+        </ConfirmModal>
       )}
     </Card>
   )
@@ -593,6 +673,8 @@ function LabForm({
 }) {
   const set = <K extends keyof LabInput>(k: K, v: LabInput[K]) =>
     onChange({ ...value, [k]: v })
+
+  const sim = value.sim_scenario !== null
 
   return (
     <form
@@ -654,6 +736,8 @@ function LabForm({
             <select
               className={select}
               value={value.lab_image_id ?? ''}
+              disabled={sim}
+              title={sim ? 'Lab mô phỏng không có container' : undefined}
               onChange={(e) =>
                 set('lab_image_id', e.target.value ? Number(e.target.value) : null)
               }
@@ -668,6 +752,34 @@ function LabForm({
             </select>
           </Field>
         </div>
+
+        {/* Một lab chạy container hoặc mô phỏng pipeline, không bao giờ cả hai —
+            server và cả ràng buộc trong database đều nói vậy. Ở đây ô nào có
+            nội dung thì ô kia khoá lại, để tác giả không điền xong mới bị từ
+            chối. */}
+        <JsonField
+          label="Kịch bản mô phỏng"
+          hint={
+            value.lab_image_id !== null
+              ? 'lab này đã gán image — bỏ image mới dùng được'
+              : 'để trống = lab container'
+          }
+          value={value.sim_scenario}
+          onChange={(v) => set('sim_scenario', v)}
+          placeholder={SCENARIO_EXAMPLE}
+        />
+        {sim && (
+          <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
+            Học viên đọc được cả bảng này — pipeline viết ra từ chính nó, giấu đi
+            thì chỉ còn cách đoán tên step. Đừng để lời giải trong đó.
+            <br />
+            Số giây là <strong className="text-fg-muted">thời gian mô phỏng</strong>,
+            không đo từ CI thật. Bài học nằm ở tỉ lệ giữa các cách xếp job.
+            <br />
+            Chỉ hình dạng JSON được kiểm lúc lưu. Sai tên khoá thì tới lúc bấm
+            Chạy pipeline mới lộ ra — chạy thử một lượt trước khi publish.
+          </p>
+        )}
       </div>
 
       {/* Actions on their own bar, so a long form always ends the same way. */}
@@ -790,6 +902,7 @@ function TaskPanel({
   const qc = useQueryClient()
   const [form, setForm] = useState<TaskInput | null>(null)
   const [editing, setEditing] = useState<AdminTask | null>(null)
+  const [deleting, setDeleting] = useState<AdminTask | null>(null)
   // The command that performs the task. Kept out of TaskInput on purpose: it is
   // never saved, it only exists so a trial can check the passing direction too.
   const [setup, setSetup] = useState('')
@@ -929,6 +1042,43 @@ function TaskPanel({
               options={form.options}
               onChange={(options) => setForm({ ...form, options })}
             />
+          )}
+
+          {form.kind === 'sim' && (
+            <>
+              <JsonField
+                // Cùng lý do như form lab: ô giữ văn bản bên trong, chuyển sang
+                // sửa nhiệm vụ khác phải dựng lại nó.
+                key={editing?.id ?? 'new'}
+                label="Điều kiện đạt"
+                hint="mọi mệnh đề trong all đều phải đúng"
+                value={form.sim_goal}
+                onChange={(v) => set('sim_goal', v)}
+                placeholder={GOAL_EXAMPLE}
+              />
+              <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
+                Chấm theo <strong className="text-fg-muted">lượt chạy gần nhất</strong>{' '}
+                của học viên, không theo văn bản họ gõ — nên bài chấp nhận mọi
+                pipeline đạt được kết quả đó.
+                <br />
+                Năm mệnh đề dùng được:{' '}
+                <code className="font-mono">run_status</code>,{' '}
+                <code className="font-mono">total_seconds_lte</code>,{' '}
+                <code className="font-mono">jobs_parallel</code>,{' '}
+                <code className="font-mono">cache_hit</code>,{' '}
+                <code className="font-mono">job_present</code>. Chỉ có{' '}
+                <code className="font-mono">all</code>, không có{' '}
+                <code className="font-mono">any</code>: bài chấp nhận một trong
+                hai đáp án là hai nhiệm vụ.
+                <br />
+                <code className="font-mono">jobs_parallel</code> đòi hai job thật
+                sự chồng thời gian — chạm mép không tính, vì đó là bàn giao trên
+                một runner.
+                <br />
+                Để trống thì lưu được nhưng học viên không đạt được — bỏ trống là
+                nhiệm vụ chưa viết xong, không phải nhiệm vụ dễ.
+              </p>
+            </>
           )}
 
           {form.kind === 'command' && (
@@ -1191,14 +1341,10 @@ function TaskPanel({
                     </button>
                     <button
                       onClick={(e) => {
+                        // preventDefault, hoặc cú bấm này cũng gập luôn hàng nó
+                        // đang nằm trong.
                         e.preventDefault()
-                        if (
-                          confirm(
-                            `Xoá nhiệm vụ này?\n\n"${t.title}"\n\n` +
-                              `Điểm học viên đã nhận cho nhiệm vụ này cũng mất theo.`,
-                          )
-                        )
-                          remove.mutate(t.id)
+                        setDeleting(t)
                       }}
                       className="rounded px-2 py-1 text-xs text-danger transition hover:bg-danger/10"
                     >
@@ -1208,7 +1354,13 @@ function TaskPanel({
                 </summary>
 
                 <div className="px-5 pb-3 pl-16">
-                  {t.kind === 'command' ? (
+                  {t.kind === 'sim' ? (
+                    <pre className="overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
+                      {t.sim_goal
+                        ? JSON.stringify(t.sim_goal, null, 2)
+                        : '(chưa có điều kiện chấm — học viên không đạt được nhiệm vụ này)'}
+                    </pre>
+                  ) : t.kind === 'command' ? (
                     <pre className="overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
                       {t.expected_commands}
                     </pre>
@@ -1240,6 +1392,24 @@ function TaskPanel({
           </li>
         ))}
       </ol>
+
+      {deleting && (
+        <ConfirmModal
+          title="Xoá nhiệm vụ?"
+          confirmLabel={remove.isPending ? 'Đang xoá…' : 'Xoá nhiệm vụ'}
+          tone="danger"
+          busy={remove.isPending}
+          onClose={() => setDeleting(null)}
+          onConfirm={() => {
+            remove.mutate(deleting.id)
+            setDeleting(null)
+          }}
+        >
+          <p className="text-fg-strong">{deleting.title}</p>
+          <p>Điểm học viên đã nhận cho nhiệm vụ này cũng mất theo.</p>
+          <p className="text-danger">Không khôi phục được.</p>
+        </ConfirmModal>
+      )}
     </Card>
   )
 }
@@ -1248,9 +1418,10 @@ const KINDS: Record<AdminTask['kind'], string> = {
   script: 'Thực hành',
   command: 'Gõ lệnh',
   choice: 'Lý thuyết',
+  sim: 'Pipeline',
 }
 
-/** How the question is marked. Three kinds are marked three different ways, and
+/** How the question is marked. Four kinds are marked four different ways, and
  *  the body below only shows the answer key — not what it is. */
 function KindBadge({ kind }: { kind: AdminTask['kind'] }) {
   return (

@@ -7,7 +7,7 @@ import { Logo } from '@/components/Logo'
 import { RouteProgress } from '@/components/RouteProgress'
 import { Avatar } from '@/components/Avatar'
 import { SignOutButton } from '@/components/SignOutButton'
-import { BookIcon, ClockIcon, LogOutIcon, UsersIcon } from '@/components/icons'
+import { BookIcon, ClockIcon, LayersIcon, LogOutIcon, UsersIcon } from '@/components/icons'
 import { useLevels } from '@/lib/levels'
 
 function navClass({ isActive }: { isActive: boolean }) {
@@ -74,16 +74,21 @@ export default function Layout() {
               <BookIcon className="h-4 w-4" />
               Khoá học
             </NavLink>
-            {/* Only for someone who has a history to read. */}
-            {user && (
-              <NavLink to="/history" className={navClass}>
-                <ClockIcon className="h-4 w-4" />
-                Lịch sử
-              </NavLink>
-            )}
-            {/* The room needs an account to post in, so it is not offered to
-                anyone who cannot. */}
-            {user && <ChatLink />}
+            {/* Hiện cả khi chưa đăng nhập. Giấu đi thì khách không biết trang
+                này có gì, và "đăng ký để dùng cái gì?" là câu không ai trả lời
+                được từ một thanh nav trống. Bấm vào thì `ProtectedRoute` đưa
+                sang /login rồi quay lại đúng đây. */}
+            <NavLink to="/history" className={navClass}>
+              <ClockIcon className="h-4 w-4" />
+              Lịch sử
+            </NavLink>
+            {/* Trình mô phỏng không thuộc khoá nào, nên nó là mục riêng chứ
+                không nằm trong Khoá học — khoá học để dạy, chỗ này để nghịch. */}
+            <NavLink to="/sim" className={navClass}>
+              <LayersIcon className="h-4 w-4" />
+              Mô phỏng
+            </NavLink>
+            <ChatLink />
             {isAdmin && (
               <NavLink to="/admin" className={navClass}>
                 Quản trị

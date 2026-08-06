@@ -4,10 +4,12 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { labsApi } from '@/api/labs'
 import { coursesApi } from '@/api/courses'
+import { ApiError } from '@/lib/api'
 import type { CheckResult, LabDetail, LabSession, LabTask } from '@/lib/types'
 import { useAuth } from '@/context/AuthContext'
 import { Avatar } from '@/components/Avatar'
 import { LabTerminal } from '@/components/LabTerminal'
+import { SimEditor } from '@/components/SimEditor'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { Prose as Markdown } from '@/components/MarkdownEditor'
 import {
@@ -25,6 +27,7 @@ const KIND_LABEL: Record<LabTask['kind'], string> = {
   script: 'Thực hành',
   command: 'Gõ lệnh',
   choice: 'Lý thuyết',
+  sim: 'Pipeline',
 }
 type Tab = (typeof TABS)[number]
 
@@ -122,6 +125,9 @@ export default function LabRunner() {
   const [reopened, setReopened] = useState<Record<number, boolean>>({})
 
   const session = current.data ?? null
+  // Có kịch bản là lab mô phỏng. Một trường, không phải một cờ riêng đi kèm —
+  // hai thứ có thể nói khác nhau, một thứ thì không.
+  const sim = lab.data?.sim_scenario ?? null
   const tasks = lab.data?.tasks ?? []
   // Passed in THIS attempt. The submit button and the dialog both count off it,
   // and the server refuses a hand-in that does not agree.
@@ -231,6 +237,12 @@ export default function LabRunner() {
                 setReopened((r) => ({ ...r, [task.id]: true }))
               }}
               failed={check.variables?.taskID === task?.id && check.isError}
+              // Chấm một bài mô phỏng có một cách hỏng mà học viên sửa được:
+              // chưa chạy pipeline lượt nào. Câu của server nói đúng điều đó,
+              // nên nó được hiện nguyên văn thay vì "không chấm được".
+              failMessage={
+                check.error instanceof ApiError ? check.error.message : ''
+              }
               checking={check.isPending}
               onCheck={(selected) =>
                 session &&
@@ -251,6 +263,31 @@ export default function LabRunner() {
 
         </aside>
 
+        {/* Một bài mô phỏng không có container nên cũng không có terminal. Chỗ
+            đó là nơi viết pipeline — cùng vị trí trên màn hình, vì với học viên
+            nó là cùng một việc: chỗ để làm bài. */}
+        {sim ? (
+          <main className="flex min-w-0 flex-1 flex-col bg-surface">
+            <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-4">
+              <span className="font-mono text-sm text-fg-muted">Pipeline mô phỏng</span>
+              <span className="text-xs text-fg-subtle">
+                thời gian mô phỏng, không phải đo từ CI thật
+              </span>
+            </div>
+            {session && mine ? (
+              <SimEditor
+                // Đổi phiên là đổi lịch sử lượt chạy và đổi cả ô soạn thảo. Không
+                // có key thì pipeline của phiên trước ở lại trên màn hình mới.
+                key={session.id}
+                sessionID={session.id}
+                scenario={sim}
+                live={session.status === 'running'}
+              />
+            ) : (
+              <p className="p-4 text-sm text-fg-subtle">Đang mở bài…</p>
+            )}
+          </main>
+        ) : (
         <main className="flex min-w-0 flex-1 flex-col bg-[#12141c]">
           <div className="flex h-10 shrink-0 items-center justify-between border-b border-white/10 px-4">
             <span className="font-mono text-sm text-zinc-300">Terminal</span>
@@ -286,6 +323,7 @@ export default function LabRunner() {
             )}
           </div>
         </main>
+        )}
       </div>
 
       {confirmStop && session && (
@@ -298,11 +336,13 @@ export default function LabRunner() {
           onConfirm={() => stop.mutate(session.id)}
         >
           <p>
-            Container của bạn sẽ bị xoá cùng mọi thứ bên trong. Không mở lại
-            được phiên này.
+            {sim
+              ? 'Phiên này đóng lại, các lượt chạy pipeline không tiếp tục được nữa.'
+              : 'Container của bạn sẽ bị xoá cùng mọi thứ bên trong. Không mở lại được phiên này.'}
           </p>
           <p>
-            Điểm các nhiệm vụ đã đạt vẫn được giữ — chỉ container là mất.
+            Điểm các nhiệm vụ đã đạt vẫn được giữ — chỉ{' '}
+            {sim ? 'phiên' : 'container'} là mất.
           </p>
         </ConfirmModal>
       )}
@@ -316,8 +356,8 @@ export default function LabRunner() {
           onConfirm={() => submit.mutate(session.id)}
         >
           <p>
-            Kết quả được chốt lại và container bị xoá. Phiên này không làm tiếp
-            được.
+            Kết quả được chốt lại{sim ? '' : ' và container bị xoá'}. Phiên này
+            không làm tiếp được.
           </p>
           {/* The number that decides whether they press it, said before they do
               rather than on the screen afterwards. */}
@@ -480,6 +520,7 @@ function TabBody({
   picked,
   onPick,
   failed,
+  failMessage,
   checking,
   onCheck,
   onReset,
@@ -499,6 +540,8 @@ function TabBody({
   picked: number[]
   onPick: (selected: number[]) => void
   failed: boolean
+  /** What the server said when the check itself could not run. */
+  failMessage: string
   checking: boolean
   /** Indexes ticked on a choice question; empty for a script one. */
   onCheck: (selected: number[]) => void
@@ -542,6 +585,7 @@ function TabBody({
       picked={picked}
       onPick={onPick}
       failed={failed}
+      failMessage={failMessage}
       checking={checking}
       onCheck={onCheck}
       onReset={onReset}
@@ -586,6 +630,7 @@ function TaskBody({
   picked,
   onPick,
   failed,
+  failMessage,
   checking,
   onCheck,
   onReset,
@@ -600,6 +645,7 @@ function TaskBody({
   picked: number[]
   onPick: (selected: number[]) => void
   failed: boolean
+  failMessage: string
   checking: boolean
   onCheck: (selected: number[]) => void
   /** Drops the last verdict, which starts a fresh attempt. */
@@ -756,7 +802,13 @@ function TaskBody({
               className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
             />
           )}
-          {checking ? 'Đang kiểm tra…' : choice ? 'Trả lời' : 'Đã hoàn thành'}
+          {checking
+            ? 'Đang kiểm tra…'
+            : choice
+              ? 'Trả lời'
+              : task.kind === 'sim'
+                ? 'Chấm lượt chạy gần nhất'
+                : 'Đã hoàn thành'}
         </button>
       )}
 
@@ -779,12 +831,16 @@ function TaskBody({
             ? 'Chưa đúng. Câu này có thể có nhiều đáp án — xem tab Gợi ý nếu cần.'
             : task.kind === 'command'
               ? 'Chưa thấy lệnh nào khớp. Chạy lệnh trong terminal rồi bấm lại — xem tab Gợi ý nếu cần.'
-              : 'Chưa đạt. Làm trong terminal rồi bấm kiểm tra lại — xem tab Gợi ý nếu cần.'}
+              : task.kind === 'sim'
+                ? 'Lượt chạy gần nhất chưa đạt yêu cầu. Sửa pipeline, chạy lại rồi bấm chấm — xem tab Gợi ý nếu cần.'
+                : 'Chưa đạt. Làm trong terminal rồi bấm kiểm tra lại — xem tab Gợi ý nếu cần.'}
         </p>
       )}
       {failed && (
         <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
-          Không chấm được lúc này. Kiểm tra phiên lab còn chạy rồi thử lại.
+          {/* Câu của server khi có: "hãy chạy pipeline một lượt trước khi nộp"
+              là việc học viên làm được, còn "không chấm được" thì không. */}
+          {failMessage || 'Không chấm được lúc này. Kiểm tra phiên lab còn chạy rồi thử lại.'}
         </p>
       )}
 
@@ -798,6 +854,14 @@ function TaskBody({
         <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
           Chạy lệnh trong terminal bên phải, xong thì bấm nút trên. Câu này chấm
           theo lệnh bạn đã gõ, nên gõ đúng lệnh chứ đừng chỉ đọc.
+        </p>
+      )}
+      {task.kind === 'sim' && !verdict?.passed && (
+        <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
+          Viết pipeline bên phải rồi bấm Chạy pipeline. Chấm theo{' '}
+          <strong className="text-fg-muted">lượt chạy gần nhất</strong>, không
+          theo văn bản đang gõ — sửa xong nhớ chạy lại. Số giây là thời gian mô
+          phỏng: cái đáng học là tỉ lệ giữa các cách xếp, không phải con số.
         </p>
       )}
     </div>

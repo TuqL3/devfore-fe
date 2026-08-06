@@ -208,6 +208,7 @@ const KIND_LABEL: Record<ReportAnswer['kind'], string> = {
   script: 'Thực hành',
   command: 'Gõ lệnh',
   choice: 'Lý thuyết',
+  sim: 'Pipeline',
 }
 
 function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) {
