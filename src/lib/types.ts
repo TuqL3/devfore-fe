@@ -176,26 +176,50 @@ export interface LabDetail extends Lab {
   tasks: LabTask[]
 }
 
-/** Một mô phỏng trong danh sách. Nội dung nằm trong code (`src/sims/`), không
- *  trong database và không có màn quản trị — xem chú thích ở `registry.ts`. */
-export interface SimEntry {
+/** Phần chung của mọi mô phỏng — thứ danh sách cần để vẽ một cái thẻ, không cần
+ *  biết engine nào chạy nó. */
+interface SimEntryBase {
   slug: string
   title: string
-  /** Engine nào chạy nó. Quyết định cả cách vẽ kết quả. */
-  engine: 'cicd'
   category: string
   tags: string[]
-  scenario: SimScenario
   /** Trả lời "đây là gì" — thẻ đầu tiên, và bản rút gọn trên danh sách. */
   description: string
   /** Cú pháp và luật của riêng mô phỏng này. Rỗng thì mục đó tự ẩn. */
   guide: string
+}
+
+/** Một mô phỏng trong danh sách. Nội dung nằm trong code (`src/sims/`), không
+ *  trong database và không có màn quản trị — xem chú thích ở `registry.ts`.
+ *
+ *  Union theo `engine`, không phải một interface có mấy trường tuỳ chọn: mỗi
+ *  engine mang đúng dữ liệu của nó và **bắt buộc**. Kiểu tuỳ chọn thì
+ *  `sim.scenario` thành `SimScenario | undefined` ở khắp 862 dòng của
+ *  `SimPlayground`, tức là 862 dòng phải học cách sống với một giá trị không bao
+ *  giờ thiếu ở đường đi của chúng. Rẽ nhánh một lần rồi TypeScript tự thu hẹp. */
+export type SimEntry = SimEntryCicd | SimEntryLinux | SimEntrySearch
+
+export interface SimEntryCicd extends SimEntryBase {
+  engine: 'cicd'
+  scenario: SimScenario
   /** Người dùng có được sửa catalog không.
    *
    *  Chỉ đúng với mô phỏng tự dựng. Mô phỏng tác giả viết là **cứng**: bộ step
    *  và số giây của nó chính là bài học, và một ô mời sửa nó đi ngay bên dưới
    *  vừa mâu thuẫn với bài học vừa mời người mới đi chệch khỏi nó. */
   editable?: boolean
+}
+
+/** Mô phỏng lệnh Linux. Không có `scenario` vì không có gì để server chạy — cả
+ *  hệ thống file lẫn mười lệnh nằm trong trình duyệt, xem `src/sims/linux/`. */
+export interface SimEntryLinux extends SimEntryBase {
+  engine: 'linux'
+}
+
+/** Mô phỏng thuật toán tìm kiếm. Cũng không có `scenario`: mảng và bốn thuật
+ *  toán nằm trong `src/sims/search/`, server không biết gì về nó. */
+export interface SimEntrySearch extends SimEntryBase {
+  engine: 'search'
 }
 
 /** Một step trong kết quả chạy. `cached` nghĩa là công việc được khôi phục chứ
@@ -439,6 +463,30 @@ export interface AdminStats {
   labs: LabStat[]
 }
 
+/** Một lệnh học viên đã gõ trong lúc trực. `at` null với lệnh mà shell ghi không
+ *  kèm thời gian — phiên chạy trước lúc image lab bật dấu thời gian vẫn có danh
+ *  sách đáng đọc, chỉ là không có giờ. */
+export interface IncidentCommand {
+  at: string | null
+  command: string
+}
+
+/** Nửa "ca trực" của báo cáo. Chỉ có ở lab sự cố; gọi tên sự cố nên chỉ tồn tại
+ *  sau khi phiên đã kết thúc. */
+export interface IncidentReport {
+  title: string
+  reveal_md: string
+  /** Số request/giây **giả định** của kịch bản, do tác giả gõ chứ không ai đo.
+   *  Gửi kèm để màn hình nói rõ `requests_failed` suy ra từ đâu. */
+  rps: number
+  /** null nghĩa là dịch vụ chưa bao giờ sống lại — hết giờ cũng là một kết quả,
+   *  không phải một trường bị thiếu. */
+  recovered_at: string | null
+  downtime_seconds: number
+  requests_failed: number
+  timeline: IncidentCommand[]
+}
+
 export interface LabReport {
   session_id: string
   lab_title: string
@@ -451,6 +499,9 @@ export interface LabReport {
   correct: number
   total: number
   answers: ReportAnswer[]
+  /** null với mọi lab không phải lab sự cố. Đây là thứ màn kết quả rẽ nhánh để
+   *  quyết định có vẽ phần ca trực hay không. */
+  incident: IncidentReport | null
 }
 
 export interface LabSession {
@@ -460,8 +511,10 @@ export interface LabSession {
    *  under a session that is still running — the id is still enough to end it. */
   lab_slug: string
   course_slug: string
-  /** Tasks of this lab the student has already passed, in any session. Sent with
-   *  the session so a reload restores the ticks. */
+  /** Nhiệm vụ đã đậu **trong chính phiên này** (`lab_answers WHERE session_id`),
+   *  không phải mọi phiên: mở lại lab là làm lại từ đầu. Gửi kèm phiên để tải
+   *  lại trang không mất dấu tick — và ở lab sự cố, hết sạch nhiệm vụ chính là
+   *  thứ nói dịch vụ đã sống lại. */
   passed_task_ids: number[]
   status: 'running' | 'ended' | 'expired'
   started_at: string
@@ -470,4 +523,8 @@ export interface LabSession {
   /** Path only. The websocket origin is derived from the API base so dev and
    *  prod do not need two different values here. */
   terminal_path: string
+  /** null trừ khi phiên này bốc trúng một sự cố. Chỉ mang `rps` — tên sự cố, nó
+   *  phá cái gì, tìm ra bằng cách nào đều là thứ học viên đang phải tự mò, nên
+   *  không cái nào rời server lúc phiên còn chạy. */
+  incident: { rps: number } | null
 }

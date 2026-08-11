@@ -1,10 +1,17 @@
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { authApi } from '@/api/auth'
 import { coursesApi } from '@/api/courses'
 import { ApiError } from '@/lib/api'
+import {
+  applyTheme,
+  getTheme,
+  setTheme,
+  watchSystem,
+  type Theme,
+} from '@/lib/theme'
 import type { Session } from '@/lib/types'
 import { Avatar } from '@/components/Avatar'
 import { SignOutButton } from '@/components/SignOutButton'
@@ -16,7 +23,7 @@ import {
   Input,
   PasswordInput,
 } from '@/components/ui'
-import { BookIcon, LogOutIcon } from '@/components/icons'
+import { BookIcon, CheckIcon, LogOutIcon, MonitorIcon } from '@/components/icons'
 
 const statusLabel: Record<string, string> = {
   active: 'đang hoạt động',
@@ -30,7 +37,14 @@ const statusDot: Record<string, string> = {
   banned: 'bg-red-500',
 }
 
-const TABS = ['Thông tin', 'Khoá học', 'Mật khẩu', 'Thiết bị', 'Nguy hiểm'] as const
+const TABS = [
+  'Thông tin',
+  'Giao diện',
+  'Khoá học',
+  'Mật khẩu',
+  'Thiết bị',
+  'Nguy hiểm',
+] as const
 type Tab = (typeof TABS)[number]
 
 export default function Profile() {
@@ -43,7 +57,9 @@ export default function Profile() {
   const joined = new Date(user.created_at)
 
   return (
-    <div className="mx-auto max-w-3xl space-y-8">
+    // Bề rộng do `Layout` quyết (`max-w-6xl`, bằng thanh nav) — xem chú thích ở
+    // SimList.
+    <div className="space-y-8">
       <div className="relative isolate overflow-hidden rounded-2xl border border-border bg-surface p-6 sm:p-8">
         <span
           aria-hidden="true"
@@ -133,6 +149,7 @@ export default function Profile() {
 
         <div key={tab} className="page-enter min-h-80 pt-6">
           {tab === 'Thông tin' && <ProfileForm />}
+          {tab === 'Giao diện' && <Appearance />}
           {tab === 'Khoá học' && <MyCourses />}
           {tab === 'Mật khẩu' && (
             <div className="space-y-8">
@@ -349,6 +366,169 @@ function ProfileForm() {
         {mut.isPending ? 'Đang lưu…' : 'Lưu thay đổi'}
       </Button>
     </form>
+  )
+}
+
+/** Ba lựa chọn giao diện, mỗi cái một ảnh xem trước.
+ *
+ *  Ảnh xem trước dùng **màu cứng**, không dùng biến của theme đang bật: ô "Sáng"
+ *  phải trông sáng ngay cả khi trang đang tối, nếu không thì cả ba ô giống hệt
+ *  nhau và người ta phải bấm thử từng cái mới biết mình chọn gì.
+ *
+ *  Cũng vì thế nó không dùng lại `ThemeToggle` — thứ ở thanh trên là ba cái nút
+ *  cho khách chưa đăng nhập, còn đây là một màn cài đặt. Hai chỗ, hai việc. */
+function Appearance() {
+  const [theme, set] = useState<Theme>(getTheme)
+  useEffect(() => watchSystem(() => applyTheme(getTheme())), [])
+
+  function pick(t: Theme) {
+    setTheme(t)
+    set(t)
+  }
+
+  return (
+    <section className="space-y-6">
+      <div>
+        <h2 className="text-lg font-semibold text-fg-strong">Giao diện</h2>
+        <p className="mt-1 max-w-2xl text-sm text-fg-muted">
+          Màu nền của trang. Đổi là thấy ngay, không cần lưu.
+        </p>
+      </div>
+
+      <div role="radiogroup" aria-label="Giao diện" className="grid gap-4 sm:grid-cols-3">
+        {THEME_CHOICES.map((c) => (
+          <ThemeCard
+            key={c.value}
+            choice={c}
+            selected={theme === c.value}
+            onSelect={() => pick(c.value)}
+          />
+        ))}
+      </div>
+
+      <p className="flex items-start gap-2 rounded-lg border border-border bg-bg p-3 text-xs text-fg-subtle">
+        <MonitorIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+        <span>
+          Lựa chọn này lưu trong <strong className="font-medium">trình duyệt
+          này</strong>, không theo tài khoản — mở bằng máy khác hoặc trình duyệt
+          khác thì phải chọn lại.
+        </span>
+      </p>
+    </section>
+  )
+}
+
+const THEME_CHOICES: {
+  value: Theme
+  label: string
+  note: string
+  /** `null` = nửa sáng nửa tối, cho lựa chọn "Theo hệ thống". */
+  dark: boolean | null
+}[] = [
+  { value: 'light', label: 'Sáng', note: 'Nền trắng, hợp phòng nhiều đèn.', dark: false },
+  { value: 'dark', label: 'Tối', note: 'Mặc định của DevForge.', dark: true },
+  {
+    value: 'system',
+    label: 'Theo hệ thống',
+    note: 'Đi theo cài đặt sáng/tối của máy bạn.',
+    dark: null,
+  },
+]
+
+function ThemeCard({
+  choice,
+  selected,
+  onSelect,
+}: {
+  choice: (typeof THEME_CHOICES)[number]
+  selected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onSelect}
+      className={
+        'group overflow-hidden rounded-xl border text-left transition ' +
+        (selected
+          ? 'border-accent ring-2 ring-accent/40'
+          : 'border-border hover:border-border-strong')
+      }
+    >
+      <ThemePreview dark={choice.dark} />
+      <div className="flex items-start gap-2 border-t border-border bg-surface p-3">
+        <span
+          aria-hidden="true"
+          className={
+            'mt-0.5 grid h-4 w-4 shrink-0 place-items-center rounded-full border transition ' +
+            (selected ? 'border-accent bg-accent text-accent-fg' : 'border-border-strong')
+          }
+        >
+          {selected && <CheckIcon className="h-2.5 w-2.5" />}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-sm font-medium text-fg-strong">
+            {choice.label}
+          </span>
+          <span className="mt-0.5 block text-xs text-fg-subtle">{choice.note}</span>
+        </span>
+      </div>
+    </button>
+  )
+}
+
+/** Một cửa sổ tí hon: thanh tiêu đề, cột trái, vài dòng chữ giả.
+ *
+ *  Màu viết cứng bằng hex chứ không lấy từ biến theme — xem chú thích ở
+ *  `Appearance`. `null` thì cắt chéo: nửa trái sáng, nửa phải tối. */
+function ThemePreview({ dark }: { dark: boolean | null }) {
+  if (dark === null) {
+    return (
+      <div className="relative h-24">
+        <Mock dark={false} />
+        {/* Nửa tối chồng lên, cắt chéo — nói "hai cái này tuỳ lúc" rõ hơn bất kỳ
+            dòng chữ nào. */}
+        <div
+          className="absolute inset-0"
+          style={{ clipPath: 'polygon(100% 0, 100% 100%, 0 100%)' }}
+        >
+          <Mock dark />
+        </div>
+      </div>
+    )
+  }
+  return (
+    <div className="h-24">
+      <Mock dark={dark} />
+    </div>
+  )
+}
+
+function Mock({ dark }: { dark: boolean }) {
+  const c = dark
+    ? { bg: '#18181b', bar: '#27272a', panel: '#1f1f23', line: '#3f3f46' }
+    : { bg: '#fafafa', bar: '#f0f0f1', panel: '#ffffff', line: '#d4d4d8' }
+  return (
+    <div className="flex h-full w-full flex-col" style={{ background: c.bg }}>
+      <div
+        className="flex items-center gap-1 px-2 py-1.5"
+        style={{ background: c.bar }}
+      >
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: '#ea580c' }} />
+        <span className="ml-1 h-1.5 w-8 rounded-full" style={{ background: c.line }} />
+        <span className="h-1.5 w-6 rounded-full" style={{ background: c.line }} />
+      </div>
+      <div className="flex min-h-0 flex-1 gap-1.5 p-2">
+        <div className="w-8 rounded" style={{ background: c.panel }} />
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5 rounded p-1.5" style={{ background: c.panel }}>
+          <span className="h-1.5 w-full rounded-full" style={{ background: c.line }} />
+          <span className="h-1.5 w-4/5 rounded-full" style={{ background: c.line }} />
+          <span className="h-1.5 w-2/3 rounded-full" style={{ background: '#ea580c', opacity: 0.7 }} />
+        </div>
+      </div>
+    </div>
   )
 }
 

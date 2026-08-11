@@ -79,25 +79,41 @@ export function isCustomised(): boolean {
 
 /** Mô phỏng của người dùng, dựng ra mỗi lần đọc vì kịch bản của nó nằm trong
  *  localStorage chứ không trong bundle. Đó là lý do nó không nằm trong mảng
- *  `SIMS` tĩnh cùng mấy cái tác giả viết. */
+ *  `SIMS` tĩnh cùng mấy cái tác giả viết.
+ *
+ *  **Chỉ CI/CD có cái này, và đó là kết luận chứ không phải hàng chờ làm tiếp.**
+ *  Một engine đáng có chế độ tự dựng khi kịch bản của nó là *dữ liệu thuần* và
+ *  bài học nằm trong *luật* chứ không trong dữ liệu. CI/CD đạt cả hai: catalog
+ *  chỉ là `{step: giây}` nên AI điền được và `CheckScenario` duyệt được, còn thứ
+ *  đang dạy — thứ tự, song song, cache, đường găng — không đổi dù bạn đặt tên
+ *  step là gì. Engine khác trượt: bài học của mô phỏng Linux *là* mười lệnh cố
+ *  định, nên một cây thư mục tự bịa không dạy thêm gì.
+ *
+ *  Hệ quả cho engine sau này: thiếu một trong hai điều kiện thì "tự dựng" chỉ là
+ *  một ô nhập không ai dùng. Đừng thêm cho đủ bộ. */
 export function customEntry(): SimEntry {
   return {
     slug: CUSTOM_SLUG,
-    title: 'Mô phỏng của bạn',
+    // Tên nói đúng phạm vi. "Mô phỏng của bạn" hứa dựng được bất cứ thứ gì,
+    // trong khi engine duy nhất nhận kịch bản tự dựng là CI/CD — và đó là kết
+    // luận, không phải thiếu sót tạm thời; lý do ở chú thích của hàm này.
+    title: 'Pipeline CI/CD của bạn',
     engine: 'cicd',
-    category: 'Tự dựng',
+    // Chủ đề, không phải chế độ. `'Tự dựng'` trả lời câu "sửa được không", mà
+    // cột này trả lời câu "về cái gì" — để lúc danh sách nhóm theo `category`
+    // thì nó rơi đúng nhóm CI/CD, kể cả khi đang là mô phỏng CI/CD duy nhất.
+    category: 'CI/CD',
     tags: ['tự dựng'],
     scenario: loadCustom(),
     editable: true,
-    description: `Sân tập của riêng bạn: **bộ step ở đây do bạn đặt ra**, không phải do tác giả
-viết. Mô tả hệ thống của bạn bằng một câu để AI dựng catalog, hoặc sửa thẳng JSON.
+    description: `Sân tập của riêng bạn: **bộ step ở đây do bạn đặt ra**, không phải do tác giả viết. Mô tả hệ thống của bạn bằng một câu để AI dựng catalog, hoặc sửa thẳng JSON.
 
-Khác mấy mô phỏng có sẵn ở một điểm quan trọng: **số giây ở đây là bạn hoặc AI
-đoán**, không ai đo cả. Vẫn học được cách xếp job — đó là thứ mô phỏng này dạy —
-nhưng đừng mang con số ra so với CI thật.
+Là một **pipeline CI/CD** — đây là engine duy nhất nhận kịch bản tự dựng, vì kịch bản của nó là dữ liệu thuần và bài học nằm ở luật xếp job chứ không ở bộ step. Mấy mô phỏng khác dạy bằng chính nội dung cố định của chúng, nên không có gì để bạn dựng.
+
+Một điểm phải nhớ: **số giây ở đây là bạn hoặc AI đoán**, không ai đo cả. Vẫn học được cách xếp job — đó là thứ mô phỏng này dạy — nhưng đừng mang con số ra so với CI thật.
 
 Mọi thứ nằm trong trình duyệt này. Đổi máy là mất.`,
-    guide: `Cú pháp giống mọi mô phỏng khác: \`steps\`, \`needs\`, \`cache\`.
+    guide: `Ba khoá, hết: \`steps\`, \`needs\`, \`cache\`.
 
 \`\`\`yaml
 jobs:
@@ -113,15 +129,11 @@ jobs:
 
 1. Job không có \`needs\` chạy ngay. Số job cùng lúc bị chặn bởi \`runner_count\`.
 2. \`needs\` là tự bắt mình xếp hàng.
-3. Step khai \`consumes\` cần artifact đó có sẵn: hoặc do step trước **trong cùng
-   job** tạo, hoặc do một job trong chuỗi \`needs\`. Nhánh song song không tính.
-4. Cache **chỉ ấm sang lượt sau**, và job phải tự khai \`cache: [khoá]\` mới được
-   giảm.
+3. Step khai \`consumes\` cần artifact đó có sẵn: hoặc do step trước **trong cùng job** tạo, hoặc do một job trong chuỗi \`needs\`. Nhánh song song không tính.
+4. Cache **chỉ ấm sang lượt sau**, và job phải tự khai \`cache: [khoá]\` mới được giảm.
 
 ## Bộ step khởi đầu
 
-\`checkout\` 5s · \`install\` 90s (cache \`deps\`) · \`test\` 120s · \`build\` 60s (tạo
-\`dist\`). Đủ để thấy tách job ra thì nhanh hơn gộp. Gõ đè lên nó bất cứ lúc nào —
-ở phần **Sửa catalog** bên dưới ô soạn.`,
+\`checkout\` 5s · \`install\` 90s (cache \`deps\`) · \`test\` 120s · \`build\` 60s (tạo \`dist\`). Đủ để thấy tách job ra thì nhanh hơn gộp. Gõ đè lên nó bất cứ lúc nào — ở phần **Sửa catalog** bên dưới ô soạn.`,
   }
 }

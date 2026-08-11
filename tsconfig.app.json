@@ -23,5 +23,7 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src"]
+  "include": ["src"],
+  // `*.check.ts` không vào bundle — chúng chạy bằng node và thuộc tsconfig.node.json.
+  "exclude": ["src/**/*.check.ts"]
 }

@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { SIMS, SIM_INTRO } from '@/sims/registry'
 import { customEntry } from '@/sims/custom'
 import { CUSTOM_SLUG, isCustomised } from '@/sims/custom'
+import { ALL_CMDS } from '@/sims/linux/commands'
+import { ALGOS } from '@/sims/search/algos'
 import type { SimEntry } from '@/lib/types'
 import { Prose } from '@/components/MarkdownEditor'
 import { ChevronRightIcon, LayersIcon } from '@/components/icons'
@@ -16,7 +18,9 @@ export default function SimList() {
   const own = customEntry()
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
+    // Bề rộng do `Layout` quyết (`max-w-6xl px-4`, bằng thanh nav). Bọc thêm ở
+    // đây là kẹp hai lần và trang hẹp hơn header.
+    <div>
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-fg-strong">Mô phỏng</h1>
         {/* Chữ do quản trị viết, không nhét cứng ở đây: mô phỏng thứ hai không
@@ -44,9 +48,13 @@ export default function SimList() {
           chỉ là thẻ đầu tiên và thẻ thứ ba tràn xuống dòng — nhìn ra là lỗi xuống
           dòng, không ra hai loại khác hẳn nhau. Cái tự dựng sửa được và có AI;
           mấy cái kia là bài học cố định. Đó là khác biệt đáng một tiêu đề. */}
+      {/* Tiêu đề mục đặt theo **chế độ**, tiêu đề thẻ đặt theo **engine**. Mục
+          nới ra được khi có engine thứ hai nhận kịch bản tự dựng — lúc đó chỉ bỏ
+          vế cuối của `note`. Thẻ thì không cần nới: mỗi thẻ vẫn thuộc đúng một
+          engine. */}
       <Section
-        title="Mô phỏng của bạn"
-        note="Bộ step do bạn đặt ra — mô tả một câu để AI dựng, hoặc sửa tay."
+        title="Tự dựng"
+        note="Mô tả một câu để AI dựng kịch bản, hoặc sửa tay. Hiện chỉ CI/CD nhận được kịch bản tự dựng — mấy engine khác dạy bằng chính nội dung cố định của chúng."
         sims={[own]}
       />
 
@@ -89,15 +97,9 @@ function Section({
 }
 
 function SimCard({ sim }: { sim: SimEntry }) {
-  const catalog = sim.scenario.catalog ?? {}
-  const steps = Object.values(catalog)
   // Viền đứt cho cái tự dựng: nó là chỗ trống bạn tự lấp, không phải bài học thứ
   // ba do tác giả viết, và hai loại đó không nên trông giống nhau.
   const own = sim.slug === CUSTOM_SLUG
-  // Ba con số nói đúng thứ người ta cần biết trước khi bấm vào: bộ này to cỡ
-  // nào, chạy được mấy job cùng lúc, và có bước nào hỏng ngẫu nhiên không.
-  const flaky = steps.filter((s) => s.flaky).length
-  const cacheable = steps.filter((s) => s.cacheable).length
 
   return (
     <Link
@@ -129,10 +131,9 @@ function SimCard({ sim }: { sim: SimEntry }) {
       )}
 
       <div className="mt-auto flex flex-wrap gap-1.5 pt-3 font-mono text-[11px]">
-        <Chip>{steps.length} step</Chip>
-        <Chip>{sim.scenario.runner_count} runner</Chip>
-        {cacheable > 0 && <Chip>{cacheable} step cache được</Chip>}
-        {flaky > 0 && <Chip tone="danger">{flaky} step flaky</Chip>}
+        {/* Mỗi engine đếm một thứ khác nhau. Một hàng chip chung cho cả hai thì
+            phải là giao của hai bộ số, mà giao đó rỗng. */}
+        <Stats sim={sim} />
         {/* Nói ra bộ step đang là bản khởi đầu hay bản bạn dựng. Không có dòng
             này thì hai trạng thái rất khác nhau trông y hệt trên thẻ. */}
         {own && (
@@ -140,6 +141,40 @@ function SimCard({ sim }: { sim: SimEntry }) {
         )}
       </div>
     </Link>
+  )
+}
+
+/** Mấy con số người ta cần biết trước khi bấm vào. Với CI/CD đó là bộ step to cỡ
+ *  nào, chạy được mấy job cùng lúc, có bước nào hỏng ngẫu nhiên không; với Linux
+ *  thì mấy câu đó vô nghĩa và câu đúng là có bao nhiêu lệnh. */
+function Stats({ sim }: { sim: SimEntry }) {
+  if (sim.engine === 'linux') {
+    return (
+      <>
+        <Chip>{ALL_CMDS.length} lệnh</Chip>
+        <Chip>chạy trong trình duyệt</Chip>
+      </>
+    )
+  }
+  if (sim.engine === 'search') {
+    return (
+      <>
+        <Chip>{ALGOS.length} thuật toán</Chip>
+        <Chip>mảng 64 phần tử</Chip>
+        <Chip>chạy trong trình duyệt</Chip>
+      </>
+    )
+  }
+  const steps = Object.values(sim.scenario.catalog ?? {})
+  const flaky = steps.filter((s) => s.flaky).length
+  const cacheable = steps.filter((s) => s.cacheable).length
+  return (
+    <>
+      <Chip>{steps.length} step</Chip>
+      <Chip>{sim.scenario.runner_count} runner</Chip>
+      {cacheable > 0 && <Chip>{cacheable} step cache được</Chip>}
+      {flaky > 0 && <Chip tone="danger">{flaky} step flaky</Chip>}
+    </>
   )
 }
 

@@ -19,5 +19,9 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts"]
+  // Bài kiểm `*.check.ts` chạy bằng `node --experimental-strip-types`, không chạy
+  // trong trình duyệt: chúng thuộc project này chứ không phải project app. Để ở
+  // app thì `import 'node:assert/strict'` không có kiểu, mà thêm `"node"` vào
+  // types của app lại cho mọi file trong bundle thấy `process` và `Buffer`.
+  "include": ["vite.config.ts", "src/**/*.check.ts"]
 }

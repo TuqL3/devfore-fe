@@ -8,6 +8,13 @@ const MODES: { value: Theme; Icon: ComponentType<{ className?: string }>; label:
   { value: 'system', Icon: MonitorIcon, label: 'Theo hệ thống' },
 ]
 
+/** Ba icon sát nhau, cho thanh trên cùng và màn đăng nhập — nơi khách chưa đăng
+ *  nhập cần đổi được giao diện mà không có trang Hồ sơ nào để vào.
+ *
+ *  Người đã đăng nhập chọn ở **Hồ sơ → Giao diện**, nơi có chỗ cho ảnh xem trước
+ *  thật. Hai chỗ, hai hình dạng: nhét ảnh xem trước vào một thanh cao 14 thì
+ *  không xem được gì, mà ba icon không nhãn trong một trang cài đặt thì trông
+ *  như nút chưa làm xong. */
 export function ThemeToggle() {
   const [theme, set] = useState<Theme>(getTheme)
 
@@ -19,7 +26,7 @@ export function ThemeToggle() {
   }
 
   return (
-    <div className="flex rounded-lg border border-border bg-surface p-0.5">
+    <div role="group" aria-label="Giao diện" className="flex rounded-lg border border-border bg-surface p-0.5">
       {MODES.map(({ value, Icon, label }) => (
         <button
           key={value}

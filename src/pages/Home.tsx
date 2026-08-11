@@ -7,10 +7,52 @@ import { useLevels } from '@/lib/levels'
 import { LevelMeter } from '@/components/LevelMeter'
 
 const chips = [
-  'Thực hành trực tiếp',
-  'Môi trường Linux',
-  'Quản lý Git',
-  'Container hóa',
+  'Container Linux thật',
+  'Chấm bằng trạng thái máy',
+  'Thử thách có đồng hồ',
+  'Mô phỏng chạy trong trình duyệt',
+]
+
+/** Bốn thứ làm được ở đây, và chỗ để đi tới từng cái.
+ *
+ *  Trước đây trang chủ chỉ nói về khoá học, nên War Room và Mô phỏng — hai thứ
+ *  vào thẳng được, không cần đăng ký gì — chỉ ai bấm trúng thanh nav mới biết là
+ *  có. Một tính năng không ai tìm thấy thì bằng không tồn tại.
+ *
+ *  `highlight` cho War Room: nó là thứ khác biệt nhất và mới nhất, và một lưới
+ *  bốn ô giống hệt nhau thì không ô nào được nhìn trước. */
+const FEATURES: {
+  to: string
+  title: string
+  body: string
+  bullets: string[]
+  highlight?: true
+}[] = [
+  {
+    to: '/war-room',
+    title: 'War Room — thử thách có đồng hồ',
+    body: 'Mở ra là hệ thống đã hỏng sẵn, không ai nói hỏng ở đâu. Tìm ra và sửa trước khi hết giờ.',
+    bullets: ['Lỗi bốc ngẫu nhiên mỗi lượt', 'Đồng hồ và số người dùng đang chịu lỗi chạy ngay trên màn hình', 'Xong có bản tường trình: mất bao lâu, bạn đã gõ gì'],
+    highlight: true,
+  },
+  {
+    to: '/courses',
+    title: 'Lab trên container thật',
+    body: 'Mỗi bài mở một container Linux riêng, vào bằng terminal ngay trong trình duyệt. Không cài gì trên máy bạn.',
+    bullets: ['Terminal thật, không phải video', 'Chấm theo trạng thái máy, không theo lệnh bạn gõ', 'Hết giờ là container tự dọn'],
+  },
+  {
+    to: '/sim',
+    title: 'Mô phỏng chạy được',
+    body: 'Những thứ dựng thật thì đắt hoặc nguy hiểm, ở đây mô phỏng: pipeline CI/CD, lệnh Linux, thuật toán tìm kiếm.',
+    bullets: ['Mở là dùng, không đăng ký, không chấm điểm', 'Tự dựng pipeline của riêng bạn — mô tả một câu, AI dựng kịch bản'],
+  },
+  {
+    to: '/history',
+    title: 'Lịch sử và tường trình',
+    body: 'Mọi lượt làm được ghi lại: câu nào đúng, câu nào phải thử lại, và với ca trực là cả dòng thời gian lệnh đã gõ.',
+    bullets: ['Xem lại từng lượt, kể cả lượt bỏ dở', 'Điểm và bảng xếp hạng theo khoá'],
+  },
 ]
 
 type Line = { kind: 'cmd' | 'ok' | 'head' | 'out'; text: string }
@@ -128,16 +170,94 @@ function Hero() {
           >
             Khám phá khoá học
           </Link>
-          <a
-            href="#how"
+          {/* Nút thứ hai trỏ vào War Room chứ không phải một mỏ neo cuộn xuống:
+              thứ đáng thử ngay của trang này là một thử thách vào thẳng được,
+              không phải một mục giải thích. */}
+          <Link
+            to="/war-room"
             className="rounded-md border border-border-strong px-5 py-2.5 font-medium text-fg transition hover:border-accent hover:text-accent-soft"
           >
-            Cách hoạt động ↓
+            Thử một ca trực →
+          </Link>
+          <a
+            href="#tinh-nang"
+            className="self-center text-sm text-fg-muted underline-offset-4 transition hover:text-accent-soft hover:underline"
+          >
+            Xem có gì ↓
           </a>
         </div>
       </div>
       <Terminal />
     </section>
+  )
+}
+
+function Features() {
+  return (
+    <Section
+      id="tinh-nang"
+      title="Có gì trong DevForge"
+      subtitle="Bốn cách học, dùng chung một hạ tầng container."
+    >
+      {/* Ba cột, và thẻ nổi bật chiếm trọn hàng đầu: bốn thẻ chia ba cột thì
+          hàng dưới lẻ một ô trống. Cách này vừa lấp kín vừa cho War Room đúng
+          chỗ nó đáng được nhìn trước. */}
+      <div className="reveal-stagger grid gap-5 lg:grid-cols-3">
+        {FEATURES.map((f) => (
+          <Link
+            key={f.to}
+            to={f.to}
+            className={
+              'group flex flex-col rounded-xl border bg-surface p-6 transition hover:shadow-lg ' +
+              (f.highlight
+                ? 'border-accent/50 shadow-lg shadow-accent/10 hover:border-accent hover:shadow-accent/20 lg:col-span-3'
+                : 'border-border hover:border-accent hover:shadow-accent/10')
+            }
+          >
+            {/* Mũi tên bám hàng tiêu đề, không bám đáy thẻ: các thẻ có số
+                gạch đầu dòng khác nhau nên đáy của chúng không bao giờ ngang
+                nhau, và một hàng chữ "xem thêm" ở bốn độ cao khác nhau đọc ra
+                là lệch chứ không ra bốn lối vào. */}
+            <div className="flex items-start justify-between gap-3">
+              <h3 className="font-semibold text-fg-strong">{f.title}</h3>
+              <span className="flex shrink-0 items-center gap-2">
+                {f.highlight && (
+                  <span className="rounded-full bg-accent/12 px-2 py-0.5 text-[11px] font-medium text-accent-soft">
+                    mới
+                  </span>
+                )}
+                <span
+                  aria-hidden="true"
+                  className="text-accent-soft transition group-hover:translate-x-0.5"
+                >
+                  →
+                </span>
+              </span>
+            </div>
+            <p className={'mt-2 text-sm text-fg-muted' + (f.highlight ? ' max-w-3xl' : '')}>
+              {f.body}
+            </p>
+            {/* Thẻ rộng thì gạch đầu dòng dàn ngang — xếp dọc trong một ô rộng
+                cả màn hình để lại một mảng trống bên phải. */}
+            <ul
+              className={
+                'mt-4 gap-x-8 gap-y-1.5 text-sm text-fg-muted ' +
+                (f.highlight ? 'grid sm:grid-cols-3' : 'space-y-1.5')
+              }
+            >
+              {f.bullets.map((b) => (
+                <li key={b} className="flex gap-2">
+                  <span className="font-mono text-accent-soft" aria-hidden="true">
+                    ›
+                  </span>
+                  <span className="min-w-0">{b}</span>
+                </li>
+              ))}
+            </ul>
+          </Link>
+        ))}
+      </div>
+    </Section>
   )
 }
 
@@ -235,6 +355,14 @@ const FAQ = [
   {
     q: 'Có cần tài khoản để xem khoá học không?',
     a: 'Không, danh sách khoá học xem tự do. Đăng ký tài khoản khi bạn muốn ghi danh và lưu tiến độ.',
+  },
+  {
+    q: 'War Room khác lab thường ở chỗ nào?',
+    a: 'Lab thường là làm cho xong một việc. War Room là cứu một hệ thống đã hỏng sẵn, trong một khoảng thời gian cố định, và không ai nói cho bạn biết hỏng ở đâu — mò ra nguyên nhân chính là bài học. Không cần đăng ký khoá nào, vào thẳng từ thanh trên.',
+  },
+  {
+    q: 'Mô phỏng có phải máy thật không?',
+    a: 'Không, và nó không giả vờ là thật. Pipeline CI/CD, lệnh Linux hay thuật toán tìm kiếm ở đó chạy bằng mô hình, số giây là do tác giả kịch bản đặt ra. Thứ đáng học là luật và tỉ lệ — cái nào nhanh hơn cái nào và vì sao — chứ không phải con số tuyệt đối.',
   },
 ]
 
@@ -367,6 +495,9 @@ export default function Home() {
     <div className="space-y-12">
       <Hero />
       <Stats />
+      {/* Ngay dưới hero: người vào lần đầu phải biết trang này làm được gì
+          trước khi được hỏi "ba bước hoạt động thế nào". */}
+      <Features />
 
       <Section
         id="how"

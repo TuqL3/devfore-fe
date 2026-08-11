@@ -11,6 +11,7 @@ import { Avatar } from '@/components/Avatar'
 import { LabTerminal } from '@/components/LabTerminal'
 import { SimEditor } from '@/components/SimEditor'
 import { ConfirmModal } from '@/components/ConfirmModal'
+import { IncidentBar } from '@/components/IncidentBar'
 import { Prose as Markdown } from '@/components/MarkdownEditor'
 import {
   ChevronLeftIcon,
@@ -31,8 +32,20 @@ const KIND_LABEL: Record<LabTask['kind'], string> = {
 }
 type Tab = (typeof TABS)[number]
 
-export default function LabRunner() {
+/** Màn làm bài, dùng cho cả hai đường vào.
+ *
+ *  `drill` bật khi nó là một thử thách War Room: cùng container, cùng terminal,
+ *  cùng đường chấm — chỉ khác chỗ nó thuộc về. Không có khoá học nào để hỏi bài
+ *  trước/bài sau, và nút quay lại trỏ về `/war-room`.
+ *
+ *  Một component chứ không phải hai: khác biệt là bốn dòng, còn thứ giống nhau là
+ *  cả cái terminal, đồng hồ, ô nhiệm vụ và luồng nộp bài. Hai bản sao của chừng
+ *  đó là hai chỗ để lệch nhau. */
+export default function LabRunner({ drill = false }: { drill?: boolean }) {
   const { slug = '', labSlug = '' } = useParams()
+  // Chỗ quay ra khi phiên không phải của màn này: danh sách thử thách, hoặc
+  // trang khoá học đã dẫn tới đây.
+  const backTo = drill ? '/war-room' : `/courses/${slug}`
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
@@ -46,8 +59,8 @@ export default function LabRunner() {
   const [confirmSubmit, setConfirmSubmit] = useState(false)
 
   const lab = useQuery({
-    queryKey: ['lab', slug, labSlug],
-    queryFn: () => labsApi.detail(slug, labSlug),
+    queryKey: drill ? ['drill', labSlug] : ['lab', slug, labSlug],
+    queryFn: () => (drill ? labsApi.drill(labSlug) : labsApi.detail(slug, labSlug)),
   })
   const current = useQuery({ queryKey: ['lab-session'], queryFn: labsApi.current })
 
@@ -57,6 +70,9 @@ export default function LabRunner() {
   const course = useQuery({
     queryKey: ['course', slug],
     queryFn: () => coursesApi.detail(slug),
+    // Một thử thách không thuộc khoá nào, nên không có gì để hỏi — và hỏi thì
+    // nhận 404 của một khoá đang ẩn.
+    enabled: !drill,
   })
   const siblings = course.data?.labs ?? []
   const at = siblings.findIndex((l) => l.slug === labSlug)
@@ -138,9 +154,11 @@ export default function LabRunner() {
   if (lab.isError) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3">
-        <p className="text-danger">Không tìm thấy bài lab này.</p>
-        <Link to={`/courses/${slug}`} className="text-sm text-accent-soft hover:underline">
-          ← Về khoá học
+        <p className="text-danger">
+          {drill ? 'Không tìm thấy thử thách này.' : 'Không tìm thấy bài lab này.'}
+        </p>
+        <Link to={backTo} className="text-sm text-accent-soft hover:underline">
+          {drill ? '← Về War Room' : '← Về khoá học'}
         </Link>
       </div>
     )
@@ -167,7 +185,7 @@ export default function LabRunner() {
   // it here, the render in between reads "no session" and bounces to the course
   // page first, which wins.
   if (mine === false && !stop.isPending && !submit.isSuccess) {
-    return <Navigate to={`/courses/${slug}`} replace />
+    return <Navigate to={backTo} replace />
   }
 
   return (
@@ -182,11 +200,27 @@ export default function LabRunner() {
         submitting={submit.isPending}
         remaining={remainingTasks}
         stopping={stop.isPending}
+        drill={drill}
         position={at >= 0 ? `${at + 1}/${siblings.length}` : ''}
       />
 
+      {/* Chỉ hiện với phiên bốc trúng sự cố. Nằm dưới thanh trên cùng chứ không
+          chen vào trong nó: đây là trạng thái của hệ thống đang hỏng, không phải
+          một nút bấm, và nó phải rộng bằng cả màn hình mới đúng trọng lượng. */}
+      {mine && session?.incident && (
+        <IncidentBar
+          startedAt={session.started_at}
+          rps={session.incident.rps}
+          live={remainingTasks > 0}
+        />
+      )}
+
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-[340px] shrink-0 flex-col border-r border-border bg-surface">
+        {/* Bề rộng co theo màn hình thay vì cứng 340px: đề bài có khối lệnh, và
+            ở 340px thì mọi dòng lệnh đều phải cuộn ngang trong khi nửa màn hình
+            bên phải bỏ trống. clamp giữ hai đầu — dưới 340 thì chữ gãy vụn, trên
+            560 thì terminal bắt đầu mất chỗ. */}
+        <aside className="flex w-[clamp(340px,26vw,560px)] shrink-0 flex-col border-r border-border bg-surface">
           <StepNav
             step={step}
             total={tasks.length}
@@ -217,6 +251,7 @@ export default function LabRunner() {
               tab={tab}
               task={task}
               lab={lab.data}
+              drill={drill}
               // A verdict belongs to the task it was asked about. Comparing the
               // id is what stops the previous task's "chưa đúng" from greeting
               // the student on the next one.
@@ -384,9 +419,12 @@ function TopBar({
   submitting,
   remaining,
   position,
+  drill,
 }: {
   lab?: LabDetail
   session: LabSession | null
+  /** Ca trực gọi tên khác lab của khoá học — cùng màn hình, không cùng thứ. */
+  drill: boolean
   onStop: () => void
   stopping: boolean
   onSubmit: () => void
@@ -416,7 +454,7 @@ function TopBar({
       )}
 
       <span className="truncate text-sm text-fg-muted">
-        {lab ? `Lab: ${lab.title}` : 'Đang tải…'}
+        {lab ? `${drill ? 'Ca trực' : 'Lab'}: ${lab.title}` : 'Đang tải…'}
         {position && (
           <span className="ml-2 font-mono text-xs text-fg-subtle">{position}</span>
         )}
@@ -515,6 +553,7 @@ function TabBody({
   tab,
   task,
   lab,
+  drill,
   result,
   passedEarlier,
   picked,
@@ -532,6 +571,8 @@ function TabBody({
   tab: Tab
   task?: LabTask
   lab?: LabDetail
+  /** Ca trực: đề bài mở sẵn, vì đồng hồ đã chạy trước khi màn này hiện ra. */
+  drill: boolean
   /** The verdict of the last check on *this* task, if there was one. */
   result?: CheckResult
   /** This task is already passed, from before the current verdict. */
@@ -568,9 +609,12 @@ function TabBody({
   return (
     <>
       {lab?.description_md?.trim() && (
-        <details className="mb-4 rounded-lg border border-border bg-surface">
+        // Mở sẵn khi là ca trực: đồng hồ đã chạy từ lúc container lên, nên bắt
+        // người ta bấm một lần nữa mới thấy đề bài là ăn cắp giây của họ. Bài
+        // của khoá học không có đồng hồ nên vẫn gập, để chỗ cho nhiệm vụ.
+        <details open={drill} className="mb-4 rounded-lg border border-border bg-surface">
           <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-fg-strong [&::-webkit-details-marker]:hidden">
-            Hướng dẫn bài lab
+            {drill ? 'Đề bài ca trực' : 'Hướng dẫn bài lab'}
           </summary>
           <div className="border-t border-border px-3 py-2">
             <Prose text={lab.description_md} empty="" />

@@ -6,18 +6,19 @@ import { playgroundApi } from '@/api/sim'
 import { ApiError } from '@/lib/api'
 import { findSim } from '@/sims/registry'
 import type {
-  SimEntry,
+  SimEntryCicd,
   SimExample,
   SimGenTurn,
   SimRunResult,
   SimScenario,
 } from '@/lib/types'
+import { LinuxBench } from '@/components/LinuxBench'
+import { SearchBench } from '@/components/SearchBench'
 import { SimTimeline } from '@/components/SimTimeline'
 import { SimCatalog, SimInsights } from '@/components/SimPanels'
 import { PipelineEditor } from '@/components/PipelineEditor'
 import { addStep, starterPipeline } from '@/lib/sim'
 import { CustomSeed, isCustomised, saveCustom } from '@/sims/custom'
-import { NodeCi } from '@/sims/cicd'
 import { Card } from '@/components/ui'
 import { ConfirmModal, PromptModal } from '@/components/ConfirmModal'
 import { Prose } from '@/components/MarkdownEditor'
@@ -62,8 +63,18 @@ export default function SimPlayground() {
         Danh sách mô phỏng
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-fg-strong">{sim.title}</h1>
-      {/* Đổi mô phỏng là đổi catalog: ô soạn và kết quả cũ không còn nghĩa gì. */}
-      <Bench key={sim.slug} sim={sim} />
+      {/* Rẽ theo engine, một lần, ngay đây. Sau dòng này TypeScript biết `sim`
+          là mục CI/CD nên `sim.scenario` vẫn là bắt buộc trong cả `Bench` —
+          engine thứ hai không bắt 800 dòng bên dưới phải đi kiểm một giá trị
+          không bao giờ thiếu ở đường đi của chúng. */}
+      {sim.engine === 'linux' ? (
+        <LinuxBench key={sim.slug} sim={sim} />
+      ) : sim.engine === 'search' ? (
+        <SearchBench key={sim.slug} sim={sim} />
+      ) : (
+        // Đổi mô phỏng là đổi catalog: ô soạn và kết quả cũ không còn nghĩa gì.
+        <Bench key={sim.slug} sim={sim} />
+      )}
     </>
   )
 }
@@ -94,7 +105,7 @@ function loadMine(slug: string): SimExample[] {
   }
 }
 
-function Bench({ sim }: { sim: SimEntry }) {
+function Bench({ sim }: { sim: SimEntryCicd }) {
   // Kịch bản đang chạy. Với mô phỏng tác giả viết thì đây là hằng số — bộ step
   // và số giây của nó chính là bài học, và không có gì trên màn hình sửa được
   // nó. Chỉ mô phỏng tự dựng mới đổi được, và `sim.scenario` của nó đã là bản
@@ -705,15 +716,9 @@ function CatalogEditor({
             >
               {copied ? 'Đã chép' : 'Chép JSON'}
             </button>
-            {/* Chép từ một mô phỏng có sẵn: sửa từ bộ đã chạy được thì nhanh
-                hơn gõ từ đầu, và đó cũng là đường để soạn một mô phỏng thật —
-                chép Node.js CI, sửa, rồi lấy JSON ra. */}
-            <button
-              onClick={() => setDraft(JSON.stringify(NodeCi, null, 2))}
-              className="rounded-md border border-border-strong px-2.5 py-1.5 text-xs text-fg-muted transition hover:text-fg-strong"
-            >
-              Chép từ Node.js CI
-            </button>
+            {/* ponytail: không còn nút "chép từ mô phỏng có sẵn" — mô phỏng
+                CI/CD cố định đã gỡ, và ô soạn vốn đã mở sẵn kịch bản đang chạy
+                nên chép từ bộ khởi đầu chỉ là chép lại đúng thứ đang hiện. */}
             {custom && (
               <button
                 onClick={() => onApply(null)}

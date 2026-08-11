@@ -5,17 +5,49 @@ import { useChat } from '@/context/ChatContext'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { Logo } from '@/components/Logo'
 import { RouteProgress } from '@/components/RouteProgress'
-import { Avatar } from '@/components/Avatar'
-import { SignOutButton } from '@/components/SignOutButton'
-import { BookIcon, ClockIcon, LayersIcon, LogOutIcon, UsersIcon } from '@/components/icons'
+import { UserMenu } from '@/components/UserMenu'
+import {
+  BookIcon,
+  ClockIcon,
+  LayersIcon,
+  TerminalIcon,
+  UsersIcon,
+} from '@/components/icons'
 import { useLevels } from '@/lib/levels'
 
 function navClass({ isActive }: { isActive: boolean }) {
   return (
-    'flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition ' +
+    // whitespace-nowrap: "Khoá học", "Mô phỏng", "War Room" đều có dấu cách, và
+    // khi thanh nav chật thì chúng xuống dòng thành hai hàng chữ trong một ô cao
+    // 14 — đọc ra là vỡ bố cục. Thà cả hàng nav tràn ngang rồi thu gọn ở màn hẹp
+    // còn hơn từng mục tự gãy đôi.
+    'flex items-center gap-2 whitespace-nowrap rounded-md px-3 py-1.5 text-sm transition ' +
     (isActive
       ? 'bg-muted font-medium text-fg-strong'
       : 'text-fg-muted hover:bg-muted hover:text-fg-strong')
+  )
+}
+
+/** Một mục nav: icon luôn hiện, chữ chỉ hiện khi đủ rộng.
+ *
+ *  Đó là cách hàng nav vừa mà không cần thanh cuộn và không xuống dòng. Icon
+ *  không đứng một mình về mặt ngữ nghĩa: `title` và nhãn cho trình đọc màn hình
+ *  vẫn nói đủ tên, kể cả lúc chữ bị ẩn. */
+function NavItem({
+  to,
+  label,
+  icon,
+}: {
+  to: string
+  label: string
+  icon: React.ReactNode
+}) {
+  return (
+    <NavLink to={to} className={navClass} title={label}>
+      {icon}
+      <span className="hidden lg:inline">{label}</span>
+      <span className="sr-only lg:hidden">{label}</span>
+    </NavLink>
   )
 }
 
@@ -26,7 +58,7 @@ function navClass({ isActive }: { isActive: boolean }) {
 function ChatLink() {
   const { dmUnread } = useChat()
   return (
-    <NavLink to="/chat" className={navClass}>
+    <NavLink to="/chat" className={navClass} title="Chat">
       <span className="relative">
         <UsersIcon className="h-4 w-4" />
         {dmUnread > 0 && (
@@ -38,7 +70,9 @@ function ChatLink() {
           </span>
         )}
       </span>
-      Chat
+      {/* Cùng luật với NavItem: chữ ẩn ở màn hẹp, icon và huy hiệu ở lại. */}
+      <span className="hidden lg:inline">Chat</span>
+      <span className="sr-only lg:hidden">Chat</span>
       {dmUnread > 0 && (
         <span className="sr-only">{dmUnread} tin nhắn chưa đọc</span>
       )}
@@ -63,66 +97,53 @@ export default function Layout() {
       <RouteProgress />
       <header className="sticky top-0 z-40 border-b border-border bg-bg">
         <nav className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
-          <div className="flex items-center gap-2 sm:gap-6">
-            <Link to="/" className="flex items-center gap-2.5">
+          {/* Không cuộn, không xuống dòng: chữ của từng mục tự ẩn ở màn hẹp và
+              chỉ còn icon (xem `NavItem`), nên hàng này luôn vừa. Thanh cuộn ở
+              header là thứ người ta không tìm thấy — nó nằm dưới đáy một dải cao
+              14 mà mắt đang nhìn chỗ khác. */}
+          <div className="flex items-center gap-1 sm:gap-2 lg:gap-4">
+            <Link to="/" className="flex shrink-0 items-center gap-2.5">
               <Logo className="h-8 w-8 shrink-0" />
               <span className="text-lg font-bold tracking-tight text-fg-strong">
                 Dev<span className="text-accent-soft">Forge</span>
               </span>
             </Link>
-            <NavLink to="/courses" className={navClass}>
-              <BookIcon className="h-4 w-4" />
-              Khoá học
-            </NavLink>
+            <NavItem to="/courses" label="Khoá học" icon={<BookIcon className="h-4 w-4" />} />
             {/* Hiện cả khi chưa đăng nhập. Giấu đi thì khách không biết trang
                 này có gì, và "đăng ký để dùng cái gì?" là câu không ai trả lời
                 được từ một thanh nav trống. Bấm vào thì `ProtectedRoute` đưa
                 sang /login rồi quay lại đúng đây. */}
-            <NavLink to="/history" className={navClass}>
-              <ClockIcon className="h-4 w-4" />
-              Lịch sử
-            </NavLink>
+            <NavItem to="/history" label="Lịch sử" icon={<ClockIcon className="h-4 w-4" />} />
             {/* Trình mô phỏng không thuộc khoá nào, nên nó là mục riêng chứ
                 không nằm trong Khoá học — khoá học để dạy, chỗ này để nghịch. */}
-            <NavLink to="/sim" className={navClass}>
-              <LayersIcon className="h-4 w-4" />
-              Mô phỏng
-            </NavLink>
+            <NavItem to="/sim" label="Mô phỏng" icon={<LayersIcon className="h-4 w-4" />} />
+            {/* Thử thách có hạn giờ, không thuộc khoá nào và không cần đăng ký
+                — nên nó đứng cạnh Mô phỏng, không nằm trong Khoá học. */}
+            <NavItem
+              to="/war-room"
+              label="War Room"
+              icon={<TerminalIcon className="h-4 w-4" />}
+            />
             <ChatLink />
-            {isAdmin && (
-              <NavLink to="/admin" className={navClass}>
-                Quản trị
-              </NavLink>
-            )}
+            {/* Quản trị không ở đây: nó nằm trong menu tài khoản. Thanh nav là
+                chỗ của những gì mọi người dùng hằng ngày, còn màn quản trị là
+                thứ một người mở vài lần một tuần. */}
           </div>
-          <div className="flex items-center gap-2 text-sm">
-            <ThemeToggle />
-            <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+          {/* shrink-0: phần tài khoản là thứ cuối cùng được phép co. Hàng nav
+              bên trái trượt ngang được, khối này thì không — tên và nút đăng
+              xuất bị bóp là hỏng hẳn. */}
+          <div className="flex shrink-0 items-center gap-2 text-sm">
             {user ? (
-              <>
-                <Link
-                  to="/profile"
-                  className="flex items-center gap-2 rounded-lg border border-border bg-surface py-1 pl-1 pr-1 transition hover:border-accent sm:pr-3"
-                >
-                  <Avatar user={user} />
-                  <span className="hidden text-fg sm:inline">
-                    {user.username}
-                    {isAdmin && (
-                      <span className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase text-accent-soft">
-                        admin
-                      </span>
-                    )}
-                  </span>
-                </Link>
-                <SignOutButton
-                  title="Đăng xuất"
-                  className="rounded-md p-2 text-fg-subtle transition hover:bg-muted hover:text-danger"
-                >
-                  <LogOutIcon className="h-4 w-4" />
-                </SignOutButton>
-              </>
+              // Hồ sơ, quản trị, giao diện và đăng xuất gom vào một menu: cả
+              // bốn đều là thứ bấm một lần rồi thôi, nên chúng không đáng chiếm
+              // chỗ thường trực của phần điều hướng.
+              <UserMenu user={user} isAdmin={isAdmin} />
             ) : (
               <>
+                {/* Khách chưa đăng nhập không có menu tài khoản, nên nút đổi
+                    giao diện phải ở ngoài — nếu không họ không đổi được. */}
+                <ThemeToggle />
+                <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
                 <Link
                   to="/login"
                   className="rounded-md px-3 py-1.5 text-fg-muted transition hover:bg-muted hover:text-fg-strong"
