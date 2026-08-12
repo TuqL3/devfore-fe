@@ -11,6 +11,7 @@ import {
 import type { Algo, Frame } from '@/sims/search/algos'
 import type { SimEntrySearch } from '@/lib/types'
 import { Prose } from '@/components/MarkdownEditor'
+import { useT, type Key } from '@/lib/i18n'
 import { ChartIcon, ChevronRightIcon } from '@/components/icons'
 
 /** Bàn xem bốn thuật toán tìm kiếm.
@@ -24,6 +25,7 @@ import { ChartIcon, ChevronRightIcon } from '@/components/icons'
  *  chỗ dùng thì một hàm `<Bench3Cols>` với năm cái prop đắt hơn là chép. Tách khi
  *  có chỗ thứ ba. */
 export function SearchBench({ sim }: { sim: SimEntrySearch }) {
+  const t = useT()
   // Mảng là hằng số — không sửa được, và đó là chủ ý: hình dạng lệch của nó
   // chính là bài học của thuật toán nội suy. Xem chú thích ở `seedData`.
   const [data] = useState(seedData)
@@ -70,7 +72,7 @@ export function SearchBench({ sim }: { sim: SimEntrySearch }) {
       {sim.guide.trim() && (
         <details className="mt-8 rounded-xl border border-border bg-surface p-4">
           <summary className="cursor-pointer text-sm font-semibold text-fg-strong">
-            Luật và giới hạn của mô phỏng này
+            {t('bench.rules')}
           </summary>
           <div className="mt-3">
             <Prose>{sim.guide}</Prose>
@@ -82,7 +84,7 @@ export function SearchBench({ sim }: { sim: SimEntrySearch }) {
         to="/sim"
         className="mt-4 inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
       >
-        Xem mấy mô phỏng khác
+        {t('search.otherSims')}
         <ChevronRightIcon className="h-3.5 w-3.5" />
       </Link>
     </div>
@@ -174,6 +176,7 @@ function Stage({
   onRun: () => void
   onPick: (v: number) => void
 }) {
+  const t = useT()
   const trace = algo.run(data, target)
   const total = trace.frames.length
   // Bước đang chiếu. `-1` là chưa bấm Chạy: mảng hiện nguyên vẹn, chưa loại ô
@@ -215,11 +218,11 @@ function Stage({
         </span>
         {algo.needs_sorted ? (
           <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-fg-muted">
-            cần mảng đã sắp
+            {t('search.needsSorted')}
           </span>
         ) : (
           <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] text-success">
-            không cần sắp
+            {t('search.noSortNeeded')}
           </span>
         )}
       </div>
@@ -234,7 +237,7 @@ function Stage({
             của cả trang. Đếm phép so THẬT SỰ ĐÃ CHẠY tới nhịp này, không phải
             tổng của cả vết — tổng thì nó đứng yên và không nói gì. */}
         <span className="ml-auto flex items-baseline gap-2 rounded-md border border-border px-3 py-1.5">
-          <span className="text-[11px] text-fg-subtle">phép so</span>
+          <span className="text-[11px] text-fg-subtle">{t('search.comparisons')}</span>
           <span className="font-mono text-lg font-semibold tabular-nums text-accent-soft">
             {soFar}
           </span>
@@ -243,7 +246,7 @@ function Stage({
           onClick={onRun}
           className="shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:bg-accent-hover"
         >
-          {runNo === 0 ? 'Chạy ▶' : 'Chạy lại ↻'}
+          {runNo === 0 ? t('bench.run') : t('bench.rerun')}
         </button>
       </div>
 
@@ -252,7 +255,8 @@ function Stage({
       <div className="mt-3 min-h-12 rounded-lg border border-border bg-muted px-3 py-2">
         {runNo === 0 ? (
           <p className="font-mono text-xs text-fg-subtle">
-            bấm Chạy để xem từng phép so sánh<span className="term-caret ml-0.5" />
+            {t('search.pressRun')}
+            <span className="term-caret ml-0.5" />
           </p>
         ) : (
           <Readout
@@ -286,6 +290,7 @@ function Stage({
  *  phải có lúc được chiếu sáng** — dòng không bao giờ sáng là dấu hiệu đoạn chữ
  *  trên màn hình đã rời khỏi cái hàm nó mô tả. */
 function CodePanel({ algo, frame }: { algo: Algo; frame: Frame | null }) {
+  const t = useT()
   return (
     <div className="mt-4 overflow-hidden rounded-lg border border-border bg-bg">
       <div className="flex items-baseline gap-2 border-b border-border px-3 py-1.5">
@@ -341,7 +346,9 @@ function CodePanel({ algo, frame }: { algo: Algo; frame: Frame | null }) {
             </span>
           ))
         ) : (
-          <span className="font-mono text-[11px] text-fg-subtle">chưa có biến nào</span>
+          <span className="font-mono text-[11px] text-fg-subtle">
+            {t('search.noVars')}
+          </span>
         )}
       </div>
     </div>
@@ -369,29 +376,30 @@ function Readout({
   found: number
   comparisons: number
 }) {
-  const CMP: Record<'lt' | 'eq' | 'gt', string> = {
-    lt: 'nhỏ hơn mục tiêu',
-    gt: 'lớn hơn mục tiêu',
-    eq: 'bằng mục tiêu',
+  const t = useT()
+  const CMP: Record<'lt' | 'eq' | 'gt', Key> = {
+    lt: 'search.lt',
+    gt: 'search.gt',
+    eq: 'search.eq',
   }
   return (
     <div className="space-y-0.5">
       <p className="font-mono text-xs text-fg-muted">
         <span className="text-accent-soft">
-          bước {Math.min(at + 1, total)}/{total}
+          {t('search.stepOf', { at: Math.min(at + 1, total), total })}
         </span>
         {frame && <> · {frame.note}</>}
-        {frame?.cmp && <> · {CMP[frame.cmp]}</>}
+        {frame?.cmp && <> · {t(CMP[frame.cmp])}</>}
       </p>
       {done && (
         <p className="line-in font-mono text-sm">
           {found === -1 ? (
             <span className="text-danger">
-              không có trong mảng — mất {comparisons} phép so mới dám kết luận
+              {t('search.notFoundAfter', { n: comparisons })}
             </span>
           ) : (
             <span className="text-success">
-              tìm thấy ở ô {found} sau {comparisons} phép so
+              {t('search.foundAt', { i: found, n: comparisons })}
             </span>
           )}
         </p>
@@ -419,6 +427,7 @@ function Cells({
   found: number
   onPick: (v: number) => void
 }) {
+  const t = useT()
   return (
     <div className="mt-4">
       <div className="grid grid-cols-8 gap-1">
@@ -431,7 +440,7 @@ function Cells({
             <button
               key={i}
               onClick={() => onPick(v)}
-              title={`ô ${i} · giá trị ${v} — bấm để tìm số này`}
+              title={t('search.cellTitle', { i, v })}
               className={
                 'rounded py-1 text-center font-mono text-xs tabular-nums transition ' +
                 (hit
@@ -451,8 +460,7 @@ function Cells({
         })}
       </div>
       <p className="mt-2 text-[11px] text-fg-subtle">
-        Bấm một ô bất kỳ để đổi mục tiêu. Ô mờ gạch ngang là phần thuật toán đã
-        loại và sẽ không bao giờ mở ra xem.
+        {t('search.pickHint')}
       </p>
     </div>
   )
@@ -481,6 +489,7 @@ function Board({
   onPick: (v: number) => void
   onReset: () => void
 }) {
+  const t = useT()
   const max = Math.max(...board.map((r) => r.comparisons), 1)
   const best = Math.min(...board.map((r) => r.comparisons))
   const found = board[0].found
@@ -490,14 +499,16 @@ function Board({
       <div className="rounded-xl border border-border bg-surface p-3">
         <div className="flex items-center gap-2 border-b border-border pb-2">
           <ChartIcon className="h-4 w-4 shrink-0 text-accent-soft" />
-          <span className="text-xs text-fg-subtle">đang tìm</span>
+          <span className="text-xs text-fg-subtle">{t('search.looking')}</span>
           <code className="ml-auto font-mono text-sm font-semibold text-fg-strong">
             {target}
           </code>
         </div>
 
         <p className="mt-2 text-[11px] text-fg-subtle">
-          {found === -1 ? 'không có trong mảng' : `nằm ở ô ${found}`}
+          {found === -1
+            ? t('search.notInArray')
+            : t('search.atCell', { i: found })}
         </p>
 
         <ul className="mt-2 space-y-2">
@@ -541,13 +552,13 @@ function Board({
             onClick={() => onPick(missingValue(data))}
             className="w-full rounded-md border border-border-strong px-2 py-1.5 text-xs text-fg-muted transition hover:border-accent/60 hover:text-fg"
           >
-            một số không có trong mảng
+            {t('search.missingNumber')}
           </button>
           <button
             onClick={onReset}
             className="w-full rounded-md border border-border-strong px-2 py-1.5 text-xs text-fg-muted transition hover:border-accent/60 hover:text-fg"
           >
-            Dựng lại
+            {t('bench.reset')}
           </button>
         </div>
       </div>

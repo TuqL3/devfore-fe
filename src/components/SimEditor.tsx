@@ -9,6 +9,7 @@ import { SimTimeline } from '@/components/SimTimeline'
 import { SimCatalog, SimInsights } from '@/components/SimPanels'
 import { PipelineEditor } from '@/components/PipelineEditor'
 import { starterPipeline } from '@/lib/sim'
+import { useT } from '@/lib/i18n'
 
 /** Cùng số với `usecase.MaxSimRuns` phía server. Ở đây chỉ để đếm ngược cho học
  *  viên thấy; server mới là chỗ từ chối. */
@@ -27,6 +28,7 @@ export function SimEditor({
   /** Phiên còn chạy. Hết giờ thì pipeline vẫn đọc được, chỉ không chạy thêm. */
   live: boolean
 }) {
+  const t = useT()
   const qc = useQueryClient()
   const [text, setText] = useState<string | null>(null)
 
@@ -64,7 +66,7 @@ export function SimEditor({
         <div className="flex items-center gap-2 border-b border-border px-3 py-2">
           <span className="font-mono text-xs text-fg-muted">pipeline.yml</span>
           <span className="ml-auto font-mono text-[11px] text-fg-subtle">
-            {used}/{MAX_RUNS} lượt
+            {used}/{MAX_RUNS} {t('simEditor.runsUsed')}
           </span>
         </div>
         <PipelineEditor value={text ?? ''} onChange={setText} rows={12} />
@@ -76,10 +78,10 @@ export function SimEditor({
           disabled={!live || spent || run.isPending || !text?.trim()}
           title={
             !live
-              ? 'Phiên đã kết thúc'
+              ? t('simEditor.sessionEnded')
               : spent
-                ? `Phiên này đã dùng hết ${MAX_RUNS} lượt chạy`
-                : 'Chạy pipeline'
+                ? t('simEditor.runsSpent', { n: MAX_RUNS })
+                : t('simEditor.runPipeline')
           }
           className="inline-flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
@@ -89,15 +91,15 @@ export function SimEditor({
               className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
             />
           )}
-          {run.isPending ? 'Đang chạy…' : 'Chạy pipeline'}
+          {run.isPending ? t('play.running') : t('simEditor.runPipeline')}
         </button>
         <p className="text-xs text-fg-subtle">
-          Chấm theo lượt chạy gần nhất — chạy xong mới bấm được nút bên trái.{' '}
+          {t('simEditor.gradeNote')}{' '}
           {/* Phiên lab giới hạn 30 lượt và hết giờ là đóng. Ai muốn thử thêm mà
               không sợ tốn lượt thì có chỗ khác, và nói ra thì hơn là để họ dè
               dặt từng cú bấm. */}
           <Link to="/sim" className="text-accent-soft hover:underline">
-            Nghịch thoải mái ở sân chơi →
+            {t('simEditor.playground')} →
           </Link>
         </p>
       </div>
@@ -108,7 +110,7 @@ export function SimEditor({
         <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
           {run.error instanceof ApiError
             ? run.error.message
-            : 'Không chạy được lúc này, thử lại.'}
+            : t('simEditor.runFailed')}
         </p>
       )}
 
@@ -119,7 +121,7 @@ export function SimEditor({
         </>
       ) : (
         <p className="rounded-xl border border-dashed border-border-strong px-3 py-6 text-center text-sm text-fg-subtle">
-          Chưa chạy lượt nào. Sửa pipeline bên trên rồi bấm Chạy pipeline.
+          {t('simEditor.noRuns')}
         </p>
       )}
     </div>

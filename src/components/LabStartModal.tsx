@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import type { Lab } from '@/lib/types'
 import { ClockIcon, TerminalIcon } from '@/components/icons'
+import { useT } from '@/lib/i18n'
 
 /** idle → creating → (the caller navigates). `blocked` and `failed` are dead
  *  ends the student has to act on. */
@@ -32,6 +33,7 @@ export function LabStartModal({
   onStart,
   onClose,
 }: Props) {
+  const t = useT()
   const startRef = useRef<HTMLButtonElement>(null)
   const busy = phase === 'creating'
 
@@ -77,7 +79,7 @@ export function LabStartModal({
         className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl"
       >
         <p className="font-mono text-xs uppercase tracking-wide text-fg-subtle">
-          Bài thực hành
+          {t('start.kicker')}
         </p>
         <h2 id="lab-start-title" className="mt-1 text-lg font-bold text-fg-strong">
           {lab.title}
@@ -86,8 +88,7 @@ export function LabStartModal({
         {phase === 'blocked' ? (
           <>
             <p className="mt-4 text-sm leading-relaxed text-fg-muted">
-              Bạn đang có một phiên lab khác chạy dở. Mỗi lúc chỉ được mở một
-              container — kết thúc phiên đó rồi mới bắt đầu bài này.
+              {t('start.blocked')}
             </p>
             {onStopRunning && (
               <button
@@ -96,7 +97,7 @@ export function LabStartModal({
                 className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-70"
               >
                 {stopping && <Spinner />}
-                {stopping ? 'Đang đóng…' : 'Kết thúc phiên đang chạy'}
+                {stopping ? t('start.stopping') : t('start.stopRunning')}
               </button>
             )}
             {/* Only offered when the session still resolves to a route. A lab or
@@ -107,22 +108,22 @@ export function LabStartModal({
                 to={runningHref}
                 className="mt-2 block text-center text-sm text-accent-soft hover:underline"
               >
-                Hoặc mở lại phiên đang chạy →
+                {t('start.reopenRunning')} →
               </Link>
             )}
           </>
         ) : (
           <>
             <div className="mt-4 flex flex-wrap gap-2 font-mono text-xs">
-              <Chip>{lab.task_count} nhiệm vụ</Chip>
-              <Chip>{lab.duration_minutes} phút</Chip>
-              <Chip accent>{lab.points} điểm</Chip>
+              <Chip>{t('start.tasks', { n: lab.task_count })}</Chip>
+              <Chip>{t('start.minutes', { n: lab.duration_minutes })}</Chip>
+              <Chip accent>{t('start.points', { n: lab.points })}</Chip>
             </div>
 
             {busy ? (
               <p className="mt-5 flex items-center gap-2.5 text-sm text-fg-strong">
                 <Spinner />
-                {lab.is_sim ? 'Đang mở bài…' : 'Đang tạo container riêng cho bạn…'}
+                {lab.is_sim ? t('start.openingSim') : t('start.creating')}
               </p>
             ) : (
               <p className="mt-4 flex items-start gap-2 text-sm leading-relaxed text-fg-muted">
@@ -133,16 +134,15 @@ export function LabStartModal({
                     thành vô nghĩa. */}
                 {lab.is_sim ? (
                   <span>
-                    Bài này không có container: bạn viết pipeline, server mô phỏng
-                    lịch chạy. Phiên{' '}
-                    <strong className="text-fg">tự đóng sau 60 phút</strong>, các
-                    lượt đã chạy vẫn xem lại được.
+                    {t('start.simBefore')}{' '}
+                    <strong className="text-fg">{t('start.simStrong')}</strong>
+                    {t('start.simAfter')}
                   </span>
                 ) : (
                   <span>
-                    Một container Linux riêng sẽ được tạo cho bạn và{' '}
-                    <strong className="text-fg">tự xoá sau 60 phút</strong>. Mọi thứ
-                    bên trong mất theo nó, nên đừng để gì quan trọng ở đấy.
+                    {t('start.containerBefore')}{' '}
+                    <strong className="text-fg">{t('start.containerStrong')}</strong>
+                    {t('start.containerAfter')}
                   </span>
                 )}
               </p>
@@ -166,10 +166,10 @@ export function LabStartModal({
             >
               {busy ? <Spinner /> : <TerminalIcon className="h-4 w-4" />}
               {busy
-                ? 'Đang chuẩn bị…'
+                ? t('start.preparing')
                 : phase === 'failed'
-                  ? 'Thử lại'
-                  : 'Bắt đầu làm bài'}
+                  ? t('start.retry')
+                  : t('start.begin')}
             </button>
           )}
           {!busy && (
@@ -182,7 +182,7 @@ export function LabStartModal({
                   : '')
               }
             >
-              {phase === 'blocked' ? 'Đã hiểu' : 'Để sau'}
+              {phase === 'blocked' ? t('start.understood') : t('start.later')}
             </button>
           )}
         </div>

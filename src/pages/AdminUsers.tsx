@@ -10,18 +10,19 @@ import { SearchIcon } from '@/components/icons'
 import { useAuth } from '@/context/AuthContext'
 import { timeAgo } from '@/lib/relativeTime'
 import type { ManagedUser } from '@/lib/types'
+import { useT, type Key } from '@/lib/i18n'
 
-const STATUSES: { key: NonNullable<UserFilter['status']>; label: string }[] = [
-  { key: '', label: 'Tất cả' },
-  { key: 'active', label: 'Hoạt động' },
-  { key: 'pending', label: 'Chờ xác thực' },
-  { key: 'banned', label: 'Đã khoá' },
+const STATUSES: { key: NonNullable<UserFilter['status']>; label: Key }[] = [
+  { key: '', label: 'users.filter.all' },
+  { key: 'active', label: 'users.filter.active' },
+  { key: 'pending', label: 'users.filter.pending' },
+  { key: 'banned', label: 'users.filter.banned' },
 ]
 
-const ROLES: { key: NonNullable<UserFilter['role']>; label: string }[] = [
-  { key: '', label: 'Mọi quyền' },
-  { key: 'admin', label: 'Quản trị' },
-  { key: 'student', label: 'Học viên' },
+const ROLES: { key: NonNullable<UserFilter['role']>; label: Key }[] = [
+  { key: '', label: 'users.role.any' },
+  { key: 'admin', label: 'users.role.admin' },
+  { key: 'student', label: 'users.role.student' },
 ]
 
 /** The account table. Two decisions live here — is this account allowed in, and
@@ -29,6 +30,7 @@ const ROLES: { key: NonNullable<UserFilter['role']>; label: string }[] = [
  *  row by the server, because that is the one mistake nobody can undo from the
  *  screen they just locked themselves out of. */
 export default function AdminUsers() {
+  const t = useT()
   const qc = useQueryClient()
   const { user: me } = useAuth()
   const [query, setQuery] = useState('')
@@ -49,7 +51,7 @@ export default function AdminUsers() {
   })
 
   const fail = (e: unknown) =>
-    setError(e instanceof ApiError ? e.message : 'không thực hiện được, thử lại')
+    setError(e instanceof ApiError ? e.message : t('users.actionFailed'))
   const done = () => {
     qc.invalidateQueries({ queryKey: ['admin-users'] })
     setError('')
@@ -80,10 +82,9 @@ export default function AdminUsers() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-fg-strong">Người dùng</h1>
+        <h1 className="text-2xl font-bold text-fg-strong">{t('users.title')}</h1>
         <p className="mt-1 text-sm text-fg-muted">
-          Khoá tài khoản và cấp quyền quản trị. Cả hai đều huỷ phiên đăng nhập
-          của tài khoản đó ngay lập tức.
+          {t('users.subtitle')}
         </p>
       </div>
 
@@ -95,7 +96,7 @@ export default function AdminUsers() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm theo tên hoặc email"
+            placeholder={t('users.search')}
             className="pl-9"
           />
         </div>
@@ -105,25 +106,27 @@ export default function AdminUsers() {
 
       <Card className="overflow-hidden">
         {users.isLoading ? (
-          <p className="px-5 py-8 text-center text-sm text-fg-subtle">Đang tải…</p>
+          <p className="px-5 py-8 text-center text-sm text-fg-subtle">
+            {t('common.loading')}
+          </p>
         ) : users.isError ? (
           <p className="px-5 py-8 text-center text-sm text-danger">
-            Không đọc được danh sách.
+            {t('users.loadError')}
           </p>
         ) : rows.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-fg-subtle">
-            Không có tài khoản nào khớp.
+            {t('users.empty')}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[46rem] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-fg-muted">
-                  <th className="px-5 py-2 font-medium">Tài khoản</th>
-                  <th className="px-3 py-2 font-medium">Trạng thái</th>
-                  <th className="px-3 py-2 font-medium">Quyền</th>
-                  <th className="px-3 py-2 font-medium">Tham gia</th>
-                  <th className="px-5 py-2 text-right font-medium">Thao tác</th>
+                  <th className="px-5 py-2 font-medium">{t('users.colAccount')}</th>
+                  <th className="px-3 py-2 font-medium">{t('users.colStatus')}</th>
+                  <th className="px-3 py-2 font-medium">{t('users.colRole')}</th>
+                  <th className="px-3 py-2 font-medium">{t('users.colJoined')}</th>
+                  <th className="px-5 py-2 text-right font-medium">{t('users.colActions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -152,32 +155,30 @@ export default function AdminUsers() {
             looks complete is worse than one that admits it is not. */}
         {hidden > 0 && (
           <p className="border-t border-border px-5 py-2.5 text-xs text-fg-muted">
-            Hiện {rows.length} trong {data?.total} tài khoản khớp. Thu hẹp bằng ô
-            tìm kiếm để thấy phần còn lại.
+            {t('users.truncated', { shown: rows.length, total: data?.total ?? 0 })}
           </p>
         )}
       </Card>
 
       {banning && (
         <ConfirmModal
-          title={`Khoá tài khoản “${banning.username}”?`}
-          confirmLabel={ban.isPending ? 'Đang khoá…' : 'Khoá tài khoản'}
+          title={t('users.banTitle', { name: banning.username })}
+          confirmLabel={ban.isPending ? t('users.banning') : t('users.ban')}
           tone="danger"
           busy={ban.isPending}
           onClose={() => setBanning(null)}
           onConfirm={() => ban.mutate({ id: banning.id, banned: true, reason })}
         >
           <p>
-            Họ sẽ bị đăng xuất khỏi mọi thiết bị và không đăng nhập lại được cho
-            tới khi bạn mở khoá. Dữ liệu học tập giữ nguyên.
+            {t('users.banBody')}
           </p>
           <label className="block">
-            <span className="text-sm text-fg-muted">Lý do (không bắt buộc)</span>
+            <span className="text-sm text-fg-muted">{t('users.banReason')}</span>
             <Input
               value={reason}
               maxLength={500}
               onChange={(e) => setReason(e.target.value)}
-              placeholder="ghi lại để lần sau còn biết vì sao"
+              placeholder={t('users.banReasonPlaceholder')}
               className="mt-1"
             />
           </label>
@@ -192,10 +193,11 @@ function Chips<T extends string>({
   value,
   onChange,
 }: {
-  options: { key: T; label: string }[]
+  options: { key: T; label: Key }[]
   value: T | undefined
   onChange: (v: T) => void
 }) {
+  const t = useT()
   return (
     <div className="flex gap-1 rounded-lg bg-muted p-1">
       {options.map((o) => (
@@ -209,7 +211,7 @@ function Chips<T extends string>({
               : 'text-fg-muted hover:text-fg-strong')
           }
         >
-          {o.label}
+          {t(o.label)}
         </button>
       ))}
     </div>
@@ -233,9 +235,10 @@ function UserRow({
   onBan: () => void
   onUnban: () => void
 }) {
+  const t = useT()
   const admin = user.roles.includes('admin')
   const banned = user.status === 'banned'
-  const selfTitle = 'không thao tác được trên chính tài khoản của bạn'
+  const selfTitle = t('users.selfTitle')
 
   return (
     <tr className="border-b border-border last:border-0">
@@ -245,7 +248,11 @@ function UserRow({
           <div className="min-w-0">
             <p className="truncate font-medium text-fg-strong">
               {user.username}
-              {isMe && <span className="ml-1.5 text-xs text-fg-subtle">(bạn)</span>}
+              {isMe && (
+                <span className="ml-1.5 text-xs text-fg-subtle">
+                  {t('users.you')}
+                </span>
+              )}
             </p>
             <p className="truncate text-xs text-fg-subtle">{user.email}</p>
           </div>
@@ -265,7 +272,7 @@ function UserRow({
               : 'bg-muted text-fg-muted')
           }
         >
-          {admin ? 'Quản trị' : 'Học viên'}
+          {admin ? t('users.role.admin') : t('users.role.student')}
         </span>
       </td>
 
@@ -280,11 +287,11 @@ function UserRow({
             title={isMe ? selfTitle : undefined}
             onClick={onToggleAdmin}
           >
-            {admin ? 'Gỡ quyền' : 'Cấp quyền'}
+            {admin ? t('users.revokeAdmin') : t('users.grantAdmin')}
           </RowButton>
           {banned ? (
             <RowButton tone="ok" disabled={isMe || busy} onClick={onUnban}>
-              Mở khoá
+              {t('users.unban')}
             </RowButton>
           ) : (
             <RowButton
@@ -297,12 +304,12 @@ function UserRow({
                 isMe
                   ? selfTitle
                   : user.status !== 'active'
-                    ? 'chỉ khoá được tài khoản đang hoạt động'
+                    ? t('users.onlyActive')
                     : undefined
               }
               onClick={onBan}
             >
-              Khoá
+              {t('users.banShort')}
             </RowButton>
           )}
         </div>
@@ -341,16 +348,17 @@ function RowButton({
 }
 
 function StatusBadge({ user }: { user: ManagedUser }) {
+  const t = useT()
   if (user.status === 'banned') {
     return (
       <div>
         <span className="rounded-full bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">
-          Đã khoá
+          {t('users.banned')}
         </span>
         {/* The reason and who gave it, because "why is this person locked out"
             is the next question every time. */}
         <p className="mt-1 max-w-56 text-xs text-fg-subtle">
-          {user.banned_reason ?? 'không ghi lý do'}
+          {user.banned_reason ?? t('users.noReason')}
           {user.banned_by && ` — ${user.banned_by}`}
         </p>
       </div>
@@ -359,13 +367,13 @@ function StatusBadge({ user }: { user: ManagedUser }) {
   if (user.status === 'pending') {
     return (
       <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-500">
-        Chờ xác thực
+        {t('users.pending')}
       </span>
     )
   }
   return (
     <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">
-      Hoạt động
+      {t('users.active')}
     </span>
   )
 }

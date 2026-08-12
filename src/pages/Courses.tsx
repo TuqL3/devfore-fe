@@ -5,8 +5,10 @@ import { coursesApi } from '@/api/courses'
 import type { CourseSummary } from '@/lib/types'
 import { useLevels } from '@/lib/levels'
 import { LevelMeter } from '@/components/LevelMeter'
+import { useT } from '@/lib/i18n'
 
 export function CourseCard({ c }: { c: CourseSummary }) {
+  const t = useT()
   const { label } = useLevels()
   return (
     <Link
@@ -53,7 +55,8 @@ export function CourseCard({ c }: { c: CourseSummary }) {
         <div className="mt-auto flex items-center justify-between gap-2 pt-4 font-mono text-xs text-fg-subtle">
           <span>
             {c.lab_count} lab
-            {c.student_count > 0 && ` · ${c.student_count} học viên`}
+            {c.student_count > 0 &&
+              ` · ${t('courses.students', { n: c.student_count })}`}
           </span>
           <span className="text-accent-soft transition-transform group-hover:translate-x-1">
             →
@@ -80,6 +83,7 @@ function CardSkeleton() {
 export default function Courses() {
   // Filters live in the URL so a filtered list can be shared and the back
   // button steps through it.
+  const t = useT()
   const [params, setParams] = useSearchParams()
   const level = params.get('level') ?? ''
   const q = params.get('q') ?? ''
@@ -117,9 +121,9 @@ export default function Courses() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-fg-strong">Khoá học</h1>
+        <h1 className="text-2xl font-bold text-fg-strong">{t('courses.title')}</h1>
         <p className="mt-1 text-fg-muted">
-          Mỗi khoá gồm nhiều lab thực hành trên container Linux thật.
+          {t('courses.subtitle')}
         </p>
       </div>
 
@@ -128,14 +132,14 @@ export default function Courses() {
           type="search"
           value={text}
           onChange={(e) => setText(e.target.value)}
-          placeholder="Tìm khoá học…"
-          aria-label="Tìm khoá học"
+          placeholder={t('courses.search')}
+          aria-label={t('courses.searchLabel')}
           className="w-full max-w-xs rounded-md border border-border-strong bg-surface px-3 py-2 text-sm outline-none placeholder:text-fg-subtle focus:border-accent"
         />
         {levels.length > 1 && (
           <div className="flex flex-wrap gap-2">
             <FilterChip active={!level} onClick={() => patch('level', '')}>
-              Tất cả
+              {t('courses.all')}
             </FilterChip>
             {levels.map((l) => (
               <FilterChip
@@ -152,29 +156,29 @@ export default function Courses() {
           </div>
         )}
         {isFetching && !isLoading && (
-          <span className="font-mono text-xs text-fg-subtle">đang lọc…</span>
+          <span className="font-mono text-xs text-fg-subtle">{t('courses.filtering')}</span>
         )}
       </div>
 
       {isError && (
-        <p className="text-danger">Không tải được danh sách khoá học.</p>
+        <p className="text-danger">{t('courses.loadError')}</p>
       )}
       {!isLoading && data?.length === 0 && (
         <p className="text-fg-subtle">
           {filtering ? (
             <>
-              Không có khoá học nào khớp
-              {level && <> ở mức “{label(level)}”</>}
-              {q && <> với từ khoá “{q}”</>}.{' '}
+              {t('courses.noMatch')}
+              {level && <> {t('courses.atLevel')} “{label(level)}”</>}
+              {q && <> {t('courses.withQuery')} “{q}”</>}.{' '}
               <button
                 onClick={() => setParams({}, { replace: true })}
                 className="text-accent-soft hover:underline"
               >
-                Xoá bộ lọc
+                {t('courses.clearFilters')}
               </button>
             </>
           ) : (
-            'Chưa có khoá học nào được xuất bản.'
+            t('courses.empty')
           )}
         </p>
       )}

@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '@/api/auth'
+import { useT } from '@/lib/i18n'
 import { ApiError } from '@/lib/api'
 import { PasswordInput } from '@/components/ui'
 import {
@@ -12,6 +13,7 @@ import {
 } from '@/components/AuthShell'
 
 export default function ResetPassword() {
+  const t = useT()
   const nav = useNavigate()
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
@@ -37,21 +39,21 @@ export default function ResetPassword() {
   }
 
   const error = mismatch
-    ? 'hai mật khẩu không khớp'
+    ? t('auth.passwordMismatch')
     : mut.isError
       ? mut.error instanceof ApiError
         ? mut.error.message
-        : 'đặt lại mật khẩu thất bại'
+        : t('auth.resetFailed')
       : ''
 
   return (
     <AuthShell cmd="reset-password">
       <p className="font-mono text-sm text-fg-muted">
-        # đặt mật khẩu mới. Mọi thiết bị đang đăng nhập sẽ bị thoát.
+        # {t('auth.resetIntro')}
       </p>
 
       <form onSubmit={onSubmit} className="space-y-4">
-        <TermField flag="new-password" hint="tối thiểu 8 ký tự">
+        <TermField flag="new-password" hint={t('auth.min8')}>
           <PasswordInput
             variant="terminal"
             value={form.password}
@@ -81,7 +83,7 @@ export default function ResetPassword() {
       </form>
 
       <p className="font-mono text-sm text-fg-subtle">
-        # link hết hạn?{' '}
+        # {t('auth.linkExpired')}{' '}
         <Link to="/forgot-password" className="text-accent-soft hover:underline">
           ./forgot-password
         </Link>

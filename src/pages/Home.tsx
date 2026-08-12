@@ -5,13 +5,17 @@ import { coursesApi } from '@/api/courses'
 import { CourseCard } from './Courses'
 import { useLevels } from '@/lib/levels'
 import { LevelMeter } from '@/components/LevelMeter'
+import { useT, type Key } from '@/lib/i18n'
 
+// Keys, not text: this array is built once at import time, so holding the
+// Vietnamese strings here would freeze the page in whatever language was
+// current when the module loaded.
 const chips = [
-  'Container Linux thật',
-  'Chấm bằng trạng thái máy',
-  'Thử thách có đồng hồ',
-  'Mô phỏng chạy trong trình duyệt',
-]
+  'home.chip.real',
+  'home.chip.grading',
+  'home.chip.timed',
+  'home.chip.sim',
+] as const
 
 /** Bốn thứ làm được ở đây, và chỗ để đi tới từng cái.
  *
@@ -23,35 +27,35 @@ const chips = [
  *  bốn ô giống hệt nhau thì không ô nào được nhìn trước. */
 const FEATURES: {
   to: string
-  title: string
-  body: string
-  bullets: string[]
+  title: Key
+  body: Key
+  bullets: Key[]
   highlight?: true
 }[] = [
   {
     to: '/war-room',
-    title: 'War Room — thử thách có đồng hồ',
-    body: 'Mở ra là hệ thống đã hỏng sẵn, không ai nói hỏng ở đâu. Tìm ra và sửa trước khi hết giờ.',
-    bullets: ['Lỗi bốc ngẫu nhiên mỗi lượt', 'Đồng hồ và số người dùng đang chịu lỗi chạy ngay trên màn hình', 'Xong có bản tường trình: mất bao lâu, bạn đã gõ gì'],
+    title: 'home.feat.war.title',
+    body: 'home.feat.war.body',
+    bullets: ['home.feat.war.b1', 'home.feat.war.b2', 'home.feat.war.b3'],
     highlight: true,
   },
   {
     to: '/courses',
-    title: 'Lab trên container thật',
-    body: 'Mỗi bài mở một container Linux riêng, vào bằng terminal ngay trong trình duyệt. Không cài gì trên máy bạn.',
-    bullets: ['Terminal thật, không phải video', 'Chấm theo trạng thái máy, không theo lệnh bạn gõ', 'Hết giờ là container tự dọn'],
+    title: 'home.feat.lab.title',
+    body: 'home.feat.lab.body',
+    bullets: ['home.feat.lab.b1', 'home.feat.lab.b2', 'home.feat.lab.b3'],
   },
   {
     to: '/sim',
-    title: 'Mô phỏng chạy được',
-    body: 'Những thứ dựng thật thì đắt hoặc nguy hiểm, ở đây mô phỏng: pipeline CI/CD, lệnh Linux, thuật toán tìm kiếm.',
-    bullets: ['Mở là dùng, không đăng ký, không chấm điểm', 'Tự dựng pipeline của riêng bạn — mô tả một câu, AI dựng kịch bản'],
+    title: 'home.feat.sim.title',
+    body: 'home.feat.sim.body',
+    bullets: ['home.feat.sim.b1', 'home.feat.sim.b2'],
   },
   {
     to: '/history',
-    title: 'Lịch sử và tường trình',
-    body: 'Mọi lượt làm được ghi lại: câu nào đúng, câu nào phải thử lại, và với ca trực là cả dòng thời gian lệnh đã gõ.',
-    bullets: ['Xem lại từng lượt, kể cả lượt bỏ dở', 'Điểm và bảng xếp hạng theo khoá'],
+    title: 'home.feat.hist.title',
+    body: 'home.feat.hist.body',
+    bullets: ['home.feat.hist.b1', 'home.feat.hist.b2'],
   },
 ]
 
@@ -131,6 +135,7 @@ function Terminal() {
 }
 
 function Hero() {
+  const t = useT()
   return (
     // Fills the first screen so the rest of the page starts below the fold.
     // 6.5rem is the sticky header plus <main>'s top padding; svh rather than
@@ -139,10 +144,10 @@ function Hero() {
       <div className="space-y-6">
         <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted">
           <span className="term-dot bg-emerald-400" />
-          Lab container thật, chạy trong trình duyệt
+          {t('home.hero.badge')}
         </span>
         <h1 className="text-4xl font-bold leading-tight text-fg-strong md:text-5xl">
-          Làm chủ quy trình{' '}
+          {t('home.hero.h1')}{' '}
           {/* Gradient runs accent → accent-hover so it stays legible in both
               themes instead of washing out on white. */}
           <span className="bg-gradient-to-r from-accent to-accent-hover bg-clip-text text-transparent">
@@ -150,8 +155,7 @@ function Hero() {
           </span>
         </h1>
         <p className="text-lg text-fg-muted">
-          Học DevOps qua lab thực hành. Mỗi bài lab cấp cho bạn một container Linux
-          thật, truy cập qua terminal ngay trong trình duyệt.
+          {t('home.hero.lead')}
         </p>
         <ul className="grid gap-y-2 gap-x-6 sm:grid-cols-2">
           {chips.map((c) => (
@@ -159,7 +163,7 @@ function Hero() {
               <span className="font-mono text-accent-soft" aria-hidden="true">
                 ✓
               </span>
-              {c}
+              {t(c)}
             </li>
           ))}
         </ul>
@@ -168,7 +172,7 @@ function Hero() {
             to="/courses"
             className="rounded-md bg-accent px-5 py-2.5 font-medium text-accent-fg shadow-lg shadow-accent/25 transition hover:bg-accent-hover"
           >
-            Khám phá khoá học
+            {t('home.hero.ctaCourses')}
           </Link>
           {/* Nút thứ hai trỏ vào War Room chứ không phải một mỏ neo cuộn xuống:
               thứ đáng thử ngay của trang này là một thử thách vào thẳng được,
@@ -177,13 +181,13 @@ function Hero() {
             to="/war-room"
             className="rounded-md border border-border-strong px-5 py-2.5 font-medium text-fg transition hover:border-accent hover:text-accent-soft"
           >
-            Thử một ca trực →
+            {t('home.hero.ctaWarRoom')} →
           </Link>
           <a
             href="#tinh-nang"
             className="self-center text-sm text-fg-muted underline-offset-4 transition hover:text-accent-soft hover:underline"
           >
-            Xem có gì ↓
+            {t('home.hero.seeMore')} ↓
           </a>
         </div>
       </div>
@@ -193,11 +197,12 @@ function Hero() {
 }
 
 function Features() {
+  const t = useT()
   return (
     <Section
       id="tinh-nang"
-      title="Có gì trong DevForge"
-      subtitle="Bốn cách học, dùng chung một hạ tầng container."
+      title={t('home.features.title')}
+      subtitle={t('home.features.subtitle')}
     >
       {/* Ba cột, và thẻ nổi bật chiếm trọn hàng đầu: bốn thẻ chia ba cột thì
           hàng dưới lẻ một ô trống. Cách này vừa lấp kín vừa cho War Room đúng
@@ -219,11 +224,11 @@ function Features() {
                 nhau, và một hàng chữ "xem thêm" ở bốn độ cao khác nhau đọc ra
                 là lệch chứ không ra bốn lối vào. */}
             <div className="flex items-start justify-between gap-3">
-              <h3 className="font-semibold text-fg-strong">{f.title}</h3>
+              <h3 className="font-semibold text-fg-strong">{t(f.title)}</h3>
               <span className="flex shrink-0 items-center gap-2">
                 {f.highlight && (
                   <span className="rounded-full bg-accent/12 px-2 py-0.5 text-[11px] font-medium text-accent-soft">
-                    mới
+                    {t('home.features.new')}
                   </span>
                 )}
                 <span
@@ -235,7 +240,7 @@ function Features() {
               </span>
             </div>
             <p className={'mt-2 text-sm text-fg-muted' + (f.highlight ? ' max-w-3xl' : '')}>
-              {f.body}
+              {t(f.body)}
             </p>
             {/* Thẻ rộng thì gạch đầu dòng dàn ngang — xếp dọc trong một ô rộng
                 cả màn hình để lại một mảng trống bên phải. */}
@@ -250,7 +255,7 @@ function Features() {
                   <span className="font-mono text-accent-soft" aria-hidden="true">
                     ›
                   </span>
-                  <span className="min-w-0">{b}</span>
+                  <span className="min-w-0">{t(b)}</span>
                 </li>
               ))}
             </ul>
@@ -291,79 +296,28 @@ function Section({
   )
 }
 
-const STEPS = [
-  {
-    title: 'Chọn lab',
-    body: 'Mỗi khoá gồm nhiều lab ngắn, xếp theo thứ tự từ nền tảng tới nâng cao.',
-  },
-  {
-    title: 'Container khởi tạo',
-    body: 'Hệ thống cấp một container Linux riêng cho bạn, kèm sẵn công cụ cần cho bài.',
-  },
-  {
-    title: 'Làm và nộp task',
-    body: 'Gõ lệnh trực tiếp trong terminal trình duyệt, hoàn thành từng task để lấy điểm.',
-  },
+const STEPS: { title: Key; body: Key }[] = [
+  { title: 'home.step1.title', body: 'home.step1.body' },
+  { title: 'home.step2.title', body: 'home.step2.body' },
+  { title: 'home.step3.title', body: 'home.step3.body' },
 ]
 
-const TOPICS = [
-  {
-    dir: 'linux-shell/',
-    body: 'Quản lý tiến trình, quyền, systemd, viết script bash.',
-    cmd: 'systemctl status nginx',
-  },
-  {
-    dir: 'git/',
-    body: 'Branch, rebase, giải quyết conflict, quy trình pull request.',
-    cmd: 'git rebase -i main',
-  },
-  {
-    dir: 'docker/',
-    body: 'Viết Dockerfile, multi-stage build, compose nhiều service.',
-    cmd: 'docker build -t api .',
-  },
-  {
-    dir: 'kubernetes/',
-    body: 'Pod, Deployment, Service, ConfigMap và debug cụm.',
-    cmd: 'kubectl rollout status',
-  },
-  {
-    dir: 'ci-cd/',
-    body: 'Pipeline build, test, deploy tự động; quản lý secret.',
-    cmd: 'gh workflow run deploy',
-  },
-  {
-    dir: 'observability/',
-    body: 'Log, metric, health check và xử lý sự cố khi chạy thật.',
-    cmd: 'journalctl -u api -f',
-  },
+const TOPICS: { dir: string; body: Key; cmd: string }[] = [
+  { dir: 'linux-shell/', body: 'home.topic.linux', cmd: 'systemctl status nginx' },
+  { dir: 'git/', body: 'home.topic.git', cmd: 'git rebase -i main' },
+  { dir: 'docker/', body: 'home.topic.docker', cmd: 'docker build -t api .' },
+  { dir: 'kubernetes/', body: 'home.topic.k8s', cmd: 'kubectl rollout status' },
+  { dir: 'ci-cd/', body: 'home.topic.cicd', cmd: 'gh workflow run deploy' },
+  { dir: 'observability/', body: 'home.topic.obs', cmd: 'journalctl -u api -f' },
 ]
 
-const FAQ = [
-  {
-    q: 'Tôi có cần cài gì trên máy không?',
-    a: 'Không. Lab chạy trong container trên server, bạn thao tác qua terminal ngay trong trình duyệt. Chỉ cần trình duyệt và mạng.',
-  },
-  {
-    q: 'Chưa biết gì về Linux thì bắt đầu ở đâu?',
-    a: 'Chọn khoá gắn nhãn "Cơ bản". Các lab đầu đi từ lệnh nền tảng, không giả định kiến thức trước.',
-  },
-  {
-    q: 'Lab có bị mất khi tôi đóng tab không?',
-    a: 'Tiến độ task được lưu theo tài khoản. Container là môi trường tạm, khởi tạo lại khi bạn quay lại lab.',
-  },
-  {
-    q: 'Có cần tài khoản để xem khoá học không?',
-    a: 'Không, danh sách khoá học xem tự do. Đăng ký tài khoản khi bạn muốn ghi danh và lưu tiến độ.',
-  },
-  {
-    q: 'War Room khác lab thường ở chỗ nào?',
-    a: 'Lab thường là làm cho xong một việc. War Room là cứu một hệ thống đã hỏng sẵn, trong một khoảng thời gian cố định, và không ai nói cho bạn biết hỏng ở đâu — mò ra nguyên nhân chính là bài học. Không cần đăng ký khoá nào, vào thẳng từ thanh trên.',
-  },
-  {
-    q: 'Mô phỏng có phải máy thật không?',
-    a: 'Không, và nó không giả vờ là thật. Pipeline CI/CD, lệnh Linux hay thuật toán tìm kiếm ở đó chạy bằng mô hình, số giây là do tác giả kịch bản đặt ra. Thứ đáng học là luật và tỉ lệ — cái nào nhanh hơn cái nào và vì sao — chứ không phải con số tuyệt đối.',
-  },
+const FAQ: { q: Key; a: Key }[] = [
+  { q: 'home.faq.q1', a: 'home.faq.a1' },
+  { q: 'home.faq.q2', a: 'home.faq.a2' },
+  { q: 'home.faq.q3', a: 'home.faq.a3' },
+  { q: 'home.faq.q4', a: 'home.faq.a4' },
+  { q: 'home.faq.q5', a: 'home.faq.a5' },
+  { q: 'home.faq.q6', a: 'home.faq.a6' },
 ]
 
 // Same query key as /courses, so navigating between the two reuses the cache.
@@ -373,17 +327,18 @@ function useCourses() {
 
 /** Counted from the real course list — no invented numbers. */
 function Stats() {
+  const t = useT()
   const { data } = useCourses()
   if (!data || data.length === 0) return null
 
   const labs = data.reduce((n, c) => n + c.lab_count, 0)
   const students = data.reduce((n, c) => n + c.student_count, 0)
-  const cells = [
-    { n: data.length, label: 'khoá học' },
-    { n: labs, label: 'bài lab' },
+  const cells: { n: number; label: Key }[] = [
+    { n: data.length, label: 'home.stats.courses' },
+    { n: labs, label: 'home.stats.labs' },
     // Hidden until there is at least one — an empty platform should not say "0".
-    ...(students > 0 ? [{ n: students, label: 'lượt ghi danh' }] : []),
-    { n: TOPICS.length, label: 'chủ đề' },
+    ...(students > 0 ? [{ n: students, label: 'home.stats.enrollments' as Key }] : []),
+    { n: TOPICS.length, label: 'home.stats.topics' },
   ]
 
   // Same terminal framing as the hero, but themed rather than always dark —
@@ -406,7 +361,7 @@ function Stats() {
           {cells.map((c) => (
             <div key={c.label} className="flex gap-2">
               <dt className="font-semibold text-accent-soft">{c.n}</dt>
-              <dd className="text-fg">{c.label}</dd>
+              <dd className="text-fg">{t(c.label)}</dd>
             </div>
           ))}
         </dl>
@@ -420,11 +375,12 @@ function Stats() {
 
 /** Counts come from /api/levels, so an empty level still renders with 0. */
 function Levels() {
+  const t = useT()
   const { levels } = useLevels()
   if (levels.length === 0) return null
 
   return (
-    <Section title="Chọn theo trình độ" subtitle="Vào thẳng mức phù hợp với bạn.">
+    <Section title={t('home.levels.title')} subtitle={t('home.levels.subtitle')}>
       {/* flex-1 instead of a fixed 3-column grid: with only two levels the
           cards stretch to fill the row rather than leaving a hole. */}
       <div className="reveal-stagger flex flex-wrap gap-4">
@@ -438,7 +394,7 @@ function Levels() {
             <div className="flex items-center justify-between">
               <LevelMeter level={l.slug} />
               <span className="font-mono text-xs text-fg-subtle">
-                {l.course_count} khoá
+                {t('home.levels.count', { n: l.course_count })}
               </span>
             </div>
             <span className="mt-3 text-lg font-semibold text-fg-strong group-hover:text-accent-soft">
@@ -446,7 +402,7 @@ function Levels() {
             </span>
             <span className="mt-1 text-sm text-fg-muted">{l.hint}</span>
             <span className="mt-4 font-mono text-xs text-accent-soft">
-              xem khoá học{' '}
+              {t('home.levels.view')}{' '}
               <span className="inline-block transition-transform group-hover:translate-x-1">
                 →
               </span>
@@ -459,6 +415,7 @@ function Levels() {
 }
 
 function FeaturedCourses() {
+  const t = useT()
   const { data, isLoading, isError } = useCourses()
   // Newest first, mirroring the "Latest content" rail on devops-daily.
   const featured = data
@@ -468,18 +425,18 @@ function FeaturedCourses() {
 
   return (
     <Section
-      title="Khoá học mới nhất"
-      subtitle="Bắt đầu từ một lộ trình có sẵn."
+      title={t('home.featured.title')}
+      subtitle={t('home.featured.subtitle')}
       action={
         <Link to="/courses" className="text-sm text-accent-soft hover:underline">
-          Xem tất cả →
+          {t('home.featured.viewAll')} →
         </Link>
       }
     >
-      {isLoading && <p className="text-fg-subtle">Đang tải…</p>}
-      {isError && <p className="text-danger">Không tải được danh sách khoá học.</p>}
+      {isLoading && <p className="text-fg-subtle">{t('common.loading')}</p>}
+      {isError && <p className="text-danger">{t('home.featured.loadError')}</p>}
       {featured && featured.length === 0 && (
-        <p className="text-fg-subtle">Chưa có khoá học nào được xuất bản.</p>
+        <p className="text-fg-subtle">{t('home.featured.empty')}</p>
       )}
       <div className="reveal-stagger grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {featured?.map((c) => (
@@ -491,6 +448,7 @@ function FeaturedCourses() {
 }
 
 export default function Home() {
+  const t = useT()
   return (
     <div className="space-y-12">
       <Hero />
@@ -501,8 +459,8 @@ export default function Home() {
 
       <Section
         id="how"
-        title="Cách hoạt động"
-        subtitle="Ba bước, không cài đặt gì trên máy."
+        title={t('home.how.title')}
+        subtitle={t('home.how.subtitle')}
       >
         <div className="reveal-stagger grid gap-6 md:grid-cols-3">
           {STEPS.map((s, i) => (
@@ -519,9 +477,9 @@ export default function Home() {
               </span>
               <h3 className="font-semibold text-fg-strong">
                 <span className="font-mono text-accent-soft">0{i + 1}</span>{' '}
-                {s.title}
+                {t(s.title)}
               </h3>
-              <p className="mt-2 text-sm text-fg-muted">{s.body}</p>
+              <p className="mt-2 text-sm text-fg-muted">{t(s.body)}</p>
             </div>
           ))}
         </div>
@@ -530,7 +488,7 @@ export default function Home() {
       <Levels />
       <FeaturedCourses />
 
-      <Section title="Chủ đề bạn sẽ học" subtitle="Nội dung bám theo việc làm thật.">
+      <Section title={t('home.topics.title')} subtitle={t('home.topics.subtitle')}>
         {/* One terminal listing instead of six flat boxes — same framing as the
             stats block, and directory names read better than card headings. */}
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
@@ -547,13 +505,13 @@ export default function Home() {
               <span className="text-success">$</span> ls -1 ~/topics
             </div>
             <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-[minmax(9rem,auto)_1fr]">
-              {TOPICS.map((t) => (
-                <Fragment key={t.dir}>
-                  <dt className="font-mono text-accent-soft">{t.dir}</dt>
+              {TOPICS.map((topic) => (
+                <Fragment key={topic.dir}>
+                  <dt className="font-mono text-accent-soft">{topic.dir}</dt>
                   <dd className="text-fg-muted sm:mt-0">
-                    {t.body}{' '}
+                    {t(topic.body)}{' '}
                     <span className="hidden font-mono text-xs text-fg-subtle lg:inline">
-                      # {t.cmd}
+                      # {topic.cmd}
                     </span>
                   </dd>
                 </Fragment>
@@ -566,7 +524,7 @@ export default function Home() {
         </div>
       </Section>
 
-      <Section title="Câu hỏi thường gặp">
+      <Section title={t('home.faq.title')}>
         <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
           {FAQ.map((f) => (
             // ponytail: native <details>, no accordion state or library needed
@@ -578,12 +536,12 @@ export default function Home() {
                 >
                   ?
                 </span>
-                <span className="flex-1">{f.q}</span>
+                <span className="flex-1">{t(f.q)}</span>
                 <span className="text-lg leading-none text-fg-subtle transition group-open:rotate-45">
                   +
                 </span>
               </summary>
-              <p className="px-5 pb-5 pl-11 text-sm text-fg-muted">{f.a}</p>
+              <p className="px-5 pb-5 pl-11 text-sm text-fg-muted">{t(f.a)}</p>
             </details>
           ))}
         </div>
@@ -594,25 +552,25 @@ export default function Home() {
           aria-hidden="true"
           className="absolute -top-24 left-1/2 -z-10 h-56 w-[36rem] -translate-x-1/2 rounded-full bg-accent/20 blur-3xl"
         />
-        <p className="font-mono text-xs text-fg-subtle">// bắt đầu</p>
+        <p className="font-mono text-xs text-fg-subtle">// {t('home.cta.kicker')}</p>
         <h2 className="mt-2 text-2xl font-bold text-fg-strong sm:text-3xl">
-          Sẵn sàng mở terminal đầu tiên?
+          {t('home.cta.title')}
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-fg-muted">
-          Tạo tài khoản để ghi danh khoá học và lưu tiến độ từng lab.
+          {t('home.cta.body')}
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
             to="/register"
             className="rounded-md bg-accent px-5 py-2.5 font-medium text-accent-fg shadow-lg shadow-accent/25 transition hover:bg-accent-hover"
           >
-            Đăng ký miễn phí
+            {t('home.cta.register')}
           </Link>
           <Link
             to="/courses"
             className="rounded-md border border-border-strong px-5 py-2.5 font-medium text-fg transition hover:border-accent hover:text-accent-soft"
           >
-            Xem khoá học
+            {t('home.cta.courses')}
           </Link>
         </div>
       </section>

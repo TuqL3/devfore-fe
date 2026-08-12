@@ -36,6 +36,10 @@ export type LabInput = {
    *  vì server cũng chỉ kiểm tới mức "là một object": hiểu được nội dung là việc
    *  của engine, không phải của form này. */
   sim_scenario: Record<string, unknown> | null;
+  /** Shell dựng dịch vụ trước khi một kịch bản War Room phá nó. Nằm trên lab chứ
+   *  không trên từng kịch bản: mọi kịch bản của một lab phá cùng một dịch vụ.
+   *  Chỉ admin đọc được — nó mô tả đúng cái mặt phẳng mà lỗi đang giấu trong. */
+  incident_setup: string;
   order_idx: number;
 };
 
@@ -43,6 +47,9 @@ export type AdminLab = LabInput & {
   id: number;
   task_count: number;
   points: number;
+  /** Số kịch bản đang bật. Khác 0 là thứ **duy nhất** làm lab này thành thử
+   *  thách War Room — không có cột cờ nào khác nói điều đó. */
+  incident_count: number;
 };
 
 /** `correct` is the answer key — only admin endpoints ever carry it. */
@@ -68,6 +75,53 @@ export type TaskInput = {
 };
 
 export type AdminTask = TaskInput & { id: number };
+
+/** Một kịch bản sự cố của War Room: một cách phá dịch vụ, bốc ngẫu nhiên mỗi
+ *  lượt mở lab. */
+export type IncidentInput = {
+  title: string;
+  /** Đáp án, theo nghĩa đen nhất: script này chạy trong container học viên và
+   *  nội dung nó nói thẳng cái gì đang hỏng. Cùng mức tin cậy với
+   *  `check_script` — chỉ đi qua endpoint admin, không bao giờ ra client. */
+  break_script: string;
+  /** Đọc sau khi hết lượt: chuyện gì đã xảy ra, và người ta thường tìm ra nó
+   *  bằng cách nào. */
+  reveal_md: string;
+  /** Số request/giây sự cố được coi là làm hỏng. Con số tác giả gõ, không phải
+   *  đo — mọi màn hình hiện nó đều nói vậy. */
+  rps: number;
+  /** Ngừng dùng là tắt cờ chứ không xoá: phiên đã chơi còn trỏ vào hàng này và
+   *  bản tường trình vẫn phải đọc lại được. */
+  active: boolean;
+};
+
+export type AdminIncident = IncidentInput & { id: number };
+
+/** Một lab nhìn từ màn quản trị War Room. Kèm khoá học nó nằm trong, vì
+ *  `labs.course_id` là NOT NULL nên mọi thử thách vẫn phải trú dưới một khoá —
+ *  không nói ra thì admin không biết tìm lại nó ở đâu. */
+export type AdminDrill = {
+  id: number;
+  slug: string;
+  title: string;
+  duration_minutes: number;
+  lab_image_id: number | null;
+  incident_setup: string;
+  /** 'draft' = không hiện trong War Room, bất kể có kịch bản nào bật hay không.
+   *  Tách khỏi `active` của từng kịch bản: cái này trả lời "thử thách có mở
+   *  không", cái kia trả lời "lỗi nào bốc được khi đã mở". */
+  status: 'draft' | 'published';
+  /** null với thử thách tạo trong War Room — nó không thuộc khoá nào. Chỉ mấy
+   *  cái tạo trước migration 000028 mới còn khoá. */
+  course_id: number | null;
+  course_title: string;
+  /** Kịch bản còn bốc được. Bằng 0 nghĩa là lab đã rơi khỏi War Room mà chưa bị
+   *  xoá — trạng thái mà danh sách này sinh ra để cho thấy. */
+  incident_count: number;
+  /** Cả kịch bản đã tắt, để lab không còn cái nào bật vẫn nói được đã có sẵn
+   *  bao nhiêu công trong nó. */
+  scenario_count: number;
+};
 
 /** Một bài trong tab Ôn tập của khoá học. Không thuộc lab nào — nó là tài liệu
  *  của cả khoá, đọc được mà không cần mở container. */
@@ -162,6 +216,44 @@ export const adminApi = {
 
   deleteTask: (taskID: number) =>
     request<void>(`/api/admin/tasks/${taskID}`, { method: "DELETE" }),
+
+  /** Mọi lab có kịch bản, kể cả lab chỉ còn kịch bản đã tắt — chính mấy cái đó
+   *  là thứ không nhìn thấy ở đâu khác: rơi khỏi War Room mà chưa bị xoá. */
+  drills: () => request<AdminDrill[]>('/api/admin/war-room'),
+
+  /** Tạo thử thách. Route riêng chứ không dùng endpoint tạo lab: thử thách không
+   *  có khoá để lồng dưới, và đó đúng là khác biệt duy nhất giữa hai thứ. */
+  createDrill: (input: LabInput) =>
+    request<AdminLab>('/api/admin/war-room', { method: 'POST', body: input }),
+
+  /** Đăng bị từ chối (409) khi lab chưa có kịch bản nào đang bật — đăng lên rồi
+   *  đưa học viên vào một container không hỏng gì đọc ra là nền tảng lỗi, không
+   *  phải bài chưa viết xong. Rút xuống nháp thì không bao giờ bị từ chối. */
+  setDrillStatus: (labID: number, status: 'draft' | 'published') =>
+    request<void>(`/api/admin/labs/${labID}/drill-status`, {
+      method: 'PUT',
+      body: { status },
+    }),
+
+  incidents: (labID: number) =>
+    request<AdminIncident[]>(`/api/admin/labs/${labID}/incidents`),
+
+  createIncident: (labID: number, input: IncidentInput) =>
+    request<AdminIncident>(`/api/admin/labs/${labID}/incidents`, {
+      method: "POST",
+      body: input,
+    }),
+
+  updateIncident: (incidentID: number, input: IncidentInput) =>
+    request<AdminIncident>(`/api/admin/incidents/${incidentID}`, {
+      method: "PUT",
+      body: input,
+    }),
+
+  /** Chỉ xoá được kịch bản chưa ai chơi — server trả 409 kèm câu giải thích khi
+   *  đã có phiên trỏ vào nó. Lúc đó việc cần làm là tắt, không phải xoá. */
+  deleteIncident: (incidentID: number) =>
+    request<void>(`/api/admin/incidents/${incidentID}`, { method: "DELETE" }),
 
   reviews: (courseID: number) =>
     request<AdminReview[]>(`/api/admin/courses/${courseID}/reviews`),

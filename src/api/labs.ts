@@ -1,4 +1,5 @@
 import { request } from "@/lib/api";
+import { getLang } from "@/lib/i18n";
 import type {
   CheckResult,
   Lab,
@@ -63,5 +64,10 @@ export const labsApi = {
  *  secure origin — browsers refuse that outright. */
 export function terminalURL(path: string): string {
   const base = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
-  return new URL(path, base).toString().replace(/^http/, "ws");
+  const url = new URL(path, base);
+  // A WebSocket opened from JavaScript cannot set request headers, so the
+  // language rides in the query string instead. Without it the server would
+  // answer close frames in the browser's language rather than the chosen one.
+  url.searchParams.set("lang", getLang());
+  return url.toString().replace(/^http/, "ws");
 }

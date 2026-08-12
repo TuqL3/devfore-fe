@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -19,18 +19,82 @@ import {
   ClockIcon,
   TerminalIcon,
 } from '@/components/icons'
+import { useT, type Key } from '@/lib/i18n'
 
-const TABS = ['Nhiệm vụ', 'Gợi ý', 'Trợ lý'] as const
+// Ids, not labels — the active tab is compared by value.
+const TABS = [
+  { id: 'task', label: 'lab.tab.task' },
+  { id: 'hint', label: 'lab.tab.hint' },
+  { id: 'assistant', label: 'lab.tab.assistant' },
+] as const satisfies readonly { id: string; label: Key }[]
 
 /** How the question is marked, said on the card so a student knows whether to
     look at the terminal or at the options. */
-const KIND_LABEL: Record<LabTask['kind'], string> = {
-  script: 'Thực hành',
-  command: 'Gõ lệnh',
-  choice: 'Lý thuyết',
-  sim: 'Pipeline',
+const KIND_LABEL: Record<LabTask['kind'], Key> = {
+  script: 'lab.kind.script',
+  command: 'lab.kind.command',
+  choice: 'lab.kind.choice',
+  sim: 'lab.kind.sim',
 }
-type Tab = (typeof TABS)[number]
+type Tab = (typeof TABS)[number]['id']
+
+/** Browser back while a container is still up.
+ *
+ *  react-router's `useBlocker` is the obvious tool and cannot be used: it calls
+ *  `useDataRouterContext`, and this app mounts `<BrowserRouter>` rather than a
+ *  data router. Moving the whole route tree onto `createBrowserRouter` to gain
+ *  one dialog is a refactor of every provider in `main.tsx`, so the guard is done
+ *  against history directly.
+ *
+ *  How it works: an extra entry is pushed on top of the lab URL, so the first
+ *  back lands on the lab again rather than leaving. The popstate handler pushes
+ *  it straight back and reports the attempt. Nothing navigates until the caller
+ *  decides to.
+ *
+ *  Closing the tab and reloading go through `beforeunload` instead, because no
+ *  handler can stop those — the most a page may do is ask the browser to ask.
+ *  That prompt is the browser's own: its wording is fixed, it cannot be styled,
+ *  and Chrome and Firefox both refuse to show it at all until the page has been
+ *  interacted with. Two different-looking prompts is the price of covering both
+ *  exits; one exit left unguarded was the alternative.
+ */
+function useLeaveGuard(active: boolean, onAttempt: () => void) {
+  // Read at pop time, not at subscribe time: the handler outlives the render
+  // that created it, and re-subscribing on every change would push a new
+  // history entry each time.
+  const attempt = useRef(onAttempt)
+  attempt.current = onAttempt
+
+  useEffect(() => {
+    if (!active) return
+    window.history.pushState(null, '', window.location.href)
+    const onPop = () => {
+      // Put the entry back first: the browser has already moved, and this is
+      // what moves it back before anything is rendered against the new URL.
+      window.history.pushState(null, '', window.location.href)
+      attempt.current()
+    }
+
+    // Tab close and reload. preventDefault is what asks for the prompt; the
+    // returnValue assignment is the older spelling of the same request, kept
+    // because Safari still reads it and ignoring it costs one line.
+    //
+    // No attempt.current() here: the dialog this file draws would never be seen
+    // — the page is already on its way out, and a React state update at that
+    // point renders into a document nobody will look at again.
+    const onUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+
+    window.addEventListener('popstate', onPop)
+    window.addEventListener('beforeunload', onUnload)
+    return () => {
+      window.removeEventListener('popstate', onPop)
+      window.removeEventListener('beforeunload', onUnload)
+    }
+  }, [active])
+}
 
 /** Màn làm bài, dùng cho cả hai đường vào.
  *
@@ -42,6 +106,7 @@ type Tab = (typeof TABS)[number]
  *  cả cái terminal, đồng hồ, ô nhiệm vụ và luồng nộp bài. Hai bản sao của chừng
  *  đó là hai chỗ để lệch nhau. */
 export default function LabRunner({ drill = false }: { drill?: boolean }) {
+  const t = useT()
   const { slug = '', labSlug = '' } = useParams()
   // Chỗ quay ra khi phiên không phải của màn này: danh sách thử thách, hoặc
   // trang khoá học đã dẫn tới đây.
@@ -49,13 +114,16 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
   const qc = useQueryClient()
   const navigate = useNavigate()
   const [step, setStep] = useState(0)
-  const [tab, setTab] = useState<Tab>('Nhiệm vụ')
+  const [tab, setTab] = useState<Tab>('task')
   // Set by the terminal itself once the shell is attached. Nothing earlier is a
   // truthful signal that the lab is usable.
   const [attached, setAttached] = useState(false)
   // Ending removes the container and everything in it. Both buttons that do it
   // go through this dialog rather than doing it on the first click.
-  const [confirmStop, setConfirmStop] = useState(false)
+  // Why the end-lab dialog is open, not just whether. Leaving by the back
+  // button offers a third answer the header button has no use for — walk away
+  // and let the session run — so the dialog has to know which it is.
+  const [confirmStop, setConfirmStop] = useState<'button' | 'leave' | null>(null)
   const [confirmSubmit, setConfirmSubmit] = useState(false)
 
   const lab = useQuery({
@@ -81,7 +149,7 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
   // would otherwise carry over and open the next lab on question four.
   useEffect(() => {
     setStep(0)
-    setTab('Nhiệm vụ')
+    setTab('task')
     setAttached(false)
     setPicked({})
     setReopened({})
@@ -151,26 +219,42 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
   const remainingTasks = tasks.length - done
   const task: LabTask | undefined = tasks[step]
 
+  // "Is this session for this lab" needs both answers: the session carries a
+  // lab_id, the URL carries a slug. Until both queries have landed the question
+  // has no answer, and undefined says so rather than guessing false.
+  //
+  // Computed above the error branch below, not next to the guard that reads it:
+  // useLeaveGuard is a hook and every return in this component has to come
+  // after it, or the hook order changes between renders.
+  const resolved = !current.isLoading && !lab.isLoading
+  const mine = resolved
+    ? Boolean(session && lab.data && session.lab_id === lab.data.id)
+    : undefined
+
+  // Off the moment the session is being closed or handed in: those paths
+  // navigate on purpose, and blocking them would trap the student on a screen
+  // whose container no longer exists.
+  useLeaveGuard(
+    Boolean(mine && session) &&
+      !stop.isPending &&
+      !submit.isPending &&
+      !submit.isSuccess,
+    () => setConfirmStop('leave'),
+  )
+
   if (lab.isError) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3">
         <p className="text-danger">
-          {drill ? 'Không tìm thấy thử thách này.' : 'Không tìm thấy bài lab này.'}
+          {drill ? t('lab.drillNotFound') : t('lab.notFound')}
         </p>
         <Link to={backTo} className="text-sm text-accent-soft hover:underline">
-          {drill ? '← Về War Room' : '← Về khoá học'}
+          ← {drill ? t('lab.backWarRoom') : t('lab.backCourse')}
         </Link>
       </div>
     )
   }
 
-  // "Is this session for this lab" needs both answers: the session carries a
-  // lab_id, the URL carries a slug. Until both queries have landed the question
-  // has no answer, and undefined says so rather than guessing false.
-  const resolved = !current.isLoading && !lab.isLoading
-  const mine = resolved
-    ? Boolean(session && lab.data && session.lab_id === lab.data.id)
-    : undefined
 
   // Starting a lab belongs to the course page, so this screen is only ever
   // reached with a container already running. Anyone who typed the URL, or came
@@ -195,7 +279,8 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
       <TopBar
         lab={lab.data}
         session={mine ? session : null}
-        onStop={() => setConfirmStop(true)}
+        onStop={() => setConfirmStop('button')}
+        onLeave={() => (mine && session ? setConfirmStop('leave') : navigate('/'))}
         onSubmit={() => setConfirmSubmit(true)}
         submitting={submit.isPending}
         remaining={remainingTasks}
@@ -230,18 +315,18 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
           />
 
           <nav className="flex gap-1 border-b border-border px-3">
-            {TABS.map((t) => (
+            {TABS.map((x) => (
               <button
-                key={t}
-                onClick={() => setTab(t)}
+                key={x.id}
+                onClick={() => setTab(x.id)}
                 className={
                   'relative px-3 py-2.5 text-sm font-medium transition ' +
-                  (tab === t
+                  (tab === x.id
                     ? 'text-fg-strong after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-accent'
                     : 'text-fg-muted hover:text-fg-strong')
                 }
               >
-                {t}
+                {t(x.label)}
               </button>
             ))}
           </nav>
@@ -304,9 +389,9 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
         {sim ? (
           <main className="flex min-w-0 flex-1 flex-col bg-surface">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-4">
-              <span className="font-mono text-sm text-fg-muted">Pipeline mô phỏng</span>
+              <span className="font-mono text-sm text-fg-muted">{t('lab.simPipeline')}</span>
               <span className="text-xs text-fg-subtle">
-                thời gian mô phỏng, không phải đo từ CI thật
+                {t('lab.simNote')}
               </span>
             </div>
             {session && mine ? (
@@ -319,7 +404,7 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
                 live={session.status === 'running'}
               />
             ) : (
-              <p className="p-4 text-sm text-fg-subtle">Đang mở bài…</p>
+              <p className="p-4 text-sm text-fg-subtle">{t('lab.opening')}</p>
             )}
           </main>
         ) : (
@@ -353,7 +438,7 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
                   aria-hidden="true"
                   className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
                 />
-                Đang mở terminal…
+                {t('lab.openingTerminal')}
               </div>
             )}
           </div>
@@ -363,46 +448,70 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
 
       {confirmStop && session && (
         <ConfirmModal
-          title="Kết thúc bài thực hành?"
-          confirmLabel={stop.isPending ? 'Đang đóng…' : 'Kết thúc'}
+          title={confirmStop === 'leave' ? t('lab.leaveTitle') : t('lab.stopTitle')}
+          confirmLabel={
+            stop.isPending
+              ? t('lab.stopping')
+              : confirmStop === 'leave'
+                ? t('lab.leaveEnd')
+                : t('lab.stop')
+          }
           tone="danger"
           busy={stop.isPending}
-          onClose={() => setConfirmStop(false)}
+          onClose={() => setConfirmStop(null)}
           onConfirm={() => stop.mutate(session.id)}
         >
+          {/* Said first when they were on their way out: the thing they are
+              about to lose is not obvious, and "ending" is not what pressing
+              back asked for. */}
+          {confirmStop === 'leave' && <p>{t('lab.leaveBody')}</p>}
           <p>
-            {sim
-              ? 'Phiên này đóng lại, các lượt chạy pipeline không tiếp tục được nữa.'
-              : 'Container của bạn sẽ bị xoá cùng mọi thứ bên trong. Không mở lại được phiên này.'}
+            {sim ? t('lab.stopBodySim') : t('lab.stopBodyContainer')}
           </p>
           <p>
-            Điểm các nhiệm vụ đã đạt vẫn được giữ — chỉ{' '}
-            {sim ? 'phiên' : 'container'} là mất.
+            {t('lab.stopKeepsScoreBefore')}{' '}
+            {sim ? t('lab.session') : t('lab.container')} {t('lab.stopKeepsScoreAfter')}
           </p>
+          {/* The answer the header button has no use for. Without it the guard
+              would take away the one thing back used to do — step out and come
+              back later — and leave no way to do it at all. */}
+          {confirmStop === 'leave' && !stop.isPending && (
+            <button
+              type="button"
+              onClick={() => {
+                setConfirmStop(null)
+                navigate(backTo)
+              }}
+              className="text-sm text-accent-soft transition hover:underline"
+            >
+              {t('lab.leaveKeep')} →
+            </button>
+          )}
         </ConfirmModal>
       )}
 
       {confirmSubmit && session && (
         <ConfirmModal
-          title="Nộp bài?"
-          confirmLabel={submit.isPending ? 'Đang nộp…' : 'Nộp bài'}
+          title={t('lab.submitTitle')}
+          confirmLabel={submit.isPending ? t('lab.submitting') : t('lab.submit')}
           busy={submit.isPending}
           onClose={() => setConfirmSubmit(false)}
           onConfirm={() => submit.mutate(session.id)}
         >
           <p>
-            Kết quả được chốt lại{sim ? '' : ' và container bị xoá'}. Phiên này
-            không làm tiếp được.
+            {t('lab.submitBodyBefore')}
+            {sim ? '' : t('lab.submitBodyContainer')}
+            {t('lab.submitBodyAfter')}
           </p>
           {/* The number that decides whether they press it, said before they do
               rather than on the screen afterwards. */}
           <p className="text-fg">
-            Đã làm đúng{' '}
+            {t('lab.doneCountBefore')}{' '}
             <strong className="text-fg-strong">{done}</strong>/{tasks.length}{' '}
-            nhiệm vụ.
+            {t('lab.doneCountAfter')}
           </p>
           {submit.isError && (
-            <p className="text-danger">Không nộp được, thử lại.</p>
+            <p className="text-danger">{t('lab.submitFailed')}</p>
           )}
         </ConfirmModal>
       )}
@@ -414,6 +523,7 @@ function TopBar({
   lab,
   session,
   onStop,
+  onLeave,
   stopping,
   onSubmit,
   submitting,
@@ -426,6 +536,8 @@ function TopBar({
   /** Ca trực gọi tên khác lab của khoá học — cùng màn hình, không cùng thứ. */
   drill: boolean
   onStop: () => void
+  /** Pressing the wordmark walks away from a live container, so it asks first. */
+  onLeave: () => void
   stopping: boolean
   onSubmit: () => void
   submitting: boolean
@@ -433,28 +545,38 @@ function TopBar({
   remaining: number
   position: string
 }) {
+  const t = useT()
   const { user } = useAuth()
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">
-      <Link to="/" className="font-bold text-fg-strong">
+      {/* A button, not a Link: leaving by this is leaving a container running,
+          exactly as pressing back is, and the two have to ask the same question.
+          The history guard cannot see an in-app navigation, so this one reports
+          itself. */}
+      <button
+        onClick={onLeave}
+        className="font-bold text-fg-strong transition hover:text-accent-soft"
+      >
         DevForge
-      </Link>
+      </button>
 
       {session ? (
         <>
           <Countdown expiresAt={session.expires_at} />
           <span className="rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success">
-            Đang chạy
+            {t('lab.running')}
           </span>
         </>
       ) : (
         <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-fg-muted">
-          Chưa bắt đầu
+          {t('lab.notStarted')}
         </span>
       )}
 
       <span className="truncate text-sm text-fg-muted">
-        {lab ? `${drill ? 'Ca trực' : 'Lab'}: ${lab.title}` : 'Đang tải…'}
+        {lab
+          ? `${drill ? t('lab.drillWord') : t('lab.labWord')}: ${lab.title}`
+          : t('common.loading')}
         {position && (
           <span className="ml-2 font-mono text-xs text-fg-subtle">{position}</span>
         )}
@@ -466,12 +588,12 @@ function TopBar({
           disabled={!session || submitting || remaining > 0}
           title={
             remaining > 0
-              ? `Còn ${remaining} nhiệm vụ chưa làm đúng — xong hết mới nộp được`
-              : 'Nộp bài và xem kết quả'
+              ? t('lab.remainingTitle', { n: remaining })
+              : t('lab.submitTitleOk')
           }
           className="rounded-md bg-accent px-4 py-1.5 text-sm font-semibold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {submitting ? 'Đang nộp…' : 'Nộp bài'}
+          {submitting ? t('lab.submitting') : t('lab.submit')}
         </button>
 
         {session && (
@@ -480,7 +602,7 @@ function TopBar({
             disabled={stopping}
             className="rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg-muted transition hover:border-danger hover:text-danger disabled:opacity-50"
           >
-            Kết thúc
+            {t('lab.stop')}
           </button>
         )}
         {user && <Avatar user={user} className="h-8 w-8 text-xs" />}
@@ -503,6 +625,7 @@ function StepNav({
   onPrev: () => void
   onNext: () => void
 }) {
+  const t = useT()
   const finished = done.filter(Boolean).length
   const pct = total > 0 ? (finished / total) * 100 : 0
 
@@ -512,7 +635,7 @@ function StepNav({
         <button
           onClick={onPrev}
           disabled={step === 0}
-          aria-label="Câu trước"
+          aria-label={t('lab.prevQuestion')}
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-strong text-fg-muted transition hover:text-fg-strong disabled:opacity-40"
         >
           <ChevronLeftIcon className="h-4 w-4" />
@@ -521,11 +644,11 @@ function StepNav({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <p className="font-mono text-sm tabular-nums text-fg-strong">
-              {total === 0 ? '—' : `Câu ${step + 1}`}
+              {total === 0 ? '—' : t('lab.questionN', { n: step + 1 })}
               {total > 0 && <span className="text-fg-subtle"> / {total}</span>}
             </p>
             <p className="text-xs tabular-nums text-fg-subtle">
-              {finished}/{total} đã xong
+              {finished}/{total} {t('lab.doneOf')}
             </p>
           </div>
           <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
@@ -539,7 +662,7 @@ function StepNav({
         <button
           onClick={onNext}
           disabled={step >= total - 1}
-          aria-label="Câu sau"
+          aria-label={t('lab.nextQuestionLabel')}
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-fg transition hover:bg-accent-hover disabled:opacity-40"
         >
           <ChevronRightIcon className="h-4 w-4" />
@@ -593,18 +716,14 @@ function TabBody({
   /** Questions not passed yet, so the last card can say what handing in costs. */
   remaining: number
 }) {
-  if (tab === 'Trợ lý') return <Assistant />
+  const t = useT()
+  if (tab === 'assistant') return <Assistant />
 
   if (!task)
-    return <p className="text-sm text-fg-subtle">Bài này chưa có nhiệm vụ nào.</p>
+    return <p className="text-sm text-fg-subtle">{t('lab.noTasks')}</p>
 
-  if (tab === 'Gợi ý')
-    return (
-      <Prose
-        text={task.hint}
-        empty="Chưa có gợi ý cho nhiệm vụ này — thử tự làm trong terminal trước."
-      />
-    )
+  if (tab === 'hint')
+    return <Prose text={task.hint} empty={t('lab.noHint')} />
 
   return (
     <>
@@ -614,7 +733,7 @@ function TabBody({
         // của khoá học không có đồng hồ nên vẫn gập, để chỗ cho nhiệm vụ.
         <details open={drill} className="mb-4 rounded-lg border border-border bg-surface">
           <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-fg-strong [&::-webkit-details-marker]:hidden">
-            {drill ? 'Đề bài ca trực' : 'Hướng dẫn bài lab'}
+            {drill ? t('lab.drillBrief') : t('lab.labBrief')}
           </summary>
           <div className="border-t border-border px-3 py-2">
             <Prose text={lab.description_md} empty="" />
@@ -646,20 +765,20 @@ function TabBody({
  *  the tab is where students will look for it, and an empty tab that says when
  *  beats a tab that appears later and nobody notices. */
 function Assistant() {
+  const t = useT()
   return (
     <div className="flex flex-col items-center py-12 text-center">
       <span className="grid h-12 w-12 place-items-center rounded-full bg-muted text-fg-subtle">
         <TerminalIcon className="h-5 w-5" />
       </span>
       <p className="mt-3 flex items-center gap-2 text-sm font-medium text-fg">
-        Trợ lý
+        {t('lab.tab.assistant')}
         <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-soft">
           Beta
         </span>
       </p>
       <p className="mt-1 max-w-xs text-sm text-fg-subtle">
-        Sắp có: hỏi đáp về câu hỏi đang làm ngay tại đây. Trong lúc chờ, tab Gợi ý
-        là nơi có manh mối.
+        {t('lab.assistantSoon')}
       </p>
     </div>
   )
@@ -699,6 +818,7 @@ function TaskBody({
   onSubmit: () => void
   remaining: number
 }) {
+  const t = useT()
   const choice = task.kind === 'choice'
 
   // A pass recorded for this attempt counts, so a question answered a few steps
@@ -715,10 +835,10 @@ function TaskBody({
       <div className="overflow-hidden rounded-xl border border-border bg-bg">
         <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2">
           <span className="text-xs font-medium text-fg-muted">
-            {KIND_LABEL[task.kind]}
+            {t(KIND_LABEL[task.kind])}
           </span>
           <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-accent-soft">
-            {task.points} điểm
+            {task.points} {t('lab.points')}
           </span>
         </div>
         <p className="px-3 py-3 leading-relaxed font-medium text-fg-strong">
@@ -804,15 +924,15 @@ function TaskBody({
             onClick={onNext}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
           >
-            Câu hỏi tiếp theo
+            {t('lab.nextQuestion')}
             <ChevronRightIcon className="h-4 w-4" />
           </button>
         ) : (
           <div className="space-y-2">
             <p className="text-center text-sm text-fg-muted">
               {remaining === 0
-                ? 'Đây là câu cuối, bạn đã làm xong hết.'
-                : `Đây là câu cuối. Còn ${remaining} câu chưa làm đúng.`}
+                ? t('lab.lastAllDone')
+                : t('lab.lastSomeLeft', { n: remaining })}
             </p>
             {/* The server refuses a hand-in with anything left unpassed, so the
                 button says so here rather than letting the click come back a
@@ -822,12 +942,12 @@ function TaskBody({
               disabled={remaining > 0}
               title={
                 remaining > 0
-                  ? `Còn ${remaining} nhiệm vụ chưa làm đúng — xong hết mới nộp được`
-                  : 'Nộp bài và xem kết quả'
+                  ? t('lab.remainingTitle', { n: remaining })
+                  : t('lab.submitTitleOk')
               }
               className="inline-flex w-full items-center justify-center rounded-md bg-success px-4 py-2.5 font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
             >
-              Nộp bài
+              {t('lab.submit')}
             </button>
           </div>
         )
@@ -847,12 +967,12 @@ function TaskBody({
             />
           )}
           {checking
-            ? 'Đang kiểm tra…'
+            ? t('lab.checking')
             : choice
-              ? 'Trả lời'
+              ? t('lab.answer')
               : task.kind === 'sim'
-                ? 'Chấm lượt chạy gần nhất'
-                : 'Đã hoàn thành'}
+                ? t('lab.gradeLastRun')
+                : t('lab.markDone')}
         </button>
       )}
 
@@ -862,9 +982,10 @@ function TaskBody({
           screen answering for them. The "đã xong" badge says the rest. */}
       {result?.passed && (
         <p className="rounded-md border border-success/40 bg-success-soft px-3 py-2.5 text-sm text-success">
-          Câu trả lời chính xác!
-          {result.points_awarded > 0 && ` +${result.points_awarded} điểm`}
-          {result.lab_completed && ' — bạn đã hoàn thành cả bài lab.'}
+          {t('lab.correct')}
+          {result.points_awarded > 0 &&
+            t('lab.plusPoints', { n: result.points_awarded })}
+          {result.lab_completed && t('lab.labCompleted')}
         </p>
       )}
       {/* Gone while the next check runs: a red box under a spinner reads as the
@@ -872,40 +993,37 @@ function TaskBody({
       {verdict && !verdict.passed && !checking && (
         <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
           {choice
-            ? 'Chưa đúng. Câu này có thể có nhiều đáp án — xem tab Gợi ý nếu cần.'
+            ? t('lab.wrongChoice')
             : task.kind === 'command'
-              ? 'Chưa thấy lệnh nào khớp. Chạy lệnh trong terminal rồi bấm lại — xem tab Gợi ý nếu cần.'
+              ? t('lab.wrongCommand')
               : task.kind === 'sim'
-                ? 'Lượt chạy gần nhất chưa đạt yêu cầu. Sửa pipeline, chạy lại rồi bấm chấm — xem tab Gợi ý nếu cần.'
-                : 'Chưa đạt. Làm trong terminal rồi bấm kiểm tra lại — xem tab Gợi ý nếu cần.'}
+                ? t('lab.wrongSim')
+                : t('lab.wrongScript')}
         </p>
       )}
       {failed && (
         <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
           {/* Câu của server khi có: "hãy chạy pipeline một lượt trước khi nộp"
               là việc học viên làm được, còn "không chấm được" thì không. */}
-          {failMessage || 'Không chấm được lúc này. Kiểm tra phiên lab còn chạy rồi thử lại.'}
+          {failMessage || t('lab.checkFailed')}
         </p>
       )}
 
       {task.kind === 'script' && !verdict?.passed && (
         <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
-          Gõ lệnh vào terminal bên phải, xong thì bấm nút trên. Bài chấm theo kết
-          quả trong container, không theo câu lệnh bạn gõ.
+          {t('lab.hintScript')}
         </p>
       )}
       {task.kind === 'command' && !verdict?.passed && (
         <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
-          Chạy lệnh trong terminal bên phải, xong thì bấm nút trên. Câu này chấm
-          theo lệnh bạn đã gõ, nên gõ đúng lệnh chứ đừng chỉ đọc.
+          {t('lab.hintCommand')}
         </p>
       )}
       {task.kind === 'sim' && !verdict?.passed && (
         <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
-          Viết pipeline bên phải rồi bấm Chạy pipeline. Chấm theo{' '}
-          <strong className="text-fg-muted">lượt chạy gần nhất</strong>, không
-          theo văn bản đang gõ — sửa xong nhớ chạy lại. Số giây là thời gian mô
-          phỏng: cái đáng học là tỉ lệ giữa các cách xếp, không phải con số.
+          {t('lab.hintSimBefore')}{' '}
+          <strong className="text-fg-muted">{t('lab.hintSimStrong')}</strong>
+          {t('lab.hintSimAfter')}
         </p>
       )}
     </div>
@@ -924,6 +1042,7 @@ function Prose({ text, empty }: { text?: string; empty: string }) {
 /** Counts from expires_at rather than ticking down a number handed over once, so
     a backgrounded tab wakes up showing the real remaining time. */
 function Countdown({ expiresAt }: { expiresAt: string }) {
+  const t = useT()
   const [left, setLeft] = useState(() => remaining(expiresAt))
   useEffect(() => {
     const t = setInterval(() => setLeft(remaining(expiresAt)), 1000)
@@ -937,7 +1056,7 @@ function Countdown({ expiresAt }: { expiresAt: string }) {
         'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-mono text-sm ' +
         (mins < 5 ? 'bg-danger/10 text-danger' : 'bg-muted text-fg')
       }
-      title="Container sẽ tự bị xoá khi hết giờ"
+      title={t('lab.countdownTitle')}
     >
       <ClockIcon className="h-3.5 w-3.5" />
       {String(Math.floor(mins / 60)).padStart(2, '0')}:

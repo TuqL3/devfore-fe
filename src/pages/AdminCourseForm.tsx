@@ -6,6 +6,7 @@ import { adminApi, type CourseInput } from '@/api/admin'
 import { coursesApi } from '@/api/courses'
 import { ApiError } from '@/lib/api'
 import { Button, ErrorBox, Field, Input } from '@/components/ui'
+import { useT } from '@/lib/i18n'
 
 const EMPTY: CourseInput = {
   slug: '',
@@ -21,6 +22,7 @@ const EMPTY: CourseInput = {
  *  Back left the admin area entirely and the list stayed on screen underneath
  *  competing for attention with the form. */
 export default function AdminCourseForm() {
+  const t = useT()
   const { id } = useParams()
   const editing = id !== undefined
   const courseID = Number(id)
@@ -49,7 +51,7 @@ export default function AdminCourseForm() {
   }, [course, form])
 
   const fail = (e: unknown) =>
-    setError(e instanceof ApiError ? e.message : 'không lưu được, thử lại')
+    setError(e instanceof ApiError ? e.message : t('form.saveFailed'))
 
   const save = useMutation({
     mutationFn: (input: CourseInput) =>
@@ -67,15 +69,15 @@ export default function AdminCourseForm() {
   if (editing && !courses.isLoading && !course) {
     return (
       <div className="space-y-3">
-        <p className="text-danger">Khoá học không tồn tại.</p>
+        <p className="text-danger">{t('form.notFound')}</p>
         <Link to="/admin/courses" className="text-sm text-accent-soft hover:underline">
-          ← Danh sách khoá học
+          ← {t('form.backList')}
         </Link>
       </div>
     )
   }
 
-  if (!form) return <p className="text-sm text-fg-subtle">Đang tải…</p>
+  if (!form) return <p className="text-sm text-fg-subtle">{t('common.loading')}</p>
 
   const set = <K extends keyof CourseInput>(k: K, v: CourseInput[K]) =>
     setForm({ ...form, [k]: v })
@@ -83,10 +85,10 @@ export default function AdminCourseForm() {
   return (
     <div>
       <Link to="/admin/courses" className="text-sm text-accent-soft hover:underline">
-        ← Danh sách khoá học
+        ← {t('form.backList')}
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-fg-strong">
-        {editing ? course?.title : 'Khoá học mới'}
+        {editing ? course?.title : t('form.newCourse')}
       </h1>
 
       <form
@@ -97,14 +99,14 @@ export default function AdminCourseForm() {
         className="mt-6 max-w-3xl space-y-4 rounded-lg border border-border bg-surface p-5"
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tiêu đề">
+          <Field label={t('form.titleField')}>
             <Input
               value={form.title}
               onChange={(e) => set('title', e.target.value)}
-              placeholder="Linux Cơ Bản"
+              placeholder={t('form.titlePlaceholder')}
             />
           </Field>
-          <Field label="Slug" hint="chữ thường, số, gạch ngang">
+          <Field label="Slug" hint={t('form.slugHint')}>
             <Input
               value={form.slug}
               onChange={(e) => set('slug', e.target.value)}
@@ -114,17 +116,17 @@ export default function AdminCourseForm() {
           </Field>
         </div>
 
-        <Field label="Mô tả">
+        <Field label={t('form.description')}>
           <textarea
             value={form.description}
             onChange={(e) => set('description', e.target.value)}
             rows={3}
             className="w-full rounded-md border border-border-strong bg-bg px-3 py-2.5 text-fg outline-none transition placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/25"
-            placeholder="Khoá học dạy gì, cho ai."
+            placeholder={t('form.descriptionPlaceholder')}
           />
         </Field>
 
-        <Field label="Ảnh bìa" hint="png, jpg, gif, webp — tối đa 2MB">
+        <Field label={t('form.cover')} hint={t('form.coverHint')}>
           <CoverPicker
             url={form.image_url}
             onChange={(url) => set('image_url', url)}
@@ -133,7 +135,7 @@ export default function AdminCourseForm() {
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Cấp độ">
+          <Field label={t('form.level')}>
             <select
               value={form.level}
               onChange={(e) => set('level', e.target.value)}
@@ -146,14 +148,14 @@ export default function AdminCourseForm() {
               ))}
             </select>
           </Field>
-          <Field label="Trạng thái" hint="nháp thì học viên chưa thấy">
+          <Field label={t('form.status')} hint={t('form.statusHint')}>
             <select
               value={form.status}
               onChange={(e) => set('status', e.target.value as CourseInput['status'])}
               className="w-full rounded-md border border-border-strong bg-bg px-3 py-2.5 text-fg outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25"
             >
-              <option value="draft">Nháp</option>
-              <option value="published">Đã đăng</option>
+              <option value="draft">{t('form.draft')}</option>
+              <option value="published">{t('form.published')}</option>
             </select>
           </Field>
         </div>
@@ -162,13 +164,17 @@ export default function AdminCourseForm() {
 
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={save.isPending}>
-            {save.isPending ? 'Đang lưu…' : editing ? 'Lưu thay đổi' : 'Tạo khoá học'}
+            {save.isPending
+              ? t('form.saving')
+              : editing
+                ? t('form.saveChanges')
+                : t('form.createCourse')}
           </Button>
           <Link
             to="/admin/courses"
             className="rounded-md px-3 py-2.5 text-sm text-fg-muted transition hover:text-fg-strong"
           >
-            Huỷ
+            {t('common.cancel')}
           </Link>
         </div>
       </form>
@@ -189,6 +195,7 @@ function CoverPicker({
   onChange: (url: string | null) => void
   onError: (e: unknown) => void
 }) {
+  const t = useT()
   const upload = useMutation({
     mutationFn: (file: File) => adminApi.uploadImage(file),
     onSuccess: (res) => onChange(res.url),
@@ -209,7 +216,7 @@ function CoverPicker({
             onClick={() => onChange(null)}
             className="text-sm text-danger transition hover:underline"
           >
-            Xoá ảnh
+            {t('form.removeImage')}
           </button>
         </div>
       )}
@@ -227,7 +234,9 @@ function CoverPicker({
         }}
         className="block w-full text-sm text-fg-muted file:mr-3 file:rounded-md file:border file:border-border-strong file:bg-surface file:px-3 file:py-1.5 file:text-sm file:text-fg hover:file:border-accent"
       />
-      {upload.isPending && <p className="text-xs text-fg-subtle">Đang tải ảnh lên…</p>}
+      {upload.isPending && (
+        <p className="text-xs text-fg-subtle">{t('form.uploading')}</p>
+      )}
     </div>
   )
 }

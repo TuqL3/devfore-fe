@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 import type { SimRunJob, SimRunResult, SimRunStep } from '@/lib/types'
+import { useT } from '@/lib/i18n'
 
 /** Cả lượt chạy được phát lại trong chừng này, dù pipeline dài 40 giây hay 40
  *  phút. Thời lượng thật đã có trên nhãn; cái đáng xem là hình dạng — hai thanh
@@ -50,6 +51,7 @@ function usePlayback(total: number, key: unknown): [number, boolean, () => void]
  *  thật của nó. Bài học nằm ở hình dạng nên không có thư viện chart nào ở đây —
  *  vài div định vị tuyệt đối đã nói đúng điều cần nói. */
 export function SimTimeline({ result }: { result: SimRunResult }) {
+  const t = useT()
   const total = result.total_seconds
   const [clock, done, skip] = usePlayback(total, result.run_index)
 
@@ -72,16 +74,18 @@ export function SimTimeline({ result }: { result: SimRunResult }) {
               : 'bg-danger/10 text-danger')
           }
         >
-          {result.status === 'success' ? 'Pipeline xanh' : 'Pipeline đỏ'}
+          {result.status === 'success' ? t('timeline.green') : t('timeline.red')}
         </span>
         <span className="font-mono text-sm text-fg-strong">{clockLabel(total)}</span>
-        <span className="text-xs text-fg-subtle">lượt {result.run_index}</span>
+        <span className="text-xs text-fg-subtle">
+          {t('timeline.run', { n: result.run_index })}
+        </span>
         {!done && (
           <button
             onClick={skip}
             className="ml-auto rounded border border-border-strong px-2 py-0.5 text-xs text-fg-muted transition hover:text-fg-strong"
           >
-            Bỏ qua chạy lại
+            {t('timeline.skip')}
           </button>
         )}
       </header>
@@ -103,23 +107,23 @@ export function SimTimeline({ result }: { result: SimRunResult }) {
           Không có hàng này thì một ô hổ phách chỉ là một ô hổ phách. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-border px-3 py-2 text-[11px] text-fg-subtle">
         <Key className="bg-success/70">xong</Key>
-        <Key className="bg-danger/70">hỏng</Key>
-        <Key className="bg-accent/30">⚡ lấy từ cache</Key>
-        <span>thanh chồng nhau = chạy cùng lúc</span>
+        <Key className="bg-danger/70">{t('timeline.failed')}</Key>
+        <Key className="bg-accent/30">{t('timeline.cached')}</Key>
+        <span>{t('timeline.overlap')}</span>
       </div>
 
       {result.critical_path.length > 0 && (
         <p className="border-t border-border px-3 py-2 text-xs text-fg-subtle">
-          Đường dài nhất:{' '}
+          {t('timeline.critPath')}{' '}
           <span className="font-mono text-fg-muted">
             {result.critical_path.join(' → ')}
           </span>{' '}
-          — rút ngắn pipeline là rút ngắn chuỗi này.
+          {t('timeline.critPathAfter')}
         </p>
       )}
       {result.warm_caches.length > 0 && (
         <p className="border-t border-border px-3 py-2 text-xs text-fg-subtle">
-          Cache còn ấm cho lượt sau:{' '}
+          {t('timeline.warmCaches')}{' '}
           <span className="font-mono text-fg-muted">
             {result.warm_caches.join(', ')}
           </span>
@@ -155,6 +159,7 @@ function JobRow({
   clock: number
   onCriticalPath: boolean
 }) {
+  const t = useT()
   const skipped = job.runner < 0 || job.status === 'skipped'
 
   return (
@@ -173,7 +178,8 @@ function JobRow({
           // Không có thanh: job này chưa từng chạy, và vẽ cho nó một khoảng thời
           // gian là bịa ra một khoảng chưa bao giờ tồn tại.
           <span className="absolute inset-y-0 left-2 flex items-center text-xs text-fg-subtle">
-            bỏ qua{job.reason ? ` — ${job.reason}` : ''}
+            {t('timeline.skipped')}
+            {job.reason ? ` — ${job.reason}` : ''}
           </span>
         ) : (
           <div
@@ -201,6 +207,7 @@ function JobRow({
  *  bước 90 giây trông đúng như một bước 90 giây bên cạnh bước 5 giây — đó là
  *  toàn bộ lý do vẽ ra thay vì liệt kê. */
 function StepBar({ step, clock }: { step: SimRunStep; clock: number }) {
+  const t = useT()
   const seconds = step.end - step.start
   const shown = visible(step.start, step.end, clock)
   if (shown <= 0) return null
@@ -218,7 +225,9 @@ function StepBar({ step, clock }: { step: SimRunStep; clock: number }) {
       style={{ flexGrow: shown, flexBasis: 0 }}
       title={
         `${step.uses} · ${seconds}s` +
-        (step.cached ? ` · cache ${step.cache_key} dùng lại` : '') +
+        (step.cached
+          ? t('timeline.cacheReused', { key: step.cache_key ?? '' })
+          : '') +
         (step.flaky ? ' · step flaky' : '') +
         (step.reason ? ` · ${step.reason}` : '')
       }

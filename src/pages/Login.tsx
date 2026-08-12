@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
+import { useT } from '@/lib/i18n'
 import { ApiError } from '@/lib/api'
 import { Input, PasswordInput } from '@/components/ui'
 import { GoogleButton } from '@/components/GoogleButton'
@@ -30,6 +31,7 @@ function useReturnTo(): string {
 
 export default function Login() {
   const { login } = useAuth()
+  const t = useT()
   const nav = useNavigate()
   const returnTo = useReturnTo()
   const [params] = useSearchParams()
@@ -66,7 +68,7 @@ export default function Login() {
   const error = mut.isError
     ? mut.error instanceof ApiError
       ? mut.error.message
-      : 'đăng nhập thất bại'
+      : t('auth.loginFailed')
     : (params.get('error') ?? '')
 
   if (challenge) {
@@ -78,7 +80,7 @@ export default function Login() {
       {/* Reset revokes every session, so they land back here — say why. */}
       {params.get('reset') === '1' && !mut.isError && (
         <p className="font-mono text-sm text-success">
-          ✓ đã đổi mật khẩu, đăng nhập lại
+          ✓ {t('auth.resetDone')}
         </p>
       )}
       <form onSubmit={onSubmit} className="space-y-4">
@@ -88,7 +90,7 @@ export default function Login() {
             value={form.login}
             onChange={(e) => setForm({ ...form, login: e.target.value })}
             autoComplete="username"
-            placeholder="email hoặc username"
+            placeholder={t('auth.emailOrUsername')}
             required
           />
         </TermField>
@@ -99,7 +101,7 @@ export default function Login() {
               to="/forgot-password"
               className="text-accent-soft hover:underline"
             >
-              # quên mật khẩu?
+              # {t('auth.forgotLink')}
             </Link>
           }
         >
@@ -122,7 +124,7 @@ export default function Login() {
       <GoogleButton />
 
       <p className="font-mono text-sm text-fg-subtle">
-        # chưa có tài khoản?{' '}
+        # {t('auth.noAccount')}{' '}
         <Link to="/register" className="text-accent-soft hover:underline">
           ./register
         </Link>
@@ -148,6 +150,7 @@ function MFAStep({
   onBack: () => void
 }) {
   const { loginMFA } = useAuth()
+  const t = useT()
   const nav = useNavigate()
   const returnTo = useReturnTo()
   const [code, setCode] = useState('')
@@ -160,13 +163,13 @@ function MFAStep({
   const error = mut.isError
     ? mut.error instanceof ApiError
       ? mut.error.message
-      : 'xác thực thất bại'
+      : t('auth.verifyFailed')
     : ''
 
   return (
     <AuthShell cmd="login --mfa">
       <p className="font-mono text-sm text-fg-subtle">
-        # mở ứng dụng xác thực và nhập mã 6 số, hoặc dán một recovery code
+        # {t('auth.mfaHint')}
       </p>
       <form
         onSubmit={(e) => {
@@ -200,7 +203,7 @@ function MFAStep({
         onClick={onBack}
         className="font-mono text-sm text-accent-soft hover:underline"
       >
-        # nhập sai? quay lại đăng nhập để lấy mã mới
+        # {t('auth.mfaWrong')}
       </button>
     </AuthShell>
   )

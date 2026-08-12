@@ -3,6 +3,7 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { authApi } from '@/api/auth'
+import { useT } from '@/lib/i18n'
 import { ApiError } from '@/lib/api'
 import { Input } from '@/components/ui'
 import {
@@ -16,6 +17,7 @@ const RESEND_SECONDS = 60
 
 export default function VerifyEmail() {
   const { verifyEmail } = useAuth()
+  const t = useT()
   const nav = useNavigate()
   const [params] = useSearchParams()
   const email = params.get('email') ?? ''
@@ -57,18 +59,18 @@ export default function VerifyEmail() {
   const error = mut.isError
     ? mut.error instanceof ApiError
       ? mut.error.message
-      : 'xác thực thất bại'
+      : t('auth.verifyFailed')
     : ''
 
   return (
     <AuthShell cmd="verify-email">
       <p className="font-mono text-sm text-fg-muted">
-        # đã gửi mã 6 số tới{' '}
+        # {t('auth.codeSentTo')}{' '}
         <span className="text-fg-strong">{email}</span>
       </p>
 
       <form onSubmit={onSubmit} className="space-y-4">
-        <TermField flag="code" hint="6 chữ số">
+        <TermField flag="code" hint={t('auth.sixDigits')}>
           <Input
             variant="terminal"
             value={code}
@@ -90,10 +92,10 @@ export default function VerifyEmail() {
       </form>
 
       <div className="space-y-1 font-mono text-sm text-fg-subtle">
-        <p># không thấy mail? kiểm tra cả hộp thư spam.</p>
+        <p># {t('auth.noMailCheckSpam')}</p>
         <p>
           {cooldown > 0 ? (
-            <span># gửi lại sau {cooldown}s</span>
+            <span># {t('auth.resendIn', { s: cooldown })}</span>
           ) : (
             <button
               onClick={() => resend.mutate()}
@@ -104,11 +106,11 @@ export default function VerifyEmail() {
             </button>
           )}
           {resend.isSuccess && cooldown > 0 && (
-            <span className="ml-2 text-success">✓ đã gửi lại</span>
+            <span className="ml-2 text-success">✓ {t('auth.resent')}</span>
           )}
         </p>
         <p>
-          # sai địa chỉ?{' '}
+          # {t('auth.wrongAddress')}{' '}
           <Link to="/register" className="text-accent-soft hover:underline">
             ./register
           </Link>

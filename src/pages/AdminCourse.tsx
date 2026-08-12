@@ -24,6 +24,7 @@ import {
   PlusIcon,
   TerminalIcon,
 } from '@/components/icons'
+import { useT, type Key } from '@/lib/i18n'
 
 const EMPTY_LAB: LabInput = {
   slug: '',
@@ -32,17 +33,24 @@ const EMPTY_LAB: LabInput = {
   duration_minutes: 60,
   lab_image_id: null,
   sim_scenario: null,
+  incident_setup: '',
   order_idx: 0,
 }
 
 const EMPTY_REVIEW: ReviewInput = { title: '', content_md: '', order_idx: 0 }
 
-const TABS = ['Lab', 'Ôn tập'] as const
-type Tab = (typeof TABS)[number]
+
+// Ids, not labels — the active tab is compared by value and also written to
+// the URL.
+const TABS = [
+  { id: 'labs', label: 'ac.tab.labs' },
+  { id: 'reviews', label: 'ac.tab.reviews' },
+] as const satisfies readonly { id: string; label: Key }[]
+type Tab = (typeof TABS)[number]['id']
 
 // The tab in the URL is ascii, so a link survives being pasted somewhere that
 // mangles the query string. 'Lab' is the default and writes no parameter at all.
-const TAB_SLUG: Record<Tab, string> = { Lab: 'lab-list', 'Ôn tập': 'on-tap' }
+const TAB_SLUG: Record<Tab, string> = { labs: 'lab-list', reviews: 'on-tap' }
 
 const EMPTY_TASK: TaskInput = {
   title: '',
@@ -63,11 +71,11 @@ const EMPTY_OPTIONS = [
   { text: '', correct: false },
 ]
 
-const KIND_CHOICES: { value: TaskInput['kind']; label: string; hint: string }[] = [
-  { value: 'script', label: 'Thực hành', hint: 'chấm bằng script trong container' },
-  { value: 'command', label: 'Gõ lệnh', hint: 'chấm bằng lệnh học viên đã gõ' },
-  { value: 'choice', label: 'Lý thuyết', hint: 'chọn đáp án đúng' },
-  { value: 'sim', label: 'Pipeline', hint: 'chấm bằng lượt chạy mô phỏng' },
+const KIND_CHOICES: { value: TaskInput['kind']; label: Key; hint: Key }[] = [
+  { value: 'script', label: 'lab.kind.script', hint: 'ac.kind.scriptHint' },
+  { value: 'command', label: 'lab.kind.command', hint: 'ac.kind.commandHint' },
+  { value: 'choice', label: 'lab.kind.choice', hint: 'ac.kind.choiceHint' },
+  { value: 'sim', label: 'lab.kind.sim', hint: 'ac.kind.simHint' },
 ]
 
 // field-sizing grows the box with what is typed instead of leaving the author
@@ -110,6 +118,7 @@ const GOAL_EXAMPLE = `{
  *  right. One screen rather than two: writing a lab means writing its questions,
  *  and a page change between the two loses the thread every time. */
 export default function AdminCourse() {
+  const t = useT()
   const { id = '' } = useParams()
   const courseID = Number(id)
   const qc = useQueryClient()
@@ -139,9 +148,9 @@ export default function AdminCourse() {
   const setSelectedID = (id: number | null) =>
     patchParams({ lab: id ? String(id) : null }, { replace: !id })
 
-  const tab: Tab = params.get('tab') === TAB_SLUG['Ôn tập'] ? 'Ôn tập' : 'Lab'
-  const setTab = (t: Tab) =>
-    patchParams({ tab: t === 'Lab' ? null : TAB_SLUG[t] })
+  const tab: Tab = params.get('tab') === TAB_SLUG.reviews ? 'reviews' : 'labs'
+  const setTab = (next: Tab) =>
+    patchParams({ tab: next === 'labs' ? null : TAB_SLUG[next] })
   const [error, setError] = useState('')
 
   const courses = useQuery({ queryKey: ['admin-courses'], queryFn: adminApi.courses })
@@ -165,7 +174,7 @@ export default function AdminCourse() {
   const selected = labs.data?.find((l) => l.id === selectedID) ?? null
 
   const fail = (e: unknown) =>
-    setError(e instanceof ApiError ? e.message : 'không lưu được, thử lại')
+    setError(e instanceof ApiError ? e.message : t('ac.saveFailed'))
 
   const afterLabs = () => {
     qc.invalidateQueries({ queryKey: ['admin-labs', courseID] })
@@ -196,7 +205,7 @@ export default function AdminCourse() {
   })
 
   if (!Number.isFinite(courseID) || courseID <= 0) {
-    return <p className="text-danger">Khoá học không hợp lệ.</p>
+    return <p className="text-danger">{t('ac.badCourse')}</p>
   }
 
   const closeLabForm = () => {
@@ -215,6 +224,7 @@ export default function AdminCourse() {
             duration_minutes: lab.duration_minutes,
             lab_image_id: lab.lab_image_id,
             sim_scenario: lab.sim_scenario,
+            incident_setup: lab.incident_setup,
             order_idx: lab.order_idx,
           }
         : EMPTY_LAB,
@@ -229,36 +239,35 @@ export default function AdminCourse() {
         className="inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
       >
         <ArrowLeftIcon className="h-3.5 w-3.5" />
-        Danh sách khoá học
+        {t('ac.backList')}
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-fg-strong">
-        {course?.title ?? 'Nội dung khoá học'}
+        {course?.title ?? t('ac.title')}
       </h1>
       <p className="mt-1 text-sm text-fg-muted">
-        {tab === 'Lab'
-          ? 'Mỗi lab là một phiên terminal. Mỗi nhiệm vụ là một câu hỏi được chấm bằng script chạy trong container của học viên.'
-          : 'Tài liệu của cả khoá, hiện ở tab Ôn tập của học viên. Không chấm điểm, không cần container.'}
+        {tab === 'labs' ? t('ac.labsIntro') : t('ac.reviewsIntro')}
       </p>
 
       {/* Same tabs the student sees on the course page, so editing a course and
           reading it are the same shape. Counts sit next to the label rather than
           in a chip — two numbers, and the row stays one line on a phone. */}
       <div className="mt-5 flex flex-wrap gap-2 border-b border-border pb-px">
-        {TABS.map((t) => {
-          const count = t === 'Lab' ? labs.data?.length : reviews.data?.length
+        {TABS.map((x) => {
+          const count =
+            x.id === 'labs' ? labs.data?.length : reviews.data?.length
           return (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              aria-current={tab === t ? 'page' : undefined}
+              key={x.id}
+              onClick={() => setTab(x.id)}
+              aria-current={tab === x.id ? 'page' : undefined}
               className={
                 'rounded-t-md px-4 py-2 text-sm font-medium transition ' +
-                (tab === t
+                (tab === x.id
                   ? 'border-b-2 border-accent bg-muted text-fg-strong'
                   : 'border-b-2 border-transparent text-fg-muted hover:bg-muted hover:text-fg-strong')
               }
             >
-              {t}
+              {t(x.label)}
               {count !== undefined && count > 0 && (
                 <span className="ml-2 font-mono text-xs text-fg-subtle">{count}</span>
               )}
@@ -273,7 +282,7 @@ export default function AdminCourse() {
         </div>
       )}
 
-      {tab === 'Ôn tập' ? (
+      {tab === 'reviews' ? (
         <ReviewPanel courseID={courseID} onError={fail} clearError={() => setError('')} />
       ) : (
       /* A narrow rail of labs and one wide work area, rather than two equal
@@ -283,7 +292,7 @@ export default function AdminCourse() {
         <Card className="self-start lg:sticky lg:top-8">
           <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
             <h2 className="font-semibold text-fg-strong">
-              Lab
+              {t('ac.tab.labs')}
               {labs.data && labs.data.length > 0 && (
                 <span className="ml-1.5 font-normal text-fg-subtle">
                   {labs.data.length}
@@ -292,17 +301,17 @@ export default function AdminCourse() {
             </h2>
             <Button className="px-2.5 py-1.5 text-sm" onClick={() => openLabForm(null)}>
               <PlusIcon className="h-4 w-4" />
-              Thêm
+              {t('ac.add')}
             </Button>
           </div>
 
           <ul className="max-h-[70vh] divide-y divide-border overflow-y-auto">
             {labs.isLoading && (
-              <li className="px-4 py-6 text-sm text-fg-subtle">Đang tải…</li>
+              <li className="px-4 py-6 text-sm text-fg-subtle">{t('common.loading')}</li>
             )}
             {labs.data?.length === 0 && (
               <li className="px-4 py-6 text-center text-sm text-fg-subtle">
-                Khoá này chưa có lab nào.
+                {t('ac.noLabs')}
               </li>
             )}
             {labs.data?.map((l) => {
@@ -336,7 +345,7 @@ export default function AdminCourse() {
                       <LayersIcon className="h-3.5 w-3.5" />
                       {l.task_count}
                       <span className="text-fg-subtle">·</span>
-                      {l.points} điểm
+                      {l.points} {t('ac.pointsWord')}
                       <span className="text-fg-subtle">·</span>
                       <ClockIcon className="h-3.5 w-3.5" />
                       {l.duration_minutes}′
@@ -346,13 +355,21 @@ export default function AdminCourse() {
                         missing an image — it is the other kind of lab. */}
                     {l.sim_scenario !== null ? (
                       <span className="mt-1.5 block rounded bg-muted px-2 py-0.5 text-xs text-fg-muted">
-                        lab mô phỏng — không có container
+                        {t('ac.simLabNoContainer')}
                       </span>
                     ) : l.lab_image_id === null ? (
                       <span className="mt-1.5 block rounded bg-danger/10 px-2 py-0.5 text-xs text-danger">
-                        chưa gán image — chưa chạy được
+                        {t('ac.noImage')}
                       </span>
                     ) : null}
+                    {/* The only thing on this screen that tells a drill from an
+                        ordinary lab: there is no flag column, an active scenario
+                        IS what makes it one. */}
+                    {l.incident_count > 0 && (
+                      <span className="mt-1.5 block rounded bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">
+                        {t('ac.drillBadge', { n: l.incident_count })}
+                      </span>
+                    )}
                   </button>
                   <div
                     className={
@@ -363,13 +380,13 @@ export default function AdminCourse() {
                       onClick={() => openLabForm(l)}
                       className="rounded px-2 py-0.5 text-xs text-accent-soft transition hover:bg-bg"
                     >
-                      Sửa
+                      {t('ac.edit')}
                     </button>
                     <button
                       onClick={() => setDeletingLab(l)}
                       className="rounded px-2 py-0.5 text-xs text-danger transition hover:bg-danger/10"
                     >
-                      Xoá
+                      {t('ac.delete')}
                     </button>
                   </div>
                 </li>
@@ -400,6 +417,14 @@ export default function AdminCourse() {
             // Keyed by lab: switching labs must drop the open form, the trial
             // result and the setup box with it, all of which describe the lab
             // that was showing a moment ago.
+            // Keyed by lab: switching labs must drop the open form, the trial
+            // result and the setup box with it, all of which describe the lab
+            // that was showing a moment ago.
+            //
+            // War Room scenarios are edited in the War Room section, not here.
+            // A lab's incident_setup still lives on the form above, because it
+            // is a column of the lab — writing it is what files the lab under
+            // War Room in the first place.
             <TaskPanel
               key={selected.id}
               lab={selected}
@@ -411,16 +436,16 @@ export default function AdminCourse() {
               <span className="grid h-12 w-12 place-items-center rounded-full bg-muted text-fg-subtle">
                 <TerminalIcon className="h-5 w-5" />
               </span>
-              <p className="mt-3 text-sm font-medium text-fg">Chưa chọn lab nào</p>
+              <p className="mt-3 text-sm font-medium text-fg">{t('ac.noLabPicked')}</p>
               <p className="mt-1 max-w-xs text-sm text-fg-subtle">
                 {labs.data?.length === 0
-                  ? 'Tạo lab đầu tiên để bắt đầu thêm nhiệm vụ.'
-                  : 'Chọn một lab bên trái để xem và sửa nhiệm vụ của nó.'}
+                  ? t('ac.createFirstLab')
+                  : t('ac.pickLab')}
               </p>
               {labs.data?.length === 0 && (
                 <Button className="mt-4 px-3 py-2 text-sm" onClick={() => openLabForm(null)}>
                   <PlusIcon className="h-4 w-4" />
-                  Thêm lab
+                  {t('ac.addLab')}
                 </Button>
               )}
             </Card>
@@ -433,8 +458,10 @@ export default function AdminCourse() {
           những thứ mất theo mới là khác biệt giữa xác nhận và thủ tục. */}
       {deletingLab && (
         <ConfirmModal
-          title={`Xoá lab "${deletingLab.title}"?`}
-          confirmLabel={removeLab.isPending ? 'Đang xoá…' : 'Xoá lab'}
+          title={t('ac.deleteLabTitle', { name: deletingLab.title })}
+          confirmLabel={
+            removeLab.isPending ? t('ac.deleting') : t('ac.deleteLab')
+          }
           tone="danger"
           busy={removeLab.isPending}
           onClose={() => setDeletingLab(null)}
@@ -444,11 +471,11 @@ export default function AdminCourse() {
           }}
         >
           <p>
-            Mất theo{' '}
+            {t('ac.lostWithBefore')}{' '}
             <strong className="text-fg-strong">{deletingLab.task_count}</strong>{' '}
-            nhiệm vụ và tiến độ học viên đã làm ở lab này.
+            {t('ac.lostWithAfter')}
           </p>
-          <p className="text-danger">Không khôi phục được.</p>
+          <p className="text-danger">{t('ac.notRecoverable')}</p>
         </ConfirmModal>
       )}
     </div>
@@ -467,6 +494,7 @@ function ReviewPanel({
   onError: (e: unknown) => void
   clearError: () => void
 }) {
+  const t = useT()
   const qc = useQueryClient()
   const [form, setForm] = useState<ReviewInput | null>(null)
   const [editing, setEditing] = useState<AdminReview | null>(null)
@@ -512,12 +540,16 @@ function ReviewPanel({
     <Card className="mt-6">
       <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
         <h2 className="min-w-0 font-semibold text-fg-strong">
-          {form ? (editing ? 'Sửa bài ôn tập' : 'Bài ôn tập mới') : 'Danh sách bài ôn tập'}
+          {form
+            ? editing
+              ? t('ac.editReview')
+              : t('ac.newReview')
+            : t('ac.reviewList')}
         </h2>
         {!form && (
           <Button className="shrink-0 px-2.5 py-1.5 text-sm" onClick={() => open(null)}>
             <PlusIcon className="h-4 w-4" />
-            Thêm
+            {t('ac.add')}
           </Button>
         )}
       </div>
@@ -530,28 +562,28 @@ function ReviewPanel({
           }}
           className="space-y-4 px-4 py-4"
         >
-          <Field label="Tiêu đề">
+          <Field label={t('ac.fieldTitle')}>
             <Input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder="Bảng lệnh cần nhớ"
+              placeholder={t('ac.reviewTitlePlaceholder')}
               autoFocus
               required
             />
           </Field>
 
-          <Field label="Nội dung">
+          <Field label={t('ac.fieldContent')}>
             <MarkdownEditor
               value={form.content_md}
               onChange={(v) => setForm({ ...form, content_md: v })}
-              placeholder={'## Tóm tắt\n\n| Lệnh | Việc |\n| --- | --- |'}
+              placeholder={t('ac.reviewContentPlaceholder')}
             />
           </Field>
 
           {/* Only when editing: a new note is appended to the end by the server,
               so offering a position on create would be a field that lies. */}
           {editing && (
-            <Field label="Thứ tự">
+            <Field label={t('ac.fieldOrder')}>
               <Input
                 type="number"
                 min={0}
@@ -565,7 +597,11 @@ function ReviewPanel({
 
           <div className="flex gap-2">
             <Button type="submit" disabled={save.isPending}>
-              {save.isPending ? 'Đang lưu…' : editing ? 'Lưu' : 'Thêm bài'}
+              {save.isPending
+                ? t('ac.saving')
+                : editing
+                  ? t('ac.save')
+                  : t('ac.addReview')}
             </Button>
             <button
               type="button"
@@ -575,15 +611,15 @@ function ReviewPanel({
               }}
               className="rounded-md px-3 py-2 text-sm text-fg-muted transition hover:text-fg-strong"
             >
-              Huỷ
+              {t('common.cancel')}
             </button>
           </div>
         </form>
       ) : reviews.isLoading ? (
-        <p className="px-4 py-6 text-sm text-fg-subtle">Đang tải…</p>
+        <p className="px-4 py-6 text-sm text-fg-subtle">{t('common.loading')}</p>
       ) : reviews.data?.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-fg-subtle">
-          Khoá này chưa có bài ôn tập nào.
+          {t('ac.noReviews')}
         </p>
       ) : (
         <ul className="divide-y divide-border">
@@ -601,13 +637,13 @@ function ReviewPanel({
                     onClick={() => open(r)}
                     className="rounded px-2 py-0.5 text-xs text-accent-soft transition hover:bg-muted"
                   >
-                    Sửa
+                    {t('ac.edit')}
                   </button>
                   <button
                     onClick={() => setDeleting(r)}
                     className="rounded px-2 py-0.5 text-xs text-danger transition hover:bg-danger/10"
                   >
-                    Xoá
+                    {t('ac.delete')}
                   </button>
                 </div>
               </div>
@@ -615,7 +651,7 @@ function ReviewPanel({
                   check is how the table or the code block comes out. */}
               <details className="mt-2">
                 <summary className="cursor-pointer text-xs text-fg-muted select-none">
-                  Xem nội dung
+                  {t('ac.viewContent')}
                 </summary>
                 <div className="mt-2 rounded-md border border-border bg-bg px-3 py-2">
                   <Prose>{r.content_md}</Prose>
@@ -628,8 +664,8 @@ function ReviewPanel({
 
       {deleting && (
         <ConfirmModal
-          title="Xoá bài ôn tập?"
-          confirmLabel={remove.isPending ? 'Đang xoá…' : 'Xoá'}
+          title={t('ac.deleteReviewTitle')}
+          confirmLabel={remove.isPending ? t('ac.deleting') : t('ac.delete')}
           tone="danger"
           busy={remove.isPending}
           onClose={() => setDeleting(null)}
@@ -639,15 +675,16 @@ function ReviewPanel({
           }}
         >
           <p>
-            Bài <strong className="text-fg-strong">{deleting.title}</strong> sẽ mất.
+            {t('ac.reviewLostBefore')}{' '}
+            <strong className="text-fg-strong">{deleting.title}</strong>{' '}
+            {t('ac.reviewLostAfter')}
           </p>
           {/* Không chấm điểm nên không ai mất tiến độ — nói ra để người xoá khỏi
               phải đoán. */}
           <p>
-            Không ai mất tiến độ gì: bài ôn tập là tài liệu để đọc, không phải bài
-            có điểm.
+            {t('ac.reviewNoProgress')}
           </p>
-          <p className="text-danger">Không khôi phục được.</p>
+          <p className="text-danger">{t('ac.notRecoverable')}</p>
         </ConfirmModal>
       )}
     </Card>
@@ -671,6 +708,7 @@ function LabForm({
   onCancel: () => void
   onSubmit: () => void
 }) {
+  const t = useT()
   const set = <K extends keyof LabInput>(k: K, v: LabInput[K]) =>
     onChange({ ...value, [k]: v })
 
@@ -685,15 +723,15 @@ function LabForm({
       className="rounded-xl border border-border bg-surface shadow-sm"
     >
       <h3 className="border-b border-border px-5 py-3 font-semibold text-fg-strong">
-        {editing ? 'Sửa lab' : 'Lab mới'}
+        {editing ? t('ac.editLab') : t('ac.newLab')}
       </h3>
 
       <div className="space-y-4 p-5">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tiêu đề">
+          <Field label={t('ac.fieldTitle')}>
             <Input value={value.title} onChange={(e) => set('title', e.target.value)} />
           </Field>
-          <Field label="Slug" hint="duy nhất trên toàn hệ thống">
+          <Field label="Slug" hint={t('ac.slugHint')}>
             <Input
               value={value.slug}
               variant="terminal"
@@ -702,18 +740,18 @@ function LabForm({
             />
           </Field>
         </div>
-        <Field label="Hướng dẫn" hint="hiện ở tab Hướng dẫn">
+        <Field label={t('ac.fieldGuide')} hint={t('ac.guideHint')}>
           <MarkdownEditor
             rows={6}
             value={value.description_md}
             onChange={(v) => set('description_md', v)}
-            placeholder="Mô tả bài lab. Dùng **đậm**, `lệnh`, danh sách…"
+            placeholder={t('ac.guidePlaceholder')}
           />
         </Field>
         {/* Same as the question form: a new lab is appended by the server, so
             its order box would be a control with no effect. */}
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label="Thời lượng (phút)">
+          <Field label={t('ac.duration')}>
             <Input
               type="number"
               min={1}
@@ -723,7 +761,7 @@ function LabForm({
             />
           </Field>
           {editing && (
-            <Field label="Thứ tự" hint="nhỏ hiện trước">
+            <Field label={t('ac.fieldOrder')} hint={t('ac.orderHint')}>
               <Input
                 type="number"
                 min={0}
@@ -732,21 +770,21 @@ function LabForm({
               />
             </Field>
           )}
-          <Field label="Image" hint="container học viên dùng">
+          <Field label="Image" hint={t('ac.imageHint')}>
             <select
               className={select}
               value={value.lab_image_id ?? ''}
               disabled={sim}
-              title={sim ? 'Lab mô phỏng không có container' : undefined}
+              title={sim ? t('ac.simNoContainer') : undefined}
               onChange={(e) =>
                 set('lab_image_id', e.target.value ? Number(e.target.value) : null)
               }
             >
-              <option value="">— chưa chọn —</option>
+              <option value="">{t('ac.notPicked')}</option>
               {images.map((im) => (
                 <option key={im.id} value={im.id}>
                   {im.name}:{im.tag}
-                  {im.active ? '' : ' (ngừng dùng)'}
+                  {im.active ? '' : t('ac.imageRetired')}
                 </option>
               ))}
             </select>
@@ -758,26 +796,45 @@ function LabForm({
             nội dung thì ô kia khoá lại, để tác giả không điền xong mới bị từ
             chối. */}
         <JsonField
-          label="Kịch bản mô phỏng"
+          label={t('ac.simScenario')}
           hint={
             value.lab_image_id !== null
-              ? 'lab này đã gán image — bỏ image mới dùng được'
-              : 'để trống = lab container'
+              ? t('ac.simHasImage')
+              : t('ac.simEmptyIsContainer')
           }
           value={value.sim_scenario}
           onChange={(v) => set('sim_scenario', v)}
           placeholder={SCENARIO_EXAMPLE}
         />
+        {/* Hidden on a sim lab: there is no container for it to run in, and the
+            server refuses the pair anyway. Showing a box whose value would be
+            rejected is worse than not showing it. */}
+        {!sim && (
+          <Field label={t('ac.incidentSetup')} hint={t('ac.incidentSetupHint')}>
+            <textarea
+              rows={3}
+              value={value.incident_setup}
+              onChange={(e) => set('incident_setup', e.target.value)}
+              className={textarea + ' font-mono text-sm'}
+              placeholder={t('ac.incidentSetupPlaceholder')}
+            />
+          </Field>
+        )}
+        {!sim && value.incident_setup.trim() !== '' && (
+          <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
+            {t('ac.incidentSetupNote')}
+          </p>
+        )}
+
         {sim && (
           <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-            Học viên đọc được cả bảng này — pipeline viết ra từ chính nó, giấu đi
-            thì chỉ còn cách đoán tên step. Đừng để lời giải trong đó.
+            {t('ac.simNote1')}
             <br />
-            Số giây là <strong className="text-fg-muted">thời gian mô phỏng</strong>,
-            không đo từ CI thật. Bài học nằm ở tỉ lệ giữa các cách xếp job.
+            {t('ac.simNote2Before')}{' '}
+            <strong className="text-fg-muted">{t('ac.simNote2Strong')}</strong>
+            {t('ac.simNote2After')}
             <br />
-            Chỉ hình dạng JSON được kiểm lúc lưu. Sai tên khoá thì tới lúc bấm
-            Chạy pipeline mới lộ ra — chạy thử một lượt trước khi publish.
+            {t('ac.simNote3')}
           </p>
         )}
       </div>
@@ -785,14 +842,14 @@ function LabForm({
       {/* Actions on their own bar, so a long form always ends the same way. */}
       <div className="flex items-center gap-3 border-t border-border px-5 py-3">
         <Button type="submit" disabled={saving} className="px-3 py-2 text-sm">
-          {saving ? 'Đang lưu…' : editing ? 'Lưu' : 'Tạo lab'}
+          {saving ? t('ac.saving') : editing ? t('ac.save') : t('ac.createLab')}
         </Button>
         <button
           type="button"
           onClick={onCancel}
           className="text-sm text-fg-muted transition hover:text-fg-strong"
         >
-          Huỷ
+          {t('common.cancel')}
         </button>
       </div>
     </form>
@@ -809,6 +866,7 @@ function OptionsEditor({
   options: AdminOption[]
   onChange: (o: AdminOption[]) => void
 }) {
+  const t = useT()
   const patch = (i: number, o: Partial<AdminOption>) =>
     onChange(options.map((cur, j) => (i === j ? { ...cur, ...o } : cur)))
 
@@ -817,9 +875,9 @@ function OptionsEditor({
   return (
     <div className="space-y-2">
       <span className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-medium text-fg">Các lựa chọn</span>
+        <span className="text-sm font-medium text-fg">{t('ac.options')}</span>
         <span className="text-xs text-fg-subtle">
-          tick vào ô đúng — tick nhiều = câu nhiều đáp án
+          {t('ac.optionsHint')}
         </span>
       </span>
 
@@ -837,7 +895,7 @@ function OptionsEditor({
           }
         >
           <label
-            title="đáp án đúng"
+            title={t('ac.correctAnswer')}
             className="flex shrink-0 cursor-pointer items-center gap-2 pl-1"
           >
             <input
@@ -853,14 +911,16 @@ function OptionsEditor({
           <Input
             value={o.text}
             onChange={(e) => patch(i, { text: e.target.value })}
-            placeholder={`Lựa chọn ${i + 1}`}
+            placeholder={t('ac.optionN', { n: i + 1 })}
           />
           <button
             type="button"
             onClick={() => onChange(options.filter((_, j) => j !== i))}
             disabled={options.length <= 2}
-            title={options.length <= 2 ? 'cần ít nhất 2 lựa chọn' : 'xoá lựa chọn'}
-            aria-label="Xoá lựa chọn"
+            title={
+              options.length <= 2 ? t('ac.needTwoOptions') : t('ac.deleteOption')
+            }
+            aria-label={t('ac.deleteOptionLabel')}
             className="shrink-0 rounded px-2 py-1 text-sm text-fg-subtle transition hover:bg-danger/10 hover:text-danger disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-subtle"
           >
             ✕
@@ -875,15 +935,15 @@ function OptionsEditor({
           disabled={options.length >= 10}
           className="rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg transition hover:border-accent disabled:opacity-50"
         >
-          Thêm lựa chọn
+          {t('ac.addOption')}
         </button>
         {/* The two ways an author leaves a question that cannot be answered
             correctly, both of which the server also refuses. */}
         {correct === 0 && (
-          <span className="text-xs text-danger">chưa đánh dấu đáp án đúng</span>
+          <span className="text-xs text-danger">{t('ac.noCorrect')}</span>
         )}
         {correct > 0 && correct === options.length && (
-          <span className="text-xs text-danger">tất cả đều đúng — không chấm được</span>
+          <span className="text-xs text-danger">{t('ac.allCorrect')}</span>
         )}
       </div>
     </div>
@@ -899,6 +959,7 @@ function TaskPanel({
   onError: (e: unknown) => void
   clearError: () => void
 }) {
+  const t = useT()
   const qc = useQueryClient()
   const [form, setForm] = useState<TaskInput | null>(null)
   const [editing, setEditing] = useState<AdminTask | null>(null)
@@ -965,14 +1026,14 @@ function TaskPanel({
           className="space-y-4 bg-muted/40 px-5 py-4"
         >
           <h3 className="text-sm font-semibold text-fg-strong">
-            {editing ? 'Sửa nhiệm vụ' : 'Nhiệm vụ mới'}
+            {editing ? t('ac.editTask') : t('ac.newTask')}
           </h3>
           {/* Three cards rather than a dropdown: the kind decides which half of
               this form appears, so it is worth seeing all three options and
               what each one means without opening anything. */}
           <fieldset>
             <legend className="mb-1.5 text-sm font-medium text-fg">
-              Loại nhiệm vụ
+              {t('ac.taskKind')}
             </legend>
             <div className="grid gap-2 sm:grid-cols-3">
               {KIND_CHOICES.map((k) => (
@@ -1006,15 +1067,17 @@ function TaskPanel({
                     }}
                   />
                   <span className="block text-sm font-medium text-fg-strong">
-                    {k.label}
+                    {t(k.label)}
                   </span>
-                  <span className="mt-0.5 block text-xs text-fg-muted">{k.hint}</span>
+                  <span className="mt-0.5 block text-xs text-fg-muted">
+                    {t(k.hint)}
+                  </span>
                 </label>
               ))}
             </div>
           </fieldset>
 
-          <Field label="Đề bài">
+          <Field label={t('ac.prompt')}>
             <textarea
               rows={2}
               value={form.title}
@@ -1022,19 +1085,19 @@ function TaskPanel({
               className={textarea}
               placeholder={
                 form.kind === 'choice'
-                  ? 'Lệnh nào dùng để liệt kê file trong thư mục?'
+                  ? t('ac.promptChoice')
                   : form.kind === 'command'
-                    ? 'Xem phiên bản nhân hệ điều hành đang dùng.'
-                    : 'Tạo thư mục birds trong thư mục home.'
+                    ? t('ac.promptCommand')
+                    : t('ac.promptScript')
               }
             />
           </Field>
-          <Field label="Gợi ý" hint="để trống thì tab Gợi ý tự ẩn">
+          <Field label={t('ac.hintField')} hint={t('ac.hintFieldHint')}>
             <MarkdownEditor
               rows={5}
               value={form.hint}
               onChange={(v) => set('hint', v)}
-              placeholder="Gợi ý cho học viên. Dùng **đậm**, `lệnh`, danh sách…"
+              placeholder={t('ac.hintPlaceholder')}
             />
           </Field>
           {form.kind === 'choice' && (
@@ -1050,40 +1113,38 @@ function TaskPanel({
                 // Cùng lý do như form lab: ô giữ văn bản bên trong, chuyển sang
                 // sửa nhiệm vụ khác phải dựng lại nó.
                 key={editing?.id ?? 'new'}
-                label="Điều kiện đạt"
-                hint="mọi mệnh đề trong all đều phải đúng"
+                label={t('ac.goalField')}
+                hint={t('ac.goalHint')}
                 value={form.sim_goal}
                 onChange={(v) => set('sim_goal', v)}
                 placeholder={GOAL_EXAMPLE}
               />
               <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-                Chấm theo <strong className="text-fg-muted">lượt chạy gần nhất</strong>{' '}
-                của học viên, không theo văn bản họ gõ — nên bài chấp nhận mọi
-                pipeline đạt được kết quả đó.
+                {t('ac.simGoal1Before')}{' '}
+                <strong className="text-fg-muted">{t('ac.simGoal1Strong')}</strong>
+                {t('ac.simGoal1After')}
                 <br />
-                Năm mệnh đề dùng được:{' '}
+                {t('ac.simGoal2Before')}{' '}
                 <code className="font-mono">run_status</code>,{' '}
                 <code className="font-mono">total_seconds_lte</code>,{' '}
                 <code className="font-mono">jobs_parallel</code>,{' '}
                 <code className="font-mono">cache_hit</code>,{' '}
-                <code className="font-mono">job_present</code>. Chỉ có{' '}
-                <code className="font-mono">all</code>, không có{' '}
-                <code className="font-mono">any</code>: bài chấp nhận một trong
-                hai đáp án là hai nhiệm vụ.
+                <code className="font-mono">job_present</code>
+                {t('ac.simGoal2Mid')} <code className="font-mono">all</code>
+                {t('ac.simGoal2Mid2')} <code className="font-mono">any</code>
+                {t('ac.simGoal2After')}
                 <br />
-                <code className="font-mono">jobs_parallel</code> đòi hai job thật
-                sự chồng thời gian — chạm mép không tính, vì đó là bàn giao trên
-                một runner.
+                <code className="font-mono">jobs_parallel</code>{' '}
+                {t('ac.simGoal3')}
                 <br />
-                Để trống thì lưu được nhưng học viên không đạt được — bỏ trống là
-                nhiệm vụ chưa viết xong, không phải nhiệm vụ dễ.
+                {t('ac.simGoal4')}
               </p>
             </>
           )}
 
           {form.kind === 'command' && (
             <>
-              <Field label="Lệnh được chấp nhận" hint="mỗi dòng một lệnh">
+              <Field label={t('ac.expectedCommands')} hint={t('ac.expectedHint')}>
                 <textarea
                   rows={3}
                   value={form.expected_commands}
@@ -1093,23 +1154,23 @@ function TaskPanel({
                 />
               </Field>
               <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-                Đạt khi học viên đã gõ một trong các lệnh trên. Khoảng trắng thừa
-                được bỏ qua, còn lại so khớp nguyên văn — <code className="font-mono">ls -la /</code>{' '}
-                và <code className="font-mono">ls -al /</code> là hai lệnh khác
-                nhau, muốn chấp nhận cả hai thì viết cả hai dòng.
+                {t('ac.cmdNote1Before')}{' '}
+                <code className="font-mono">ls -la /</code>{' '}
+                {t('ac.cmdNote1Mid')} <code className="font-mono">ls -al /</code>{' '}
+                {t('ac.cmdNote1After')}
                 <br />
-                Chỉ dùng cho lệnh không đổi gì trong máy (<code className="font-mono">uname</code>,{' '}
+                {t('ac.cmdNote2Before')}
+                <code className="font-mono">uname</code>,{' '}
                 <code className="font-mono">which</code>,{' '}
-                <code className="font-mono">cat /proc/…</code>). Việc gì để lại
-                kết quả thì dùng loại “Thực hành” — chấm kết quả chắc hơn chấm
-                câu chữ.
+                <code className="font-mono">cat /proc/…</code>
+                {t('ac.cmdNote2After')}
               </p>
             </>
           )}
 
           {form.kind === 'script' && (
             <>
-          <Field label="Script chấm" hint="exit code 0 = đúng">
+          <Field label={t('ac.checkScript')} hint={t('ac.checkScriptHint')}>
             <textarea
               rows={3}
               value={form.check_script}
@@ -1121,35 +1182,35 @@ function TaskPanel({
           {/* The three rules an author needs to know before their script runs.
               Getting any of them wrong fails students who did the task right. */}
           <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-            Chạy bằng <code className="font-mono">/bin/sh -c</code>, user{' '}
-            <code className="font-mono">student</code>, thư mục{' '}
-            <code className="font-mono">/home/student</code>, tối đa 10 giây. Đây
-            là exec riêng nên không thấy <code className="font-mono">cd</code> của
-            học viên — dùng đường dẫn tuyệt đối. Chấm theo trạng thái cuối, đừng
-            kiểm tra câu lệnh đã gõ.
+            {t('ac.scriptNote1')} <code className="font-mono">/bin/sh -c</code>
+            {t('ac.scriptNote2')} <code className="font-mono">student</code>
+            {t('ac.scriptNote3')} <code className="font-mono">/home/student</code>
+            {t('ac.scriptNote4')} <code className="font-mono">cd</code>{' '}
+            {t('ac.scriptNote5')}
           </p>
 
           <div className="space-y-3 rounded-md border border-border-strong bg-bg p-3">
             <Field
-              label="Chạy thử"
-              hint="container mới, không lưu gì"
+              label={t('ac.trial')}
+              hint={t('ac.trialHint')}
             >
               <textarea
                 rows={2}
                 value={setup}
                 onChange={(e) => setSetup(e.target.value)}
                 className={textarea + ' font-mono text-sm'}
-                placeholder="Lệnh chuẩn bị (tuỳ chọn) — vd: mkdir -p &quot;$HOME/birds&quot;"
+                placeholder={t('ac.setupPlaceholder')}
               />
             </Field>
             {/* Both directions matter. Without a setup command the container is
                 untouched, so a correct script must FAIL — that is what catches
                 the scripts which pass no matter what the student did. */}
             <p className="text-xs leading-relaxed text-fg-subtle">
-              Bỏ trống lệnh chuẩn bị → container trắng, script đúng phải{' '}
-              <strong className="text-fg-muted">trượt</strong>. Điền lệnh làm bài
-              vào → script đúng phải <strong className="text-fg-muted">đạt</strong>.
-              Chỉ đạt một chiều là script hỏng.
+              {t('ac.trialNoteBefore')}{' '}
+              <strong className="text-fg-muted">{t('ac.trialNoteFail')}</strong>
+              {t('ac.trialNoteMid')}{' '}
+              <strong className="text-fg-muted">{t('ac.trialNotePass')}</strong>
+              {t('ac.trialNoteAfter')}
             </p>
             <button
               type="button"
@@ -1167,12 +1228,11 @@ function TaskPanel({
                   className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
                 />
               )}
-              {trial.isPending ? 'Đang chạy…' : 'Chạy thử script'}
+              {trial.isPending ? t('ac.running') : t('ac.runTrial')}
             </button>
             {lab.lab_image_id === null && (
               <p className="text-xs text-danger">
-                Lab chưa gán image nên chưa chạy thử được — chọn image ở form lab
-                bên trái.
+                {t('ac.noImageYet')}
               </p>
             )}
 
@@ -1180,8 +1240,7 @@ function TaskPanel({
               <div className="space-y-2 text-xs">
                 {trial.data.setup_failed ? (
                   <p className="rounded border border-danger/40 bg-danger/10 px-2 py-1.5 text-danger">
-                    Lệnh chuẩn bị lỗi (exit {trial.data.setup_exit_code}) — script
-                    chưa được chạy.
+                    {t('ac.setupFailed', { code: trial.data.setup_exit_code })}
                   </p>
                 ) : (
                   <p
@@ -1192,8 +1251,8 @@ function TaskPanel({
                         : 'bg-muted text-fg-muted')
                     }
                   >
-                    {trial.data.passed ? 'Đạt' : 'Trượt'} — exit code{' '}
-                    {trial.data.exit_code}
+                    {trial.data.passed ? t('ac.passed') : t('ac.failed')}{' '}
+                    {t('ac.exitCode')} {trial.data.exit_code}
                   </p>
                 )}
                 {(trial.data.output || trial.data.setup_output) && (
@@ -1212,7 +1271,7 @@ function TaskPanel({
               question because the server ignores it there and appends: offering
               a box whose value is discarded is worse than not offering one. */}
           <div className="flex flex-wrap gap-4">
-            <Field label="Điểm">
+            <Field label={t('ac.points')}>
               <Input
                 type="number"
                 min={0}
@@ -1223,7 +1282,7 @@ function TaskPanel({
               />
             </Field>
             {editing && (
-              <Field label="Thứ tự" hint="nhỏ hiện trước">
+              <Field label={t('ac.fieldOrder')} hint={t('ac.orderHint')}>
                 <Input
                   type="number"
                   min={0}
@@ -1236,14 +1295,18 @@ function TaskPanel({
           </div>
           <div className="flex items-center gap-3 border-t border-border pt-4">
             <Button type="submit" disabled={save.isPending} className="px-3 py-2 text-sm">
-              {save.isPending ? 'Đang lưu…' : editing ? 'Lưu' : 'Tạo nhiệm vụ'}
+              {save.isPending
+                ? t('ac.saving')
+                : editing
+                  ? t('ac.save')
+                  : t('ac.createTask')}
             </Button>
             <button
               type="button"
               onClick={closeForm}
               className="text-sm text-fg-muted transition hover:text-fg-strong"
             >
-              Huỷ
+              {t('common.cancel')}
             </button>
           </div>
         </form>
@@ -1270,9 +1333,13 @@ function TaskPanel({
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
         <div className="min-w-0">
-          <h2 className="truncate font-semibold text-fg-strong">Nhiệm vụ</h2>
+          <h2 className="truncate font-semibold text-fg-strong">{t('ac.tasks')}</h2>
           <p className="truncate text-xs text-fg-muted">
-            {lab.title} · {lab.task_count} nhiệm vụ · {lab.points} điểm
+            {t('ac.taskSummary', {
+              lab: lab.title,
+              n: lab.task_count,
+              points: lab.points,
+            })}
           </p>
         </div>
         <Button
@@ -1284,7 +1351,7 @@ function TaskPanel({
           }}
         >
           <PlusIcon className="h-4 w-4" />
-          Thêm nhiệm vụ
+          {t('ac.addTask')}
         </Button>
       </div>
 
@@ -1295,16 +1362,16 @@ function TaskPanel({
 
       <ol className="divide-y divide-border">
         {tasks.isLoading && (
-          <li className="px-5 py-6 text-sm text-fg-subtle">Đang tải…</li>
+          <li className="px-5 py-6 text-sm text-fg-subtle">{t('common.loading')}</li>
         )}
         {tasks.data?.length === 0 && !form && (
           <li className="px-5 py-10 text-center text-sm text-fg-subtle">
-            Lab này chưa có nhiệm vụ nào.
+            {t('ac.noTasks')}
           </li>
         )}
-        {tasks.data?.map((t, i) => (
-          <li key={t.id}>
-            {editing?.id === t.id ? (
+        {tasks.data?.map((task, i) => (
+          <li key={task.id}>
+            {editing?.id === task.id ? (
               formEl
             ) : (
               // One line per question, answer key behind a disclosure. Ten
@@ -1322,11 +1389,12 @@ function TaskPanel({
                   {/* Clipped while closed so every row is one line; the full
                       wording comes back when the row is opened. */}
                   <span className="min-w-0 flex-1 truncate text-sm text-fg group-open:overflow-visible group-open:whitespace-normal">
-                    {t.title}
+                    {task.title}
                   </span>
-                  <KindBadge kind={t.kind} />
+                  <KindBadge kind={task.kind} />
                   <span className="shrink-0 rounded bg-muted px-2 py-0.5 font-mono text-xs text-accent-soft">
-                    {t.points}đ
+                    {task.points}
+                    {t('ac.pointsShort')}
                   </span>
                   {/* preventDefault, or the click that hits a button also toggles
                       the row it lives in. */}
@@ -1334,40 +1402,40 @@ function TaskPanel({
                     <button
                       onClick={(e) => {
                         e.preventDefault()
-                        startEdit(t)
+                        startEdit(task)
                       }}
                       className="rounded px-2 py-1 text-xs text-accent-soft transition hover:bg-muted"
                     >
-                      Sửa
+                      {t('ac.edit')}
                     </button>
                     <button
                       onClick={(e) => {
                         // preventDefault, hoặc cú bấm này cũng gập luôn hàng nó
                         // đang nằm trong.
                         e.preventDefault()
-                        setDeleting(t)
+                        setDeleting(task)
                       }}
                       className="rounded px-2 py-1 text-xs text-danger transition hover:bg-danger/10"
                     >
-                      Xoá
+                      {t('ac.delete')}
                     </button>
                   </span>
                 </summary>
 
                 <div className="px-5 pb-3 pl-16">
-                  {t.kind === 'sim' ? (
+                  {task.kind === 'sim' ? (
                     <pre className="overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
-                      {t.sim_goal
-                        ? JSON.stringify(t.sim_goal, null, 2)
-                        : '(chưa có điều kiện chấm — học viên không đạt được nhiệm vụ này)'}
+                      {task.sim_goal
+                        ? JSON.stringify(task.sim_goal, null, 2)
+                        : t('ac.noGoal')}
                     </pre>
-                  ) : t.kind === 'command' ? (
+                  ) : task.kind === 'command' ? (
                     <pre className="overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
-                      {t.expected_commands}
+                      {task.expected_commands}
                     </pre>
-                  ) : t.kind === 'choice' ? (
+                  ) : task.kind === 'choice' ? (
                     <ul className="space-y-1 text-xs">
-                      {t.options.map((o, j) => (
+                      {task.options.map((o, j) => (
                         <li key={j} className={o.correct ? 'text-success' : 'text-fg-muted'}>
                           {o.correct ? '✓' : '○'} {o.text}
                         </li>
@@ -1375,16 +1443,18 @@ function TaskPanel({
                     </ul>
                   ) : (
                     <pre className="overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
-                      {t.check_script ||
-                        '(chưa có script — nhiệm vụ này luôn tính là đúng)'}
+                      {task.check_script ||
+                        t('ac.noScript')}
                     </pre>
                   )}
                   {/* The same renderer as the editor preview, so a hint reads
                       here exactly as it will in the lab. */}
-                  {t.hint && (
+                  {task.hint && (
                     <div className="mt-3 border-t border-border pt-3">
-                      <p className="mb-1.5 text-xs font-medium text-fg-muted">Gợi ý</p>
-                      <Prose>{t.hint}</Prose>
+                      <p className="mb-1.5 text-xs font-medium text-fg-muted">
+                        {t('ac.hintField')}
+                      </p>
+                      <Prose>{task.hint}</Prose>
                     </div>
                   )}
                 </div>
@@ -1396,8 +1466,8 @@ function TaskPanel({
 
       {deleting && (
         <ConfirmModal
-          title="Xoá nhiệm vụ?"
-          confirmLabel={remove.isPending ? 'Đang xoá…' : 'Xoá nhiệm vụ'}
+          title={t('ac.deleteTaskTitle')}
+          confirmLabel={remove.isPending ? t('ac.deleting') : t('ac.deleteTask')}
           tone="danger"
           busy={remove.isPending}
           onClose={() => setDeleting(null)}
@@ -1407,27 +1477,28 @@ function TaskPanel({
           }}
         >
           <p className="text-fg-strong">{deleting.title}</p>
-          <p>Điểm học viên đã nhận cho nhiệm vụ này cũng mất theo.</p>
-          <p className="text-danger">Không khôi phục được.</p>
+          <p>{t('ac.taskPointsLost')}</p>
+          <p className="text-danger">{t('ac.notRecoverable')}</p>
         </ConfirmModal>
       )}
     </Card>
   )
 }
 
-const KINDS: Record<AdminTask['kind'], string> = {
-  script: 'Thực hành',
-  command: 'Gõ lệnh',
-  choice: 'Lý thuyết',
-  sim: 'Pipeline',
+const KINDS: Record<AdminTask['kind'], Key> = {
+  script: 'lab.kind.script',
+  command: 'lab.kind.command',
+  choice: 'lab.kind.choice',
+  sim: 'lab.kind.sim',
 }
 
 /** How the question is marked. Four kinds are marked four different ways, and
  *  the body below only shows the answer key — not what it is. */
 function KindBadge({ kind }: { kind: AdminTask['kind'] }) {
+  const t = useT()
   return (
     <span className="rounded bg-muted px-2 py-0.5 text-xs text-fg-muted">
-      {KINDS[kind]}
+      {t(KINDS[kind])}
     </span>
   )
 }

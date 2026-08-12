@@ -6,47 +6,49 @@ import { Card, ErrorBox, Input } from '@/components/ui'
 import { SearchIcon } from '@/components/icons'
 import { formatWhen } from '@/lib/relativeTime'
 import type { AuditLog } from '@/lib/types'
+import { useT, type Key } from '@/lib/i18n'
 
 /** Vietnamese for each action, and the colour it reads as. Keyed by the exact
  *  strings the server writes — an action missing from here still renders, as its
  *  raw key, because a log that hides what it does not recognise is worse than an
  *  ugly one. */
-const ACTIONS: Record<string, { label: string; tone: string }> = {
-  'user.ban': { label: 'Khoá tài khoản', tone: 'bg-danger/10 text-danger' },
-  'user.unban': { label: 'Mở khoá', tone: 'bg-success-soft text-success' },
+const ACTIONS: Record<string, { label: Key; tone: string }> = {
+  'user.ban': { label: 'audit.action.ban', tone: 'bg-danger/10 text-danger' },
+  'user.unban': { label: 'audit.action.unban', tone: 'bg-success-soft text-success' },
   'user.role_grant': {
-    label: 'Cấp quyền quản trị',
+    label: 'audit.action.roleGrant',
     tone: 'bg-violet-500/15 text-violet-500',
   },
   'user.role_revoke': {
-    label: 'Gỡ quyền quản trị',
+    label: 'audit.action.roleRevoke',
     tone: 'bg-amber-500/15 text-amber-500',
   },
   'lab_session.kill': {
-    label: 'Dừng container',
+    label: 'audit.action.killSession',
     tone: 'bg-amber-500/15 text-amber-500',
   },
   'auth.totp_enable': {
-    label: 'Bật xác thực hai lớp',
+    label: 'audit.action.totpEnable',
     tone: 'bg-success-soft text-success',
   },
   'auth.totp_disable': {
-    label: 'Tắt xác thực hai lớp',
+    label: 'audit.action.totpDisable',
     tone: 'bg-danger/10 text-danger',
   },
 }
 
-const FILTERS = [
-  { key: '', label: 'Tất cả' },
-  { key: 'user.ban', label: 'Khoá' },
-  { key: 'user.role_grant', label: 'Cấp quyền' },
-  { key: 'lab_session.kill', label: 'Dừng container' },
+const FILTERS: { key: string; label: Key }[] = [
+  { key: '', label: 'audit.filter.all' },
+  { key: 'user.ban', label: 'audit.filter.ban' },
+  { key: 'user.role_grant', label: 'audit.filter.grant' },
+  { key: 'lab_session.kill', label: 'audit.filter.kill' },
 ]
 
 /** Read-only, by design. There is no endpoint that writes here from a client:
  *  entries are written by the code that performs the action, and an API a client
  *  could post to would make the whole table worthless as evidence. */
 export default function AdminAudit() {
+  const t = useT()
   const [actor, setActor] = useState('')
   const [action, setAction] = useState('')
   const q = useDeferredValue(actor)
@@ -62,11 +64,9 @@ export default function AdminAudit() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-fg-strong">Nhật ký quản trị</h1>
+        <h1 className="text-2xl font-bold text-fg-strong">{t('audit.title')}</h1>
         <p className="mt-1 text-sm text-fg-muted">
-          Các thao tác một quản trị viên thực hiện lên tài khoản hoặc container
-          của người khác. Tên được lưu lại tại thời điểm ghi, nên dòng cũ vẫn đọc
-          được sau khi tài khoản liên quan bị xoá.
+          {t('audit.subtitle')}
         </p>
       </div>
 
@@ -76,7 +76,7 @@ export default function AdminAudit() {
           <Input
             value={actor}
             onChange={(e) => setActor(e.target.value)}
-            placeholder="Lọc theo người thực hiện"
+            placeholder={t('audit.filterActor')}
             className="pl-9"
           />
         </div>
@@ -92,31 +92,33 @@ export default function AdminAudit() {
                   : 'text-fg-muted hover:text-fg-strong')
               }
             >
-              {f.label}
+              {t(f.label)}
             </button>
           ))}
         </div>
       </div>
 
-      {logs.isError && <ErrorBox>Không đọc được nhật ký.</ErrorBox>}
+      {logs.isError && <ErrorBox>{t('audit.loadError')}</ErrorBox>}
 
       <Card className="overflow-hidden">
         {logs.isLoading ? (
-          <p className="px-5 py-8 text-center text-sm text-fg-subtle">Đang tải…</p>
+          <p className="px-5 py-8 text-center text-sm text-fg-subtle">
+            {t('common.loading')}
+          </p>
         ) : rows.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-fg-subtle">
-            Chưa có thao tác nào khớp.
+            {t('audit.empty')}
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[44rem] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-fg-muted">
-                  <th className="px-5 py-2 font-medium">Thời điểm</th>
-                  <th className="px-3 py-2 font-medium">Người thực hiện</th>
-                  <th className="px-3 py-2 font-medium">Thao tác</th>
-                  <th className="px-3 py-2 font-medium">Đối tượng</th>
-                  <th className="px-5 py-2 font-medium">Ghi chú</th>
+                  <th className="px-5 py-2 font-medium">{t('audit.colWhen')}</th>
+                  <th className="px-3 py-2 font-medium">{t('audit.colActor')}</th>
+                  <th className="px-3 py-2 font-medium">{t('audit.colAction')}</th>
+                  <th className="px-3 py-2 font-medium">{t('audit.colTarget')}</th>
+                  <th className="px-5 py-2 font-medium">{t('audit.colDetail')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -130,8 +132,10 @@ export default function AdminAudit() {
 
         {hidden > 0 && (
           <p className="border-t border-border px-5 py-2.5 text-xs text-fg-muted">
-            Hiện {rows.length} trong {logs.data?.total} dòng khớp. Thu hẹp bằng
-            bộ lọc để thấy phần còn lại.
+            {t('audit.truncated', {
+              shown: rows.length,
+              total: logs.data?.total ?? 0,
+            })}
           </p>
         )}
       </Card>
@@ -140,6 +144,7 @@ export default function AdminAudit() {
 }
 
 function Row({ log }: { log: AuditLog }) {
+  const t = useT()
   const a = ACTIONS[log.action]
 
   return (
@@ -155,7 +160,7 @@ function Row({ log }: { log: AuditLog }) {
             (a?.tone ?? 'bg-muted text-fg-muted')
           }
         >
-          {a?.label ?? log.action}
+          {a ? t(a.label) : log.action}
         </span>
       </td>
       <td className="px-3 py-2.5 text-fg">

@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useT, type Key } from '@/lib/i18n'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -28,22 +29,22 @@ export function Prose({ children }: { children: string }) {
 type Tool =
   | {
       label: string
-      title: string
+      title: Key
       wrap: [string, string]
       mono?: boolean
       /** Selection spanning lines gets a fenced block instead — backticks around
        *  several lines are not code in markdown, they are stray backticks. */
       fence?: true
     }
-  | { label: string; title: string; prefix: string }
+  | { label: string; title: Key; prefix: string }
 
 const TOOLS: Tool[] = [
-  { label: 'B', title: 'Đậm', wrap: ['**', '**'] },
-  { label: 'I', title: 'Nghiêng', wrap: ['*', '*'] },
-  { label: '</>', title: 'Mã', wrap: ['`', '`'], mono: true, fence: true },
-  { label: '•', title: 'Danh sách', prefix: '- ' },
-  { label: '1.', title: 'Danh sách đánh số', prefix: '1. ' },
-  { label: '🔗', title: 'Liên kết', wrap: ['[', '](url)'] },
+  { label: 'B', title: 'md.bold', wrap: ['**', '**'] },
+  { label: 'I', title: 'md.italic', wrap: ['*', '*'] },
+  { label: '</>', title: 'md.code', wrap: ['`', '`'], mono: true, fence: true },
+  { label: '•', title: 'md.list', prefix: '- ' },
+  { label: '1.', title: 'md.numberedList', prefix: '1. ' },
+  { label: '🔗', title: 'md.link', wrap: ['[', '](url)'] },
 ]
 
 /** A selection that is nothing but one marked-up run. The inner part may not
@@ -69,6 +70,7 @@ export function MarkdownEditor({
   rows?: number
   placeholder?: string
 }) {
+  const t = useT()
   const ref = useRef<HTMLTextAreaElement>(null)
   const [preview, setPreview] = useState(false)
 
@@ -121,44 +123,44 @@ export function MarkdownEditor({
   return (
     <div className="overflow-hidden rounded-md border border-border-strong bg-bg focus-within:border-accent focus-within:ring-2 focus-within:ring-accent/25">
       <div className="flex items-center gap-1 border-b border-border bg-muted/50 px-2 py-1">
-        {TOOLS.map((t) => (
+        {TOOLS.map((tool) => (
           <button
-            key={t.label}
+            key={tool.label}
             type="button"
-            title={t.title}
-            aria-label={t.title}
+            title={t(tool.title)}
+            aria-label={t(tool.title)}
             disabled={preview}
             // Keeps the caret and the selection in the textarea — without this
             // the button takes focus first and the toolbar acts on nothing.
             onMouseDown={(e) => e.preventDefault()}
-            onClick={() => apply(t)}
+            onClick={() => apply(tool)}
             className={
               'rounded px-2 py-1 text-xs text-fg-muted transition hover:bg-muted hover:text-fg-strong disabled:opacity-40 ' +
-              ('mono' in t && t.mono ? 'font-mono' : '')
+              ('mono' in tool && tool.mono ? 'font-mono' : '')
             }
           >
-            {t.label}
+            {tool.label}
           </button>
         ))}
 
         <span className="ml-auto flex gap-1">
           {[
-            { on: false, label: 'Soạn' },
-            { on: true, label: 'Xem trước' },
-          ].map((t) => (
+            { on: false, label: t('md.write') },
+            { on: true, label: t('md.preview') },
+          ].map((mode) => (
             <button
-              key={t.label}
+              key={mode.label}
               type="button"
-              onClick={() => setPreview(t.on)}
-              aria-pressed={preview === t.on}
+              onClick={() => setPreview(mode.on)}
+              aria-pressed={preview === mode.on}
               className={
                 'rounded px-2 py-1 text-xs transition ' +
-                (preview === t.on
+                (preview === mode.on
                   ? 'bg-bg font-medium text-fg-strong'
                   : 'text-fg-muted hover:text-fg-strong')
               }
             >
-              {t.label}
+              {mode.label}
             </button>
           ))}
         </span>
@@ -171,7 +173,7 @@ export function MarkdownEditor({
           {value.trim() ? (
             <Prose>{value}</Prose>
           ) : (
-            <p className="text-sm text-fg-subtle">Chưa có nội dung.</p>
+            <p className="text-sm text-fg-subtle">{t('md.emptyPreview')}</p>
           )}
         </div>
       ) : (

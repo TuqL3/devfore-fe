@@ -13,38 +13,42 @@ import { useLevels } from '@/lib/levels'
 import { LevelMeter } from '@/components/LevelMeter'
 import { ArrowLeftIcon, BookIcon, CheckIcon } from '@/components/icons'
 import { timeAgo } from '@/lib/relativeTime'
+import { locale, useT, type Key } from '@/lib/i18n'
 
+// Ids, not labels: the active tab is compared by value, and a label that
+// changes with the language would silently reset which tab is open.
 const TABS = [
-  'Nội dung khoá học',
-  'Ôn tập',
-  'Bảng xếp hạng',
-  'Trạng thái',
-] as const
-type Tab = (typeof TABS)[number]
+  { id: 'content', label: 'course.tab.content' },
+  { id: 'reviews', label: 'course.tab.reviews' },
+  { id: 'leaderboard', label: 'course.tab.leaderboard' },
+  { id: 'status', label: 'course.tab.status' },
+] as const satisfies readonly { id: string; label: Key }[]
+type Tab = (typeof TABS)[number]['id']
 
 const totalMinutes = (labs: Lab[]) =>
   labs.reduce((n, l) => n + l.duration_minutes, 0)
 
 /** Queries behind the tabs that are not loaded with the course itself. */
 const TAB_QUERY: Partial<Record<Tab, (slug: string) => unknown>> = {
-  'Ôn tập': (slug) => ({
+  reviews: (slug) => ({
     queryKey: ['course', slug, 'reviews'],
     queryFn: () => coursesApi.reviews(slug),
   }),
-  'Bảng xếp hạng': (slug) => ({
+  leaderboard: (slug) => ({
     queryKey: ['course', slug, 'leaderboard'],
     queryFn: () => coursesApi.leaderboard(slug),
   }),
 }
 
 export default function CourseDetail() {
+  const t = useT()
   const { slug = '' } = useParams()
-  const [tab, setTab] = useState<Tab>('Nội dung khoá học')
+  const [tab, setTab] = useState<Tab>('content')
   const qc = useQueryClient()
 
   // Warm the tab's data on hover so clicking lands on content, not a skeleton.
-  const prefetch = (t: Tab) => {
-    const build = TAB_QUERY[t]
+  const prefetch = (id: Tab) => {
+    const build = TAB_QUERY[id]
     if (build) qc.prefetchQuery(build(slug) as never)
   }
 
@@ -61,12 +65,12 @@ export default function CourseDetail() {
   if (isError || !course)
     return (
       <div className="py-16 text-center">
-        <p className="text-danger">Không tìm thấy khoá học.</p>
+        <p className="text-danger">{t('course.notFound')}</p>
         <Link
           to="/courses"
           className="mt-3 inline-block text-sm text-accent-soft hover:underline"
         >
-          ← Về danh sách khoá học
+          ← {t('course.backToList')}
         </Link>
       </div>
     )
@@ -77,21 +81,21 @@ export default function CourseDetail() {
       <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
         <div className="order-2 lg:order-1">
           <div className="flex flex-wrap gap-2 border-b border-border pb-px">
-            {TABS.map((t) => (
+            {TABS.map((x) => (
               <button
-                key={t}
-                onClick={() => setTab(t)}
-                onMouseEnter={() => prefetch(t)}
-                onFocus={() => prefetch(t)}
+                key={x.id}
+                onClick={() => setTab(x.id)}
+                onMouseEnter={() => prefetch(x.id)}
+                onFocus={() => prefetch(x.id)}
                 className={
                   'rounded-t-md px-4 py-2 text-sm font-medium transition ' +
-                  (tab === t
+                  (tab === x.id
                     ? 'border-b-2 border-accent bg-muted text-fg-strong'
                     : 'border-b-2 border-transparent text-fg-muted hover:bg-muted hover:text-fg-strong')
                 }
               >
-                {t}
-                {t === 'Nội dung khoá học' && course.labs.length > 0 && (
+                {t(x.label)}
+                {x.id === 'content' && course.labs.length > 0 && (
                   <span className="ml-2 font-mono text-xs text-fg-subtle">
                     {course.labs.length}
                   </span>
@@ -103,16 +107,16 @@ export default function CourseDetail() {
           {/* key replays the fade; min-h stops the short tabs from collapsing
               the page height as you switch. */}
           <div key={tab} className="page-enter min-h-80 pt-6">
-            {tab === 'Nội dung khoá học' && (
+            {tab === 'content' && (
               <ContentTab
                 labs={course.labs}
                 slug={course.slug}
                 enrolled={course.enrolled}
               />
             )}
-            {tab === 'Ôn tập' && <ReviewsTab slug={slug} courseID={course.id} />}
-            {tab === 'Bảng xếp hạng' && <LeaderboardTab slug={slug} />}
-            {tab === 'Trạng thái' && <StatusTab course={course} />}
+            {tab === 'reviews' && <ReviewsTab slug={slug} courseID={course.id} />}
+            {tab === 'leaderboard' && <LeaderboardTab slug={slug} />}
+            {tab === 'status' && <StatusTab course={course} />}
           </div>
         </div>
 
@@ -124,6 +128,7 @@ export default function CourseDetail() {
 
 /** Title block spanning the full width; the sidebar keeps the enrol action. */
 function Header({ course }: { course: Course }) {
+  const t = useT()
   const { label: levelName } = useLevels()
   const minutes = totalMinutes(course.labs)
   return (
@@ -137,7 +142,7 @@ function Header({ course }: { course: Course }) {
         className="inline-flex items-center gap-1.5 text-sm text-fg-muted transition hover:text-accent-soft"
       >
         <ArrowLeftIcon className="h-4 w-4" />
-        Khoá học
+        {t('nav.courses')}
       </Link>
       <h1 className="mt-3 text-3xl font-bold text-fg-strong sm:text-4xl">
         {course.title}
@@ -150,14 +155,14 @@ function Header({ course }: { course: Course }) {
           <span className="text-fg">{levelName(course.level)}</span>
         </div>
         <Stat value={course.lab_count} label="lab" />
-        {minutes > 0 && <Stat value={`~${minutes}`} label="phút" />}
+        {minutes > 0 && <Stat value={`~${minutes}`} label={t('course.minutes')} />}
         {course.student_count > 0 && (
-          <Stat value={course.student_count} label="học viên" />
+          <Stat value={course.student_count} label={t('course.students')} />
         )}
         {course.enrolled && (
           <span className="flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-0.5 text-xs text-success">
             <CheckIcon className="h-3 w-3" />
-            Đã đăng ký
+            {t('course.enrolled')}
           </span>
         )}
       </dl>
@@ -176,6 +181,7 @@ function Stat({ value, label }: { value: string | number; label: string }) {
 }
 
 function Sidebar({ course }: { course: Course }) {
+  const t = useT()
   const { label: levelName } = useLevels()
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -187,10 +193,10 @@ function Sidebar({ course }: { course: Course }) {
   })
 
   const tiles = [
-    { value: String(course.lab_count), label: 'bài lab' },
-    { value: `~${totalMinutes(course.labs)}`, label: 'phút' },
+    { value: String(course.lab_count), label: t('course.labs') },
+    { value: `~${totalMinutes(course.labs)}`, label: t('course.minutes') },
     ...(course.student_count > 0
-      ? [{ value: String(course.student_count), label: 'học viên' }]
+      ? [{ value: String(course.student_count), label: t('course.students') }]
       : []),
   ]
 
@@ -228,19 +234,19 @@ function Sidebar({ course }: { course: Course }) {
       {course.enrolled && (
         <p className="flex items-center gap-2 bg-success-soft px-4 py-2.5 text-sm font-medium text-success">
           <CheckIcon className="h-4 w-4 shrink-0" />
-          Đã đăng ký khoá này
+          {t('course.enrolledLong')}
         </p>
       )}
 
       {/* Hairline grid: one bg-border under a gap-px grid draws every divider,
           no per-cell borders to keep in sync. */}
       <div className="flex gap-px bg-border">
-        {tiles.map((t) => (
-          <div key={t.label} className="flex-1 bg-surface px-2 py-4 text-center">
+        {tiles.map((tile) => (
+          <div key={tile.label} className="flex-1 bg-surface px-2 py-4 text-center">
             <div className="font-mono text-2xl font-bold text-fg-strong">
-              {t.value}
+              {tile.value}
             </div>
-            <div className="mt-0.5 text-xs text-fg-muted">{t.label}</div>
+            <div className="mt-0.5 text-xs text-fg-muted">{tile.label}</div>
           </div>
         ))}
       </div>
@@ -254,10 +260,10 @@ function Sidebar({ course }: { course: Course }) {
                 disabled={enroll.isPending}
                 className="w-full rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover disabled:opacity-60"
               >
-                {enroll.isPending ? 'Đang đăng ký…' : 'Đăng ký học'}
+                {enroll.isPending ? t('course.enrolling') : t('course.enroll')}
               </button>
               {enroll.isError && (
-                <p className="text-sm text-danger">Đăng ký thất bại, thử lại.</p>
+                <p className="text-sm text-danger">{t('course.enrollFailed')}</p>
               )}
             </>
           ) : (
@@ -265,12 +271,13 @@ function Sidebar({ course }: { course: Course }) {
               onClick={() => navigate('/login')}
               className="w-full rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
             >
-              Đăng nhập để đăng ký
+              {t('course.loginToEnroll')}
             </button>
           ))}
 
         <p className="text-center font-mono text-xs text-fg-subtle">
-          cập nhật {new Date(course.updated_at).toLocaleDateString('vi-VN')}
+          {t('course.updatedAt')}{' '}
+          {new Date(course.updated_at).toLocaleDateString(locale())}
         </p>
       </div>
     </aside>
@@ -304,6 +311,7 @@ function ContentTab({
   slug: string
   enrolled: boolean
 }) {
+  const t = useT()
   const { user } = useAuth()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -326,7 +334,7 @@ function ContentTab({
       navigate(`/courses/${slug}/labs/${labSlug}`)
     },
     onError: (e) => {
-      setError(e instanceof ApiError ? e.message : 'không khởi động được lab')
+      setError(e instanceof ApiError ? e.message : t('course.startFailed'))
       // A 409 means the server knows about a session this page does not — one
       // started in another tab. Refetch it, or the dialog reports the block with
       // nothing to end and no route to follow.
@@ -350,7 +358,7 @@ function ContentTab({
       start.reset()
     },
     onError: (e) =>
-      setError(e instanceof ApiError ? e.message : 'không đóng được phiên cũ'),
+      setError(e instanceof ApiError ? e.message : t('course.stopFailed')),
   })
 
   const open = (l: Lab) => {
@@ -378,7 +386,7 @@ function ContentTab({
     return (
       <Empty>
         <BookIcon className="mx-auto mb-2 h-6 w-6" />
-        Khoá học chưa có bài lab nào.
+        {t('course.noLabs')}
       </Empty>
     )
 
@@ -403,8 +411,11 @@ function ContentTab({
           a fault rather than as a step that was skipped. */}
       {!enrolled && (
         <p className="mb-4 rounded-md border border-border bg-muted px-4 py-2.5 text-sm text-fg-muted">
-          Cần <span className="font-medium text-fg-strong">đăng ký học</span> trước
-          khi bắt đầu lab. Nút đăng ký ở khung bên phải.
+          {t('course.enrolFirstBefore')}{' '}
+          <span className="font-medium text-fg-strong">
+            {t('course.enrolFirstStrong')}
+          </span>{' '}
+          {t('course.enrolFirstAfter')}
         </p>
       )}
 
@@ -432,19 +443,19 @@ function ContentTab({
                 {l.title}
                 {running?.lab_id === l.id && (
                   <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-normal text-success">
-                    đang chạy
+                    {t('course.running')}
                   </span>
                 )}
               </h4>
               <div className="mt-2 flex flex-wrap gap-2 font-mono text-xs text-fg-muted">
                 <span className="rounded bg-muted px-2 py-0.5">
-                  {l.duration_minutes} phút
+                  {l.duration_minutes} {t('course.minutes')}
                 </span>
                 <span className="rounded bg-muted px-2 py-0.5">
-                  {l.task_count} task
+                  {l.task_count} {t('course.tasks')}
                 </span>
                 <span className="rounded bg-muted px-2 py-0.5 text-accent-soft">
-                  {l.points} điểm
+                  {l.points} {t('course.points')}
                 </span>
               </div>
             </button>
@@ -480,6 +491,7 @@ function ContentTab({
 }
 
 function ReviewsTab({ slug, courseID }: { slug: string; courseID: number }) {
+  const t = useT()
   const { isAdmin } = useAuth()
   const { data, isLoading } = useQuery({
     queryKey: ['course', slug, 'reviews'],
@@ -493,7 +505,7 @@ function ReviewsTab({ slug, courseID }: { slug: string; courseID: number }) {
       to={`/admin/courses/${courseID}?tab=on-tap`}
       className="inline-block text-sm text-accent-soft hover:underline"
     >
-      Quản lý bài ôn tập →
+      {t('course.manageReviews')} →
     </Link>
   )
 
@@ -501,7 +513,7 @@ function ReviewsTab({ slug, courseID }: { slug: string; courseID: number }) {
   if (!data || data.length === 0)
     return (
       <div className="space-y-3">
-        <Empty>Chưa có nội dung ôn tập.</Empty>
+        <Empty>{t('course.noReviews')}</Empty>
         {editLink && <div className="text-center">{editLink}</div>}
       </div>
     )
@@ -523,6 +535,7 @@ function ReviewsTab({ slug, courseID }: { slug: string; courseID: number }) {
 const MEDAL = ['🥇', '🥈', '🥉']
 
 function LeaderboardTab({ slug }: { slug: string }) {
+  const t = useT()
   const { user } = useAuth()
   const { data, isLoading } = useQuery({
     queryKey: ['course', slug, 'leaderboard'],
@@ -532,10 +545,7 @@ function LeaderboardTab({ slug }: { slug: string }) {
   if (isLoading) return <BlockSkeleton />
   if (!data || data.length === 0)
     return (
-      <Empty>
-        Chưa có ai ghi điểm ở khoá này — hoàn thành lab đầu tiên để mở bảng xếp
-        hạng.
-      </Empty>
+      <Empty>{t('course.noScores')}</Empty>
     )
 
   const top = data[0].score || 1
@@ -544,9 +554,9 @@ function LeaderboardTab({ slug }: { slug: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-px overflow-hidden rounded-xl border border-border bg-border">
-        <Tile value={data.length} label="học viên có điểm" />
-        <Tile value={data[0].score} label="điểm cao nhất" />
-        <Tile value={Math.round(total / data.length)} label="điểm trung bình" />
+        <Tile value={data.length} label={t('course.scoredStudents')} />
+        <Tile value={data[0].score} label={t('course.topScore')} />
+        <Tile value={Math.round(total / data.length)} label={t('course.avgScore')} />
       </div>
 
       {/* Table scrolls inside its own box; the page never scrolls sideways. */}
@@ -554,12 +564,12 @@ function LeaderboardTab({ slug }: { slug: string }) {
         <table className="w-full min-w-160 text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left font-mono text-xs uppercase tracking-wide text-fg-subtle">
-              <th className="px-4 py-3 font-medium">Hạng</th>
-              <th className="px-4 py-3 font-medium">Thành viên</th>
-              <th className="px-4 py-3 text-center font-medium">Điểm</th>
-              <th className="px-4 py-3 text-center font-medium">Lab</th>
-              <th className="px-4 py-3 text-center font-medium">Lần thử</th>
-              <th className="px-4 py-3 text-right font-medium">Hoạt động cuối</th>
+              <th className="px-4 py-3 font-medium">{t('course.rank')}</th>
+              <th className="px-4 py-3 font-medium">{t('course.member')}</th>
+              <th className="px-4 py-3 text-center font-medium">{t('course.score')}</th>
+              <th className="px-4 py-3 text-center font-medium">{t('course.lab')}</th>
+              <th className="px-4 py-3 text-center font-medium">{t('course.attempts')}</th>
+              <th className="px-4 py-3 text-right font-medium">{t('course.lastActivity')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -601,7 +611,7 @@ function LeaderboardTab({ slug }: { slug: string }) {
                           </span>
                           {me && (
                             <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent-fg">
-                              bạn
+                              {t('course.you')}
                             </span>
                           )}
                         </div>
@@ -632,7 +642,7 @@ function LeaderboardTab({ slug }: { slug: string }) {
                   </td>
                   <td
                     className="px-4 py-3 text-right font-mono text-xs text-fg-subtle"
-                    title={new Date(row.updated_at).toLocaleString('vi-VN')}
+                    title={new Date(row.updated_at).toLocaleString(locale())}
                   >
                     {timeAgo(row.updated_at)}
                   </td>
@@ -644,7 +654,7 @@ function LeaderboardTab({ slug }: { slug: string }) {
       </div>
 
       <p className="font-mono text-xs text-fg-subtle">
-        # hiển thị tối đa 50 hạng đầu
+        # {t('course.top50')}
       </p>
     </div>
   )
@@ -661,17 +671,18 @@ function Tile({ value, label }: { value: number; label: string }) {
 
 
 function StatusTab({ course }: { course: Course }) {
+  const t = useT()
   return (
     <dl className="space-y-2 rounded-xl border border-border bg-surface p-5 text-sm">
       <Row
-        label="Trạng thái đăng ký"
-        value={course.enrolled ? 'Đã đăng ký' : 'Chưa đăng ký'}
+        label={t('course.enrolStatus')}
+        value={course.enrolled ? t('course.enrolled') : t('course.notEnrolled')}
       />
-      <Row label="Số lab" value={String(course.lab_count)} />
-      <Row label="Học viên" value={String(course.student_count)} />
+      <Row label={t('course.labCount')} value={String(course.lab_count)} />
+      <Row label={t('course.studentsLabel')} value={String(course.student_count)} />
       <Row
-        label="Cập nhật"
-        value={new Date(course.updated_at).toLocaleDateString('vi-VN')}
+        label={t('course.updated')}
+        value={new Date(course.updated_at).toLocaleDateString(locale())}
       />
     </dl>
   )

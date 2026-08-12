@@ -23,6 +23,7 @@ import { Card } from '@/components/ui'
 import { ConfirmModal, PromptModal } from '@/components/ConfirmModal'
 import { Prose } from '@/components/MarkdownEditor'
 import { ArrowLeftIcon } from '@/components/icons'
+import { useT } from '@/lib/i18n'
 
 /** Một mô phỏng: viết pipeline bên trái, xem lịch chạy bên phải.
  *
@@ -37,6 +38,7 @@ import { ArrowLeftIcon } from '@/components/icons'
  *
  *  Không phiên, không container, không chấm điểm, không lưu lượt chạy nào. */
 export default function SimPlayground() {
+  const t = useT()
   const { slug = '' } = useParams()
   // Tra trong registry, không gọi server: nội dung mô phỏng nằm trong bundle
   // này. Không có trạng thái tải, không có lỗi mạng, không có màn chờ.
@@ -45,9 +47,9 @@ export default function SimPlayground() {
   if (!sim) {
     return (
       <Card className="mx-auto max-w-lg px-6 py-12 text-center">
-        <p className="text-sm font-medium text-fg">Không có mô phỏng này</p>
+        <p className="text-sm font-medium text-fg">{t('play.notFound')}</p>
         <Link to="/sim" className="mt-2 inline-block text-sm text-accent-soft hover:underline">
-          ← Về danh sách
+          ← {t('play.backList')}
         </Link>
       </Card>
     )
@@ -60,7 +62,7 @@ export default function SimPlayground() {
         className="inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
       >
         <ArrowLeftIcon className="h-3.5 w-3.5" />
-        Danh sách mô phỏng
+        {t('play.simList')}
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-fg-strong">{sim.title}</h1>
       {/* Rẽ theo engine, một lần, ngay đây. Sau dòng này TypeScript biết `sim`
@@ -106,6 +108,7 @@ function loadMine(slug: string): SimExample[] {
 }
 
 function Bench({ sim }: { sim: SimEntryCicd }) {
+  const t = useT()
   // Kịch bản đang chạy. Với mô phỏng tác giả viết thì đây là hằng số — bộ step
   // và số giây của nó chính là bài học, và không có gì trên màn hình sửa được
   // nó. Chỉ mô phỏng tự dựng mới đổi được, và `sim.scenario` của nó đã là bản
@@ -143,8 +146,9 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
         warm,
       }),
     onSuccess: (res) => {
-      const key = `${picked ?? 'Tự viết'}#${res.run_index}#${history.length}`
-      setHistory((h) => [...h, { key, label: picked ?? 'Tự viết', result: res }].slice(-MAX_COMPARE))
+      const label = picked ?? t('play.ownDraft')
+      const key = `${label}#${res.run_index}#${history.length}`
+      setHistory((h) => [...h, { key, label, result: res }].slice(-MAX_COMPARE))
       setShown(key)
       setRunIndex((n) => n + 1)
       setWarm(res.warm_caches)
@@ -228,8 +232,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
             <Prose>{sim.description}</Prose>
             {examples.length > 0 && (
               <p className="mt-3 text-sm text-fg-subtle">
-                Chưa cần gõ gì: bấm một mẫu bên dưới → Chạy pipeline → nhìn tổng
-                thời gian. Rồi bấm mẫu khác, so hai con số.
+                {t('play.tryHint')}
               </p>
             )}
             <p className="mt-2 text-sm">
@@ -237,7 +240,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
                 to="/courses/ci-cd-co-ban"
                 className="text-accent-soft hover:underline"
               >
-                Muốn học bài bản, có chấm điểm? → khoá CI/CD Cơ Bản
+                {t('play.toCourse')}
               </Link>
             </p>
           </Card>
@@ -252,7 +255,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
 
         {examples.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-fg">Mẫu có sẵn</p>
+            <p className="text-sm font-medium text-fg">{t('play.builtinExamples')}</p>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {examples.map((ex) => (
                 <ExampleButton
@@ -268,19 +271,18 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
 
         <div className="space-y-1.5">
           <div className="flex items-baseline gap-2">
-            <p className="text-sm font-medium text-fg">Mẫu của bạn</p>
+            <p className="text-sm font-medium text-fg">{t('play.yourExamples')}</p>
             <button
               onClick={() => setNaming(true)}
               disabled={!text.trim()}
               className="ml-auto rounded-md border border-border-strong px-2 py-0.5 text-xs text-fg-muted transition hover:text-fg-strong disabled:opacity-40"
             >
-              Lưu pipeline đang viết
+              {t('play.savePipeline')}
             </button>
           </div>
           {mine.length === 0 ? (
             <p className="text-xs text-fg-subtle">
-              Chưa lưu mẫu nào. Viết một pipeline rồi bấm nút trên để giữ lại — nó
-              nằm trong trình duyệt này thôi, không gửi đi đâu.
+              {t('play.noSaved')}
             </p>
           ) : (
             <div className="grid gap-1.5 sm:grid-cols-2">
@@ -301,7 +303,9 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
           <div className="flex items-center gap-2 border-b border-border px-3 py-2">
             <span className="font-mono text-xs text-fg-muted">pipeline.yml</span>
             <span className="ml-auto font-mono text-[11px] text-fg-subtle">
-              {runIndex === 0 ? 'chưa chạy' : `đã chạy ${runIndex} lượt`}
+              {runIndex === 0
+                ? t('play.notRun')
+                : t('play.ranTimes', { n: runIndex })}
             </span>
           </div>
           <PipelineEditor
@@ -327,7 +331,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
                   className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
                 />
               )}
-              {run.isPending ? 'Đang chạy…' : 'Chạy pipeline'}
+              {run.isPending ? t('play.running') : t('play.run')}
             </button>
             <span className="font-mono text-[11px] text-fg-subtle">Ctrl+Enter</span>
             {/* Cache ấm là trạng thái duy nhất trang này mang giữa các lượt, nên
@@ -339,10 +343,10 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
                   setWarm([])
                   setRunIndex(0)
                 }}
-                title={`Quên cache đang ấm (${warm.join(', ')}) và đếm lại từ lượt 1`}
+                title={t('play.clearCacheTitle', { list: warm.join(', ') })}
                 className="ml-auto rounded-md border border-border-strong px-2 py-1 text-xs text-fg-muted transition hover:text-fg-strong"
               >
-                Xoá cache
+                {t('play.clearCache')}
               </button>
             )}
           </div>
@@ -365,7 +369,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
         {sim.guide.trim() && (
           <details className="rounded-xl border border-border bg-bg">
             <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-fg-strong [&::-webkit-details-marker]:hidden">
-              Cú pháp và luật
+              {t('play.syntaxRules')}
             </summary>
             <div className="border-t border-border px-3 py-3">
               {/* Phần hướng dẫn gọi tên step cụ thể và nói thẳng có mấy runner.
@@ -374,9 +378,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
                   cả khối đi: nửa nói về cú pháp YAML thì vẫn đúng. */}
               {custom && (
                 <p className="mb-3 text-xs text-fg-muted">
-                  Đang chạy catalog bạn dựng. Phần dưới viết cho bộ khởi đầu — luật
-                  cú pháp vẫn đúng, còn tên step và số runner thì đọc ở bảng “Step
-                  dùng được”.
+                  {t('play.customCatalogNote')}
                 </p>
               )}
               <Prose>{sim.guide}</Prose>
@@ -393,7 +395,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
           <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
             {run.error instanceof ApiError
               ? run.error.message
-              : 'Không chạy được lúc này, thử lại.'}
+              : t('play.runFailed')}
           </p>
         )}
 
@@ -417,11 +419,11 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
         ) : (
           !run.isError && (
             <div className="rounded-xl border border-dashed border-border-strong px-4 py-14 text-center">
-              <p className="text-sm text-fg-muted">Lịch chạy sẽ hiện ra ở đây.</p>
+              <p className="text-sm text-fg-muted">{t('play.resultHere')}</p>
               <p className="mx-auto mt-1 max-w-xs text-xs text-fg-subtle">
                 {examples.length > 0
-                  ? 'Bấm một mẫu bên trái rồi bấm Chạy pipeline.'
-                  : 'Viết pipeline bên trái rồi bấm Chạy pipeline.'}
+                  ? t('play.pickExample')
+                  : t('play.writePipeline')}
               </p>
             </div>
           )
@@ -430,12 +432,12 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
 
       {naming && (
         <PromptModal
-          title="Lưu mẫu"
-          label="Đặt tên cho mẫu này"
+          title={t('play.saveExample')}
+          label={t('play.nameExample')}
           placeholder="Song song + cache"
           initialValue={picked ?? ''}
           hint={(v) =>
-            mine.some((m) => m.title === v) ? 'Đã có mẫu tên này — lưu sẽ ghi đè lên nó.' : ''
+            mine.some((m) => m.title === v) ? t('play.nameTaken') : ''
           }
           onClose={() => setNaming(false)}
           onConfirm={(name) => {
@@ -450,8 +452,8 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
 
       {deleting && (
         <ConfirmModal
-          title="Xoá mẫu này?"
-          confirmLabel="Xoá"
+          title={t('play.deleteExample')}
+          confirmLabel={t('play.delete')}
           tone="danger"
           onClose={() => setDeleting(null)}
           onConfirm={() => {
@@ -461,8 +463,9 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
           }}
         >
           <p>
-            Mẫu <strong className="text-fg-strong">{deleting.title}</strong> sẽ mất.
-            Không ai mất tiến độ gì — sân chơi không chấm điểm.
+            {t('play.deleteBodyBefore')}{' '}
+            <strong className="text-fg-strong">{deleting.title}</strong>{' '}
+            {t('play.deleteBodyAfter')}
           </p>
         </ConfirmModal>
       )}
@@ -489,6 +492,7 @@ function Compare({
   onPick: (key: string) => void
   onClear: () => void
 }) {
+  const t = useT()
   const max = Math.max(...runs.map((r) => r.result.total_seconds), 1)
   const best = Math.min(...runs.map((r) => r.result.total_seconds))
 
@@ -496,7 +500,7 @@ function Compare({
     <div className="rounded-xl border border-border bg-bg">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <span className="text-sm font-medium text-fg-strong">
-          So sánh {runs.length} lượt
+          {t('play.compareRuns', { n: runs.length })}
         </span>
         <button
           onClick={onClear}
@@ -565,6 +569,7 @@ function ExampleButton({
   onPick: () => void
   onDelete?: () => void
 }) {
+  const t = useT()
   return (
     // Hai nút nằm cạnh nhau trong luồng bình thường. Bản trước cho nút xoá
     // `absolute` ở góc phải, và nó đè thẳng lên chữ "bấm lại để bỏ" — không có
@@ -581,8 +586,8 @@ function ExampleButton({
         onClick={onPick}
         title={
           active
-            ? 'Bấm lại để bỏ mẫu này, về pipeline khởi đầu'
-            : 'Nạp mẫu này vào ô soạn'
+            ? t('play.unpick')
+            : t('play.loadExample')
         }
         className="min-w-0 flex-1 px-3 py-2 text-left"
       >
@@ -604,8 +609,8 @@ function ExampleButton({
       {onDelete && (
         <button
           onClick={onDelete}
-          title="Xoá mẫu này"
-          aria-label={`Xoá mẫu ${example.title}`}
+          title={t('play.deleteThis')}
+          aria-label={t('play.deleteExampleLabel', { name: example.title })}
           className="shrink-0 rounded-r-lg px-2.5 text-sm text-fg-subtle transition hover:bg-danger/10 hover:text-danger"
         >
           ✕
@@ -637,6 +642,7 @@ function CatalogEditor({
   custom: boolean
   onApply: (next: SimScenario | null) => void
 }) {
+  const t = useT()
   const [draft, setDraft] = useState(() => JSON.stringify(scenario, null, 2))
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
@@ -654,22 +660,22 @@ function CatalogEditor({
     try {
       parsed = JSON.parse(draft) as SimScenario
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'JSON không đọc được')
+      setError(e instanceof Error ? e.message : t('play.badJson'))
       return
     }
     // Ba thứ trang này sẽ nổ nếu thiếu. Trần runner, độ dài step, khoảng flaky —
     // để server từ chối, nó đã có sẵn câu tiếng Việt cho từng cái và chép luật
     // sang đây là dựng chỗ thứ hai để hai bên lệch nhau.
     if (!parsed?.catalog || typeof parsed.catalog !== 'object') {
-      setError('thiếu khoá "catalog"')
+      setError(t('play.missingCatalog'))
       return
     }
     if (Object.keys(parsed.catalog).length === 0) {
-      setError('"catalog" chưa có step nào')
+      setError(t('play.emptyCatalog'))
       return
     }
     if (typeof parsed.runner_count !== 'number' || parsed.runner_count < 1) {
-      setError('"runner_count" phải là số từ 1 trở lên')
+      setError(t('play.badRunnerCount'))
       return
     }
     setError('')
@@ -679,12 +685,12 @@ function CatalogEditor({
   return (
     <details className="rounded-xl border border-border bg-bg">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium text-fg-strong [&::-webkit-details-marker]:hidden">
-        Sửa catalog bằng JSON
+        {t('play.editCatalogJson')}
         <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-fg-subtle">
-          nâng cao
+          {t('play.advanced')}
         </span>
         <span className="ml-auto rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-normal text-accent-soft">
-          {custom ? 'bạn đã dựng' : 'bộ khởi đầu'}
+          {custom ? t('play.yoursBuilt') : t('play.starterSet')}
         </span>
       </summary>
       <div className="border-t border-border px-3 py-3">
@@ -704,7 +710,7 @@ function CatalogEditor({
               onClick={apply}
               className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition hover:bg-accent-hover"
             >
-              Áp dụng
+              {t('play.apply')}
             </button>
             <button
               onClick={() => {
@@ -714,7 +720,7 @@ function CatalogEditor({
               }}
               className="rounded-md border border-border-strong px-2.5 py-1.5 text-xs text-fg-muted transition hover:text-fg-strong"
             >
-              {copied ? 'Đã chép' : 'Chép JSON'}
+              {copied ? t('play.copied') : t('play.copyJson')}
             </button>
             {/* ponytail: không còn nút "chép từ mô phỏng có sẵn" — mô phỏng
                 CI/CD cố định đã gỡ, và ô soạn vốn đã mở sẵn kịch bản đang chạy
@@ -724,12 +730,12 @@ function CatalogEditor({
                 onClick={() => onApply(null)}
                 className="ml-auto rounded-md border border-border-strong px-2.5 py-1.5 text-xs text-fg-muted transition hover:text-fg-strong"
               >
-                Về bộ khởi đầu
+                {t('play.backToStarter')}
               </button>
             )}
           </div>
           <p className="text-xs text-fg-subtle">
-            Áp dụng xong là xoá lịch sử so sánh — lượt cũ tính bằng bảng giá khác.
+            {t('play.applyClearsHistory')}
           </p>
         </div>
       </div>
@@ -749,6 +755,7 @@ function CatalogEditor({
  *  giây là ước lượng. Với sân chơi thì không sao — bài học ở đây là hình dạng
  *  pipeline, không phải con số — nên câu đó nằm ngay dưới ô nhập, không giấu. */
 function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
+  const t = useT()
   const [prompt, setPrompt] = useState('')
   // Lịch sử để câu sau sửa được câu trước ("đổi runner thành 4") thay vì dựng
   // lại từ đầu. Server tự cắt bớt phần đầu nếu dài, nên chỗ này không cần cắt.
@@ -783,9 +790,9 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
     // thứ mắt chạm vào trước khi xuống ô soạn.
     <div className="space-y-2 rounded-xl border border-accent/30 bg-accent/5 p-4">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <p className="text-sm font-medium text-fg-strong">Dựng bộ step bằng AI</p>
+        <p className="text-sm font-medium text-fg-strong">{t('play.aiTitle')}</p>
         <p className="text-sm text-fg-subtle">
-          Mô tả hệ thống của bạn bằng một câu.
+          {t('play.describeSystem')}
         </p>
       </div>
       <textarea
@@ -802,8 +809,8 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
         rows={3}
         placeholder={
           started
-            ? 'Sửa tiếp: "thêm step chạy migration", "đổi runner thành 4"…'
-            : 'Thiết kế CI/CD cho dự án Node.js + MySQL + Redis chịu tải hàng triệu user'
+            ? t('play.aiFollowUp')
+            : t('play.aiFirst')
         }
         className="w-full resize-y rounded-md border border-border bg-bg px-3 py-2.5 text-sm text-fg outline-none placeholder:text-fg-subtle focus:border-accent"
       />
@@ -819,7 +826,11 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
               className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
             />
           )}
-          {gen.isPending ? 'Đang dựng…' : started ? 'Gửi' : 'Dựng bộ step'}
+          {gen.isPending
+            ? t('play.aiBuilding')
+            : started
+              ? t('play.aiSend')
+              : t('play.aiBuild')}
         </button>
         <span className="font-mono text-[11px] text-fg-subtle">Ctrl+Enter</span>
         {started && (
@@ -831,7 +842,7 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
             }}
             className="ml-auto rounded-md border border-border-strong px-2 py-1 text-[11px] text-fg-muted transition hover:text-fg-strong"
           >
-            Bắt đầu lại
+            {t('play.startOver')}
           </button>
         )}
       </div>
@@ -840,7 +851,7 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
         <p className="text-sm text-danger">
           {gen.error instanceof ApiError
             ? gen.error.message
-            : 'Không dựng được lúc này, thử lại.'}
+            : t('play.aiFailed')}
         </p>
       )}
 
@@ -852,15 +863,16 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
           {notes.text}{' '}
           <span className="text-fg-subtle">
             {notes.attempts > 1
-              ? 'Bản đầu engine không chạy được, đã sửa lại tới khi chạy được.'
-              : 'Engine đã chạy thử mọi ví dụ trước khi trả về.'}
+              ? t('play.aiRepaired')
+              : t('play.aiVerified')}
           </span>
         </p>
       )}
 
       <p className="text-xs text-fg-subtle">
-        Số giây là AI ước lượng, không đo từ CI thật. Sửa tay được ở phần
-        <span className="text-fg-muted"> Sửa catalog bằng JSON</span> dưới ô soạn.
+        {t('play.aiSecondsNote')}
+        <span className="text-fg-muted">{t('play.editJsonNote')}</span>{' '}
+        {t('play.belowEditor')}
       </p>
     </div>
   )

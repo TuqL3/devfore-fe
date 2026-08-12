@@ -8,7 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "check": "node --experimental-strip-types src/lib/json.check.ts && node --experimental-strip-types src/lib/clock.check.ts && node --experimental-strip-types src/lib/mdSummary.check.ts && node --experimental-strip-types src/lib/sim.check.ts && node --experimental-strip-types src/sims/linux/linux.check.ts && node --experimental-strip-types src/sims/search/search.check.ts"
+    "check": "node --experimental-strip-types src/lib/i18n.check.ts && node --experimental-strip-types src/lib/json.check.ts && node --experimental-strip-types src/lib/clock.check.ts && node --experimental-strip-types src/lib/mdSummary.check.ts && node --experimental-strip-types src/lib/sim.check.ts && node --experimental-strip-types src/sims/linux/linux.check.ts && node --experimental-strip-types src/sims/search/search.check.ts"
   },
   "dependencies": {
     "@tailwindcss/typography": "^0.5.20",

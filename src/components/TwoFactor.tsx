@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { authApi } from '@/api/auth'
 import { ApiError } from '@/lib/api'
 import { Button, ErrorBox, Field, Input, PasswordInput } from '@/components/ui'
+import { useT } from '@/lib/i18n'
 
 const KEY = ['totp-status'] as const
 
@@ -18,6 +19,7 @@ function errText(e: unknown, fallback: string) {
  *  scanned it — until a code comes back, nothing about signing in changes, so a
  *  person who closes the tab halfway is not locked out of their own account. */
 export function TwoFactor() {
+  const t = useT()
   const qc = useQueryClient()
   const status = useQuery({ queryKey: KEY, queryFn: authApi.totpStatus })
   const [setup, setSetup] = useState<{
@@ -38,7 +40,7 @@ export function TwoFactor() {
   }
 
   if (status.isLoading) {
-    return <p className="text-sm text-fg-subtle">Đang tải…</p>
+    return <p className="text-sm text-fg-subtle">{t('common.loading')}</p>
   }
 
   // Shown once, after confirming. There is no endpoint that returns these
@@ -67,15 +69,14 @@ export function TwoFactor() {
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="font-semibold text-fg-strong">Xác thực hai lớp</h2>
+        <h2 className="font-semibold text-fg-strong">{t('twoFactor.title')}</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          Sau khi bật, đăng nhập cần thêm mã 6 số từ ứng dụng xác thực. Mật khẩu
-          bị lộ không còn đủ để vào tài khoản.
+          {t('twoFactor.intro')}
         </p>
       </div>
-      {start.isError && <ErrorBox>{errText(start.error, 'không bật được')}</ErrorBox>}
+      {start.isError && <ErrorBox>{errText(start.error, t('twoFactor.enableFailed'))}</ErrorBox>}
       <Button onClick={() => start.mutate()} disabled={start.isPending}>
-        {start.isPending ? 'Đang tạo…' : 'Bật xác thực hai lớp'}
+        {start.isPending ? t('twoFactor.creating') : t('twoFactor.enable')}
       </Button>
     </section>
   )
@@ -95,6 +96,7 @@ function Enrol({
   onCancel: () => void
   onConfirmed: (codes: string[]) => void
 }) {
+  const t = useT()
   const [code, setCode] = useState('')
   const confirm = useMutation({
     mutationFn: () => authApi.totpConfirm(code),
@@ -104,9 +106,9 @@ function Enrol({
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="font-semibold text-fg-strong">Bước 1 — thêm vào ứng dụng</h2>
+        <h2 className="font-semibold text-fg-strong">{t('twoFactor.step1')}</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          Mở Google Authenticator, Aegis, 1Password… rồi quét mã dưới đây.
+          {t('twoFactor.step1Hint')}
         </p>
       </div>
 
@@ -117,7 +119,7 @@ function Enrol({
       <div className="flex flex-wrap items-start gap-4 rounded-lg border border-border bg-muted/40 p-3">
         <img
           src={qr}
-          alt="Mã QR để thêm vào ứng dụng xác thực"
+          alt={t('twoFactor.qrAlt')}
           width={168}
           height={168}
           // White plate under it: a QR inverted by a dark theme does not scan.
@@ -127,7 +129,7 @@ function Enrol({
         <div className="min-w-0 flex-1 space-y-2">
           <div>
             <p className="text-xs text-fg-muted">
-              Không quét được? Nhập tay khoá này:
+              {t('twoFactor.cannotScan')}
             </p>
             <p className="mt-1 font-mono text-sm break-all text-fg-strong select-all">
               {secret}
@@ -137,7 +139,7 @@ function Enrol({
             href={uri}
             className="inline-block font-mono text-xs text-accent-soft hover:underline"
           >
-            → đang dùng điện thoại? bấm để mở thẳng ứng dụng
+            → {t('twoFactor.openApp')}
           </a>
         </div>
       </div>
@@ -149,8 +151,8 @@ function Enrol({
         }}
         className="space-y-3"
       >
-        <h2 className="font-semibold text-fg-strong">Bước 2 — nhập mã để xác nhận</h2>
-        <Field label="Mã 6 số">
+        <h2 className="font-semibold text-fg-strong">{t('twoFactor.step2')}</h2>
+        <Field label={t('twoFactor.codeLabel')}>
           <Input
             value={code}
             onChange={(e) => setCode(e.target.value)}
@@ -161,18 +163,18 @@ function Enrol({
           />
         </Field>
         {confirm.isError && (
-          <ErrorBox>{errText(confirm.error, 'xác nhận thất bại')}</ErrorBox>
+          <ErrorBox>{errText(confirm.error, t('twoFactor.confirmFailed'))}</ErrorBox>
         )}
         <div className="flex gap-2">
           <Button type="submit" disabled={confirm.isPending || code.trim() === ''}>
-            {confirm.isPending ? 'Đang xác nhận…' : 'Xác nhận và bật'}
+            {confirm.isPending ? t('twoFactor.confirming') : t('twoFactor.confirmEnable')}
           </Button>
           <button
             type="button"
             onClick={onCancel}
             className="rounded-md border border-border-strong px-4 py-2.5 font-medium text-fg-muted transition hover:text-fg-strong"
           >
-            Huỷ
+            {t('common.cancel')}
           </button>
         </div>
       </form>
@@ -181,16 +183,15 @@ function Enrol({
 }
 
 function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
+  const t = useT()
   const [saved, setSaved] = useState(false)
 
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="font-semibold text-success">✓ Đã bật xác thực hai lớp</h2>
+        <h2 className="font-semibold text-success">✓ {t('twoFactor.enabled')}</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          Lưu các mã dự phòng dưới đây ngay bây giờ. Đây là lần duy nhất chúng
-          được hiển thị — hệ thống chỉ giữ bản băm, không đọc lại được. Mỗi mã
-          dùng được một lần, thay cho mã 6 số khi bạn mất điện thoại.
+          {t('twoFactor.codesIntro')}
         </p>
       </div>
 
@@ -208,7 +209,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
           onClick={() => navigator.clipboard?.writeText(codes.join('\n'))}
           className="rounded-md border border-border-strong px-4 py-2.5 text-sm font-medium text-fg-muted transition hover:text-fg-strong"
         >
-          Sao chép tất cả
+          {t('twoFactor.copyAll')}
         </button>
         <label className="flex items-center gap-2 text-sm text-fg">
           <input
@@ -217,12 +218,12 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
             onChange={(e) => setSaved(e.target.checked)}
             className="h-4 w-4 accent-[var(--accent)]"
           />
-          Tôi đã lưu các mã này
+          {t('twoFactor.codesSaved')}
         </label>
         {/* Gated on the checkbox on purpose: dismissing this panel is the last
             moment the codes exist anywhere readable. */}
         <Button onClick={onDone} disabled={!saved}>
-          Xong
+          {t('twoFactor.done')}
         </Button>
       </div>
     </section>
@@ -230,6 +231,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
 }
 
 function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void }) {
+  const t = useT()
   const [password, setPassword] = useState('')
   const [confirming, setConfirming] = useState(false)
 
@@ -242,19 +244,18 @@ function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void })
     <section className="space-y-4">
       <div>
         <h2 className="font-semibold text-fg-strong">
-          Xác thực hai lớp{' '}
+          {t('twoFactor.title')}{' '}
           <span className="ml-1 rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">
-            đang bật
+            {t('twoFactor.on')}
           </span>
         </h2>
         <p className="mt-1 text-sm text-fg-muted">
-          Còn{' '}
+          {t('twoFactor.leftBefore')}{' '}
           <strong className={left === 0 ? 'text-danger' : 'text-fg-strong'}>
             {left}
           </strong>{' '}
-          mã dự phòng chưa dùng.
-          {left === 0 &&
-            ' Hết mã nghĩa là mất điện thoại là mất tài khoản — tắt rồi bật lại để lấy bộ mã mới.'}
+          {t('twoFactor.leftAfter')}
+          {left === 0 && t('twoFactor.noneLeft')}
         </p>
       </div>
 
@@ -264,7 +265,7 @@ function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void })
           onClick={() => setConfirming(true)}
           className="rounded-md border border-danger/50 px-4 py-2.5 text-sm font-medium text-danger transition hover:bg-danger/10"
         >
-          Tắt xác thực hai lớp
+          {t('twoFactor.disable')}
         </button>
       ) : (
         <form
@@ -275,10 +276,9 @@ function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void })
           className="space-y-3 rounded-lg border border-danger/40 bg-danger/5 p-4"
         >
           <p className="text-sm text-fg">
-            Tắt sẽ xoá luôn các mã dự phòng. Nhập mật khẩu hiện tại để xác nhận —
-            một phiên đang mở không tự nó đủ để gỡ lớp bảo vệ này.
+            {t('twoFactor.disableWarn')}
           </p>
-          <Field label="Mật khẩu hiện tại">
+          <Field label={t('twoFactor.currentPassword')}>
             <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -287,7 +287,7 @@ function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void })
             />
           </Field>
           {disable.isError && (
-            <ErrorBox>{errText(disable.error, 'tắt thất bại')}</ErrorBox>
+            <ErrorBox>{errText(disable.error, t('twoFactor.disableFailed'))}</ErrorBox>
           )}
           <div className="flex gap-2">
             <button
@@ -295,14 +295,14 @@ function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void })
               disabled={disable.isPending}
               className="rounded-md bg-danger px-4 py-2.5 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-60"
             >
-              {disable.isPending ? 'Đang tắt…' : 'Tắt'}
+              {disable.isPending ? t('twoFactor.disabling') : t('twoFactor.disableShort')}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
               className="rounded-md border border-border-strong px-4 py-2.5 text-sm font-medium text-fg-muted transition hover:text-fg-strong"
             >
-              Huỷ
+              {t('common.cancel')}
             </button>
           </div>
         </form>

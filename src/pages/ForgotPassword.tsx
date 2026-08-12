@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '@/api/auth'
+import { useT } from '@/lib/i18n'
 import { ApiError } from '@/lib/api'
 import { Input } from '@/components/ui'
 import {
@@ -12,6 +13,7 @@ import {
 } from '@/components/AuthShell'
 
 export default function ForgotPassword() {
+  const t = useT()
   const [email, setEmail] = useState('')
 
   const mut = useMutation({
@@ -29,18 +31,19 @@ export default function ForgotPassword() {
   if (mut.isSuccess) {
     return (
       <AuthShell cmd="forgot-password">
-        <p className="font-mono text-sm text-success">✓ đã xử lý</p>
+        <p className="font-mono text-sm text-success">✓ {t('auth.forgotDone')}</p>
         <p className="font-mono text-sm text-fg-muted">
-          # nếu <span className="text-fg-strong">{email}</span> có tài khoản,
-          link đặt lại mật khẩu vừa được gửi tới đó. Link hết hạn sau 1 giờ.
+          # {t('auth.forgotSentBefore')}{' '}
+          <span className="text-fg-strong">{email}</span>{' '}
+          {t('auth.forgotSentAfter')}
         </p>
         <p className="font-mono text-sm text-fg-subtle">
-          # không thấy mail? kiểm tra hộp thư spam, hoặc{' '}
+          # {t('auth.noMailOr')}{' '}
           <button
             onClick={() => mut.reset()}
             className="text-accent-soft hover:underline"
           >
-            thử địa chỉ khác
+            {t('auth.tryAnotherEmail')}
           </button>
           .
         </p>
@@ -56,13 +59,13 @@ export default function ForgotPassword() {
   const error = mut.isError
     ? mut.error instanceof ApiError
       ? mut.error.message
-      : 'gửi mail thất bại'
+      : t('auth.sendMailFailed')
     : ''
 
   return (
     <AuthShell cmd="forgot-password">
       <p className="font-mono text-sm text-fg-muted">
-        # nhập email đã đăng ký, chúng tôi gửi link đặt lại mật khẩu.
+        # {t('auth.forgotIntro')}
       </p>
 
       <form onSubmit={onSubmit} className="space-y-4">
@@ -85,7 +88,7 @@ export default function ForgotPassword() {
       </form>
 
       <p className="font-mono text-sm text-fg-subtle">
-        # nhớ ra rồi?{' '}
+        # {t('auth.rememberedIt')}{' '}
         <Link to="/login" className="text-accent-soft hover:underline">
           ./login
         </Link>

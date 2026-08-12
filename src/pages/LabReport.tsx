@@ -7,6 +7,7 @@ import { ArrowLeftIcon, CheckIcon } from '@/components/icons'
 import { Prose as Markdown } from '@/components/MarkdownEditor'
 import { clockLabel } from '@/lib/clock'
 import { formatWhen } from '@/lib/relativeTime'
+import { locale, useT, type Key } from '@/lib/i18n'
 import type {
   IncidentReport,
   LabReport as Report,
@@ -17,6 +18,7 @@ import type {
  *  what was answered. Reached from the history list, and from handing a lab in —
  *  the second adds ?done=1, which is the only difference between the two. */
 export default function LabReport() {
+  const t = useT()
   const { id = '' } = useParams()
   const [params] = useSearchParams()
   const justSubmitted = params.get('done') === '1'
@@ -28,21 +30,20 @@ export default function LabReport() {
   })
 
   if (report.isLoading) {
-    return <p className="p-8 text-center text-sm text-fg-subtle">Đang tải…</p>
+    return <p className="p-8 text-center text-sm text-fg-subtle">{t('common.loading')}</p>
   }
 
   if (report.isError || !report.data) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12 text-center">
         <p className="text-sm text-danger">
-          Không xem được lượt này. Có thể phiên vẫn đang chạy, hoặc không phải của
-          bạn.
+          {t('report.loadError')}
         </p>
         <Link
           to="/history"
           className="mt-4 inline-block text-sm text-accent-soft hover:underline"
         >
-          ← Lịch sử thực hành
+          ← {t('report.backHistory')}
         </Link>
       </div>
     )
@@ -73,7 +74,7 @@ export default function LabReport() {
         className="inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
       >
         <ArrowLeftIcon className="h-3.5 w-3.5" />
-        Lịch sử thực hành
+        {t('report.backHistory')}
       </Link>
 
       <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
@@ -81,18 +82,20 @@ export default function LabReport() {
           <h1 className="text-xl font-bold text-fg-strong">{r.lab_title}</h1>
           <p className="mt-1 text-xs text-fg-subtle">
             {r.submitted_at
-              ? `Nộp lúc ${formatWhen(r.submitted_at)}`
-              : `Bắt đầu ${formatWhen(r.started_at)} — chưa nộp`}
+              ? t('report.submittedAt', { when: formatWhen(r.submitted_at) })
+              : t('report.startedNotSubmitted', {
+                  when: formatWhen(r.started_at),
+                })}
           </p>
         </div>
 
         <div className="rounded-lg bg-muted px-4 py-3">
-          <p className="text-xs text-fg-muted">Kết quả</p>
+          <p className="text-xs text-fg-muted">{t('report.result')}</p>
           <p className="mt-0.5 text-sm text-fg-muted">
             <span className="text-2xl font-bold tabular-nums text-fg-strong">
               {r.correct}
             </span>{' '}
-            / {r.total} câu đúng
+            / {r.total} {t('report.correctOf')}
           </p>
           <div className="mt-2 h-1.5 w-40 overflow-hidden rounded-full bg-border">
             <div
@@ -116,7 +119,7 @@ export default function LabReport() {
         </ol>
 
         <Card className="self-start p-4 lg:sticky lg:top-8">
-          <p className="font-medium text-fg-strong">Danh sách câu hỏi</p>
+          <p className="font-medium text-fg-strong">{t('report.questionList')}</p>
           {/* Amber is a subset of green, not a fourth outcome: a question fixed
               on the third try is still a pass. Said this way rather than as a
               "Sai" tally, which counted only the questions left wrong at
@@ -124,24 +127,24 @@ export default function LabReport() {
           <p className="mt-2 flex flex-wrap gap-3 text-xs text-fg-muted">
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-sm bg-success" />
-              Đúng ({r.correct})
+              {t('report.right', { n: r.correct })}
             </span>
             {retried > 0 && (
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-amber-500" />
-                Phải thử lại ({retried})
+                {t('report.retried', { n: retried })}
               </span>
             )}
             {wrong > 0 && (
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-danger" />
-                Sai ({wrong})
+                {t('report.wrong', { n: wrong })}
               </span>
             )}
             {skipped > 0 && (
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-fg-subtle" />
-                Chưa làm ({skipped})
+                {t('report.skipped', { n: skipped })}
               </span>
             )}
           </p>
@@ -155,8 +158,8 @@ export default function LabReport() {
                   href={`#cau-${i + 1}`}
                   title={
                     a.attempts && a.attempts > 1
-                      ? `Câu ${i + 1} — chấm ${a.attempts} lần`
-                      : `Câu ${i + 1}`
+                      ? t('report.qTitleAttempts', { i: i + 1, n: a.attempts })
+                      : t('report.qTitle', { i: i + 1 })
                   }
                   className={
                     'grid h-8 w-8 place-items-center rounded-md font-mono text-xs transition ' +
@@ -179,12 +182,12 @@ export default function LabReport() {
             <strong className="text-fg-strong">
               {r.correct}/{r.total}
             </strong>{' '}
-            câu đúng
+            {t('report.correctOf')}
             {retried > 0 && (
               <>
-                , trong đó{' '}
-                <strong className="text-amber-500">{retried}</strong> câu phải thử
-                lại
+                {t('report.retriedTailBefore')}{' '}
+                <strong className="text-amber-500">{retried}</strong>{' '}
+                {t('report.retriedTailAfter')}
               </>
             )}
           </p>
@@ -206,42 +209,45 @@ function IncidentPanel({
   incident: IncidentReport
   startedAt: string
 }) {
+  const t = useT()
   const started = Date.parse(startedAt)
   const recovered = incident.recovered_at !== null
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="font-semibold text-fg-strong">Ca trực vừa rồi</h2>
+        <h2 className="font-semibold text-fg-strong">{t('report.incidentTitle')}</h2>
         <span
           className={
             'rounded-full px-2.5 py-0.5 text-xs font-medium ' +
             (recovered ? 'bg-success-soft text-success' : 'bg-danger/10 text-danger')
           }
         >
-          {recovered ? 'Đã khôi phục' : 'Hết giờ, dịch vụ vẫn hỏng'}
+          {recovered ? t('report.recovered') : t('report.notRecovered')}
         </span>
       </div>
 
       <dl className="mt-4 grid gap-4 sm:grid-cols-3">
         <div>
-          <dt className="text-xs text-fg-muted">Thời gian khôi phục (MTTR)</dt>
+          <dt className="text-xs text-fg-muted">{t('report.mttr')}</dt>
           <dd className="mt-0.5 font-mono text-2xl font-bold tabular-nums text-fg-strong">
             {recovered ? clockLabel(incident.downtime_seconds) : '—'}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-fg-muted">Request hỏng</dt>
+          <dt className="text-xs text-fg-muted">{t('report.failedRequests')}</dt>
           <dd className="mt-0.5 font-mono text-2xl font-bold tabular-nums text-fg-strong">
-            {recovered ? `~${incident.requests_failed.toLocaleString('vi-VN')}` : '—'}
+            {recovered
+              ? `~${incident.requests_failed.toLocaleString(locale())}`
+              : '—'}
           </dd>
           {/* Cùng câu cảnh báo với dải lúc đang làm bài: con số này suy ra từ
               một tỉ lệ do tác giả gõ, không đo từ hệ thống nào. */}
           <dd className="mt-0.5 text-xs text-fg-subtle">
-            ước lượng ở {incident.rps} request/giây — con số mô phỏng
+            {t('report.rpsNote', { rps: incident.rps })}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-fg-muted">Nguyên nhân</dt>
+          <dt className="text-xs text-fg-muted">{t('report.cause')}</dt>
           <dd className="mt-0.5 text-sm font-medium text-fg-strong">{incident.title}</dd>
         </div>
       </dl>
@@ -253,16 +259,15 @@ function IncidentPanel({
       )}
 
       <div className="mt-4 border-t border-border pt-4">
-        <p className="font-medium text-fg-strong">Bạn đã gõ gì</p>
+        <p className="font-medium text-fg-strong">{t('report.whatYouTyped')}</p>
         {incident.timeline.length === 0 ? (
           <p className="mt-1 text-sm text-fg-subtle">
-            Không có lệnh nào được ghi lại cho phiên này.
+            {t('report.noCommands')}
           </p>
         ) : (
           <>
             <p className="mt-1 text-xs text-fg-subtle">
-              Lịch sử lệnh trong container của bạn, tính từ lúc bắt đầu. Chỉ bạn và
-              quản trị viên xem được; nó mất cùng lúc với phiên.
+              {t('report.timelineNote')}
             </p>
             <ol className="mt-3 space-y-1 font-mono text-xs">
               {incident.timeline.map((entry, i) => (
@@ -286,6 +291,7 @@ function IncidentPanel({
 }
 
 function Congrats({ report, pct }: { report: Report; pct: number }) {
+  const t = useT()
   const all = report.total > 0 && report.correct === report.total
   return (
     <div
@@ -297,24 +303,29 @@ function Congrats({ report, pct }: { report: Report; pct: number }) {
       }
     >
       <p className="text-lg font-bold">
-        {all ? '🎉 Chúc mừng bạn đã hoàn thành bài thực hành!' : 'Đã nộp bài'}
+        {all ? t('report.congratsAll') : t('report.congratsSome')}
       </p>
       <p className="mt-1 text-sm text-white/90">
-        Bạn đã nộp “{report.lab_title}” với kết quả {report.correct}/{report.total}{' '}
-        câu đúng ({pct}%).
+        {t('report.congratsBody', {
+          lab: report.lab_title,
+          correct: report.correct,
+          total: report.total,
+          pct,
+        })}
       </p>
     </div>
   )
 }
 
-const KIND_LABEL: Record<ReportAnswer['kind'], string> = {
-  script: 'Thực hành',
-  command: 'Gõ lệnh',
-  choice: 'Lý thuyết',
-  sim: 'Pipeline',
+const KIND_LABEL: Record<ReportAnswer['kind'], Key> = {
+  script: 'lab.kind.script',
+  command: 'lab.kind.command',
+  choice: 'lab.kind.choice',
+  sim: 'lab.kind.sim',
 }
 
 function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) {
+  const t = useT()
   const right = answer.passed === true
   const wrong = answer.passed === false
   // Passed, but not on the first press. The card stays a pass — this only says
@@ -337,8 +348,9 @@ function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) 
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
           <p className="text-sm text-fg-muted">
-            Câu <strong className="text-fg-strong">{index + 1}</strong> /{' '}
-            {KIND_LABEL[answer.kind]} · {answer.points} điểm
+            {t('report.questionWord')}{' '}
+            <strong className="text-fg-strong">{index + 1}</strong> /{' '}
+            {t(KIND_LABEL[answer.kind])} · {answer.points} {t('report.pointsWord')}
           </p>
           <span
             className={
@@ -353,12 +365,12 @@ function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) 
             }
           >
             {late
-              ? `✓ Đúng sau ${answer.attempts} lần`
+              ? t('report.rightAfter', { n: answer.attempts ?? 0 })
               : right
-                ? '✓ Đúng'
+                ? t('report.rightShort')
                 : wrong
-                  ? '✕ Sai'
-                  : 'Chưa làm'}
+                  ? t('report.wrongShort')
+                  : t('report.skippedShort')}
           </span>
         </div>
 
@@ -371,14 +383,14 @@ function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) 
             options to show either side of. */}
         {answer.passed === null && (
           <p className="px-5 pb-4 text-sm text-fg-subtle">
-            Bạn chưa trả lời câu này, nên đáp án đúng không được hiển thị.
+            {t('report.notAnswered')}
           </p>
         )}
 
         {answer.passed !== null && answer.kind === 'choice' && answer.options.length > 0 && (
           <div className="space-y-2 px-5 pb-4">
             <p className="font-mono text-xs uppercase tracking-wide text-fg-subtle">
-              Các đáp án
+              {t('report.options')}
             </p>
             {answer.options.map((text, i) => (
               <Option
@@ -394,7 +406,7 @@ function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) 
 
         {answer.answered_at && (
           <p className="border-t border-border px-5 py-2.5 text-xs text-fg-subtle">
-            Trả lời lúc {formatWhen(answer.answered_at)}
+            {t('report.answeredAt', { when: formatWhen(answer.answered_at) })}
           </p>
         )}
       </Card>
@@ -413,6 +425,7 @@ function Option({
   correct: boolean
   picked: boolean
 }) {
+  const t = useT()
   // Four states in two flags. The one that has to stand out is picked-and-wrong:
   // it is the only line the student needs to read twice.
   const tone = correct
@@ -438,7 +451,7 @@ function Option({
         <span className="mt-1 flex flex-wrap gap-1.5">
           {correct && (
             <span className="rounded bg-success-soft px-1.5 py-0.5 text-[10px] font-medium uppercase text-success">
-              Đáp án đúng
+              {t('report.correctOption')}
             </span>
           )}
           {picked && (
@@ -448,7 +461,7 @@ function Option({
                 (correct ? 'bg-muted text-fg-muted' : 'bg-danger/15 text-danger')
               }
             >
-              Bạn đã chọn
+              {t('report.yourPick')}
             </span>
           )}
         </span>
