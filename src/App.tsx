@@ -23,6 +23,7 @@ import AdminCourse from '@/pages/AdminCourse'
 import AdminCourseForm from '@/pages/AdminCourseForm'
 import SimList from '@/pages/SimList'
 import SimPlayground from '@/pages/SimPlayground'
+import WarRoom from '@/pages/WarRoom'
 import { NotFound } from '@/pages/NotFound'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
@@ -41,6 +42,10 @@ export default function App() {
           meant to be looking at one thing. */}
       <Route element={<ProtectedRoute />}>
         <Route path="/courses/:slug/labs/:labSlug" element={<LabRunner />} />
+        {/* Cùng màn làm bài, không có khoá học phía sau: thử thách War Room vào
+            thẳng từ nav. `drill` tắt phần bài trước/bài sau và đổi đường quay
+            lại — phần còn lại (terminal, đồng hồ, chấm, nộp) giống hệt. */}
+        <Route path="/war-room/:labSlug" element={<LabRunner drill />} />
       </Route>
 
       <Route element={<Layout />}>
@@ -60,6 +65,9 @@ export default function App() {
               của trang web. */}
           <Route path="/sim" element={<SimList />} />
           <Route path="/sim/:slug" element={<SimPlayground />} />
+          {/* Danh sách thử thách. Màn làm bài của nó nằm ngoài Layout, cùng chỗ
+              với màn làm lab — nó cũng chiếm trọn màn hình. */}
+          <Route path="/war-room" element={<WarRoom />} />
           {/* One screen for both ways in: opened from the list, or landed on
               straight after handing a lab in, which adds ?done=1. */}
           <Route path="/history/:id" element={<LabReport />} />

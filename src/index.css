@@ -280,7 +280,12 @@ body {
 
 /* Each line fades in on its own delay (set inline); command lines also type
    themselves out — the child inherits the parent's delay so both start together. */
-.hero-line {
+/* `.line-in` là cùng một hiệu ứng, tên không dính vào hero — mô phỏng Linux
+   dùng nó cho từng dòng kết quả, xếp nhịp bằng `animation-delay` gắn thẳng vào
+   style của phần tử. Chung một khai báo chứ không chép ra hai chỗ: khối
+   `prefers-reduced-motion` bên dưới nhờ thế lo cho cả hai. */
+.hero-line,
+.line-in {
   opacity: 0;
   animation: hero-line-in 0.35s ease-out forwards;
 }
@@ -328,11 +333,13 @@ body {
   .hero-blob,
   .hero-term,
   .hero-line,
+  .line-in,
   .hero-type,
   .term-caret {
     animation: none;
   }
-  .hero-line {
+  .hero-line,
+  .line-in {
     opacity: 1;
   }
   .hero-type {

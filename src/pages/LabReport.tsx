@@ -4,8 +4,14 @@ import { useQuery } from '@tanstack/react-query'
 import { labsApi } from '@/api/labs'
 import { Card } from '@/components/ui'
 import { ArrowLeftIcon, CheckIcon } from '@/components/icons'
+import { Prose as Markdown } from '@/components/MarkdownEditor'
+import { clockLabel } from '@/lib/clock'
 import { formatWhen } from '@/lib/relativeTime'
-import type { LabReport as Report, ReportAnswer } from '@/lib/types'
+import type {
+  IncidentReport,
+  LabReport as Report,
+  ReportAnswer,
+} from '@/lib/types'
 
 /** One finished attempt: the score, then every question with the key beside
  *  what was answered. Reached from the history list, and from handing a lab in —
@@ -58,7 +64,8 @@ export default function LabReport() {
   ).length
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
+    // Bề rộng do `Layout` quyết — xem chú thích ở SimList.
+    <div className="space-y-6">
       {justSubmitted && <Congrats report={r} pct={pct} />}
 
       <Link
@@ -95,6 +102,11 @@ export default function LabReport() {
           </div>
         </div>
       </Card>
+
+      {/* Trên phần câu hỏi: ở một ca trực, thứ đáng đọc trước là sự cố vừa rồi
+          là gì và mất bao lâu mới cứu được. Danh sách câu hỏi vẫn nguyên bên
+          dưới, không lab nào mất gì. */}
+      {r.incident && <IncidentPanel incident={r.incident} startedAt={r.started_at} />}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_14rem]">
         <ol className="space-y-4">
@@ -179,6 +191,97 @@ export default function LabReport() {
         </Card>
       </div>
     </div>
+  )
+}
+
+/** Phần hậu sự cố: mất bao lâu, tốn bao nhiêu, hỏng cái gì, và bạn đã gõ gì.
+ *
+ *  Dòng thời gian mới là chỗ dạy. Sửa được rồi mà không nhìn lại thì lần sau vẫn
+ *  mất đúng ba phút đó cho một hướng sai — đây là thứ duy nhất trong cả sản phẩm
+ *  chỉ ra được chuyện đó, vì nó là thứ duy nhất ghi lại thứ tự các lần thử. */
+function IncidentPanel({
+  incident,
+  startedAt,
+}: {
+  incident: IncidentReport
+  startedAt: string
+}) {
+  const started = Date.parse(startedAt)
+  const recovered = incident.recovered_at !== null
+  return (
+    <Card className="p-5">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <h2 className="font-semibold text-fg-strong">Ca trực vừa rồi</h2>
+        <span
+          className={
+            'rounded-full px-2.5 py-0.5 text-xs font-medium ' +
+            (recovered ? 'bg-success-soft text-success' : 'bg-danger/10 text-danger')
+          }
+        >
+          {recovered ? 'Đã khôi phục' : 'Hết giờ, dịch vụ vẫn hỏng'}
+        </span>
+      </div>
+
+      <dl className="mt-4 grid gap-4 sm:grid-cols-3">
+        <div>
+          <dt className="text-xs text-fg-muted">Thời gian khôi phục (MTTR)</dt>
+          <dd className="mt-0.5 font-mono text-2xl font-bold tabular-nums text-fg-strong">
+            {recovered ? clockLabel(incident.downtime_seconds) : '—'}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-fg-muted">Request hỏng</dt>
+          <dd className="mt-0.5 font-mono text-2xl font-bold tabular-nums text-fg-strong">
+            {recovered ? `~${incident.requests_failed.toLocaleString('vi-VN')}` : '—'}
+          </dd>
+          {/* Cùng câu cảnh báo với dải lúc đang làm bài: con số này suy ra từ
+              một tỉ lệ do tác giả gõ, không đo từ hệ thống nào. */}
+          <dd className="mt-0.5 text-xs text-fg-subtle">
+            ước lượng ở {incident.rps} request/giây — con số mô phỏng
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-fg-muted">Nguyên nhân</dt>
+          <dd className="mt-0.5 text-sm font-medium text-fg-strong">{incident.title}</dd>
+        </div>
+      </dl>
+
+      {incident.reveal_md.trim() && (
+        <div className="mt-4 border-t border-border pt-4">
+          <Markdown>{incident.reveal_md}</Markdown>
+        </div>
+      )}
+
+      <div className="mt-4 border-t border-border pt-4">
+        <p className="font-medium text-fg-strong">Bạn đã gõ gì</p>
+        {incident.timeline.length === 0 ? (
+          <p className="mt-1 text-sm text-fg-subtle">
+            Không có lệnh nào được ghi lại cho phiên này.
+          </p>
+        ) : (
+          <>
+            <p className="mt-1 text-xs text-fg-subtle">
+              Lịch sử lệnh trong container của bạn, tính từ lúc bắt đầu. Chỉ bạn và
+              quản trị viên xem được; nó mất cùng lúc với phiên.
+            </p>
+            <ol className="mt-3 space-y-1 font-mono text-xs">
+              {incident.timeline.map((entry, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="w-14 shrink-0 tabular-nums text-fg-subtle">
+                    {/* Khoảng cách từ lúc bắt đầu, không phải giờ trong ngày:
+                        thứ đáng đọc là "phút thứ mấy mới nhìn đúng chỗ". */}
+                    {entry.at
+                      ? `+${clockLabel((Date.parse(entry.at) - started) / 1000)}`
+                      : '—'}
+                  </span>
+                  <span className="min-w-0 break-all text-fg">{entry.command}</span>
+                </li>
+              ))}
+            </ol>
+          </>
+        )}
+      </div>
+    </Card>
   )
 }
 

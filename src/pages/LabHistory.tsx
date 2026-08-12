@@ -74,7 +74,8 @@ export default function LabHistory() {
   }, [all, filter, query])
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-8">
+    // Bề rộng do `Layout` quyết — xem chú thích ở SimList.
+    <div>
       <h1 className="text-2xl font-bold text-fg-strong">Lịch sử thực hành</h1>
       <p className="mt-1 text-sm text-fg-muted">
         Mỗi lần bạn mở một bài lab là một lượt. Mở một lượt để xem lại từng câu.

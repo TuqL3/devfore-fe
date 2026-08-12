@@ -1259,6 +1259,7 @@ function TaskPanel({
       check_script: t.check_script,
       options: t.options.length ? t.options : EMPTY_OPTIONS,
       expected_commands: t.expected_commands,
+      sim_goal: t.sim_goal,
       points: t.points,
       order_idx: t.order_idx,
     })

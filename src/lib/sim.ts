@@ -1,4 +1,6 @@
-import type { SimScenario } from '@/lib/types'
+// Tương đối, không alias `@/`: file này bị `sim.check.ts` kéo vào project node
+// (`module: nodenext`), nơi alias không có đuôi `.ts` nên không phân giải được.
+import type { SimScenario } from './types.ts'
 
 /** Khung ban đầu cho ô soạn chưa có gì: một job hợp lệ dùng đúng một step. Ô
  *  trống thì lượt Run đầu tiên chỉ trả về "pipeline đang trống", và bài học đầu

@@ -1,6 +1,7 @@
 import { request } from "@/lib/api";
 import type {
   CheckResult,
+  Lab,
   LabDetail,
   LabHistoryRow,
   LabReport,
@@ -12,6 +13,15 @@ export const labsApi = {
     request<LabDetail>(`/api/courses/${courseSlug}/labs/${labSlug}`, {
       auth: false,
     }),
+
+  /** Danh sách thử thách War Room. Không đi qua khoá học nào: thử thách không
+   *  phải nội dung của khoá, và không ai phải đăng ký gì để vào. */
+  drills: () => request<Lab[]>("/api/war-room", { auth: false }),
+
+  /** Một thử thách kèm đề bài và nhiệm vụ. Cùng hình dạng với `detail` để màn
+   *  làm bài không cần biết mình đang chạy bài của khoá hay một ca trực. */
+  drill: (labSlug: string) =>
+    request<LabDetail>(`/api/war-room/${labSlug}`, { auth: false }),
 
   start: (labSlug: string) =>
     request<LabSession>(`/api/labs/${labSlug}/start`, { method: "POST" }),
