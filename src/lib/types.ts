@@ -197,7 +197,7 @@ interface SimEntryBase {
  *  `sim.scenario` thành `SimScenario | undefined` ở khắp 862 dòng của
  *  `SimPlayground`, tức là 862 dòng phải học cách sống với một giá trị không bao
  *  giờ thiếu ở đường đi của chúng. Rẽ nhánh một lần rồi TypeScript tự thu hẹp. */
-export type SimEntry = SimEntryCicd | SimEntryLinux | SimEntrySearch
+export type SimEntry = SimEntryCicd | SimEntryLinux | SimEntrySearch | SimEntrySort
 
 export interface SimEntryCicd extends SimEntryBase {
   engine: 'cicd'
@@ -220,6 +220,12 @@ export interface SimEntryLinux extends SimEntryBase {
  *  toán nằm trong `src/sims/search/`, server không biết gì về nó. */
 export interface SimEntrySearch extends SimEntryBase {
   engine: 'search'
+}
+
+/** Mô phỏng thuật toán sắp xếp. Cũng không có `scenario`: bốn thuật toán và bốn
+ *  thế mở đầu nằm trong `src/sims/sort/`. */
+export interface SimEntrySort extends SimEntryBase {
+  engine: 'sort'
 }
 
 /** Một step trong kết quả chạy. `cached` nghĩa là công việc được khôi phục chứ

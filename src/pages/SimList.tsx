@@ -5,6 +5,7 @@ import { customEntry } from '@/sims/custom'
 import { CUSTOM_SLUG, isCustomised } from '@/sims/custom'
 import { ALL_CMDS } from '@/sims/linux/commands'
 import { ALGOS } from '@/sims/search/algos'
+import { ALGOS as SORT_ALGOS, N as SORT_N } from '@/sims/sort/algos'
 import type { SimEntry } from '@/lib/types'
 import { Prose } from '@/components/MarkdownEditor'
 import { ChevronRightIcon, LayersIcon } from '@/components/icons'
@@ -166,7 +167,16 @@ function Stats({ sim }: { sim: SimEntry }) {
     return (
       <>
         <Chip>{t('simList.algorithms', { n: ALGOS.length })}</Chip>
-        <Chip>{t('simList.array64')}</Chip>
+        <Chip>{t('simList.arrayItems', { n: 64 })}</Chip>
+        <Chip>{t('simList.inBrowser')}</Chip>
+      </>
+    )
+  }
+  if (sim.engine === 'sort') {
+    return (
+      <>
+        <Chip>{t('simList.algorithms', { n: SORT_ALGOS.length })}</Chip>
+        <Chip>{t('simList.arrayItems', { n: SORT_N })}</Chip>
         <Chip>{t('simList.inBrowser')}</Chip>
       </>
     )

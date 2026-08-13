@@ -2,6 +2,7 @@ import type { SimEntry } from '@/lib/types'
 import { CUSTOM_SLUG, customEntry } from '@/sims/custom'
 import { linuxEntry } from '@/sims/linux'
 import { searchEntry } from '@/sims/search'
+import { sortEntry } from '@/sims/sort'
 
 /** Lời mở đầu trang danh sách. Một dòng chữ của cả trang, không thuộc mô phỏng
  *  nào — nên nó ở đây, cạnh danh sách nó giới thiệu. */
@@ -28,6 +29,10 @@ export const SIMS: SimEntry[] = [
   // Giải thuật đứng sau Linux, trước CI/CD: nó không cần biết gì về hệ điều
   // hành hay pipeline, nên là chỗ vào rẻ nhất cho người chưa quen thứ nào.
   searchEntry,
+  // Sắp xếp đứng sau tìm kiếm vì nó nợ tìm kiếm một câu: ba trong bốn thuật toán
+  // bên kia đòi mảng đã sắp, và "sắp thì tốn bao nhiêu" là câu hỏi bên kia cố ý
+  // để lại.
+  sortEntry,
 ]
 
 export function findSim(slug: string): SimEntry | undefined {

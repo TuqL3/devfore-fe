@@ -14,6 +14,7 @@ import type {
 } from '@/lib/types'
 import { LinuxBench } from '@/components/LinuxBench'
 import { SearchBench } from '@/components/SearchBench'
+import { SortBench } from '@/components/SortBench'
 import { SimTimeline } from '@/components/SimTimeline'
 import { SimCatalog, SimInsights } from '@/components/SimPanels'
 import { PipelineEditor } from '@/components/PipelineEditor'
@@ -73,6 +74,8 @@ export default function SimPlayground() {
         <LinuxBench key={sim.slug} sim={sim} />
       ) : sim.engine === 'search' ? (
         <SearchBench key={sim.slug} sim={sim} />
+      ) : sim.engine === 'sort' ? (
+        <SortBench key={sim.slug} sim={sim} />
       ) : (
         // Đổi mô phỏng là đổi catalog: ô soạn và kết quả cũ không còn nghĩa gì.
         <Bench key={sim.slug} sim={sim} />
