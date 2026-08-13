@@ -16,7 +16,10 @@ import LabHistory from '@/pages/LabHistory'
 import Chat from '@/pages/Chat'
 import LabReport from '@/pages/LabReport'
 import Admin from '@/pages/Admin'
-import AdminDashboard from '@/pages/AdminDashboard'
+import AdminLive from '@/pages/AdminLive'
+import AdminAnalysis from '@/pages/AdminAnalysis'
+import AdminModeration from '@/pages/AdminModeration'
+import AdminActivity from '@/pages/AdminActivity'
 import AdminUsers from '@/pages/AdminUsers'
 import AdminAudit from '@/pages/AdminAudit'
 import AdminWarRoom from '@/pages/AdminWarRoom'
@@ -89,7 +92,14 @@ export default function App() {
             {/* /admin itself stays a redirect rather than rendering the
                 dashboard twice under two URLs. */}
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
-            <Route path="dashboard" element={<AdminDashboard />} />
+            {/* "Đang diễn ra" thay chỗ dashboard cũ, giữ nguyên đường dẫn:
+                mọi link và bookmark cũ vẫn tới đúng màn đầu tiên. */}
+            <Route path="dashboard" element={<AdminLive />} />
+            <Route path="analysis" element={<AdminAnalysis />} />
+            <Route path="moderation" element={<AdminModeration />} />
+            {/* Trang hoạt động của một người. Nằm dưới /admin/users vì đó là
+                nơi người ta đi tới nó từ. */}
+            <Route path="users/:id" element={<AdminActivity />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="audit" element={<AdminAudit />} />
             <Route path="war-room" element={<AdminWarRoom />} />

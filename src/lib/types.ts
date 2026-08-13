@@ -435,6 +435,9 @@ export interface ManagedUsers {
 /** Một container đang sống, như màn quản trị liệt kê. */
 export interface RunningSession {
   id: string
+  /** Để màn Đang diễn ra bấm thẳng sang trang hoạt động của người đó — quyết
+   *  định ở đây là về một con người, mà một cái tên trơ thì phải đi tìm lại. */
+  user_id: number
   username: string
   lab_title: string
   started_at: string
@@ -601,4 +604,170 @@ export interface LabSession {
    *  phá cái gì, tìm ra bằng cách nào đều là thứ học viên đang phải tự mò, nên
    *  không cái nào rời server lúc phiên còn chạy. */
   incident: { rps: number } | null
+}
+
+// ── Màn quản trị: những thứ trước đây admin không nhìn thấy ────────────────
+
+/** Một sự cố của hệ thống. Trước đây chỉ vào log rồi bay mất cùng container. */
+export interface SystemEvent {
+  id: number
+  at: string
+  /** Tên chấm: `lab.start_failed`, `check.timeout`, `capacity.refused`… */
+  kind: string
+  severity: 'info' | 'warn' | 'error'
+  actor_id: number
+  actor_name: string
+  /** Thứ nó xảy ra với: id phiên, slug lab, id container. */
+  subject: string
+  detail: string
+}
+
+export interface EventKindCount {
+  kind: string
+  severity: string
+  n: number
+}
+
+export interface PlatformCounts {
+  users: number
+  banned: number
+  new_users: number
+  running: number
+  sessions: number
+  submitted: number
+  sim_runs: number
+  chat_messages: number
+  shared_reports: number
+}
+
+export interface AdminOverview {
+  hours: number
+  counts: PlatformCounts
+  running: RunningSession[]
+  /** Trần container của máy chủ. Chạy sát trần là lúc người mới bị từ chối. */
+  max_slots: number
+  events: EventKindCount[] | null
+}
+
+/** Nhiệm vụ và tỉ lệ đậu. Hai đầu của thang đo mới đáng nhìn, và chúng nói hai
+ *  chuyện ngược nhau: 0% thường là check script hỏng chứ không phải câu khó,
+ *  100% ngay lần đầu là câu không hỏi gì. */
+export interface TaskHealth {
+  task_id: number
+  lab_id: number
+  lab_slug: string
+  lab_title: string
+  task_title: string
+  kind: string
+  attempts: number
+  passed: number
+  pass_rate: number
+}
+
+export interface LabHealth {
+  lab_id: number
+  lab_slug: string
+  lab_title: string
+  starts: number
+  submitted: number
+  expired: number
+  ended: number
+  running: number
+  /** Phần trăm lượt kết thúc bằng bất cứ gì khác "đã nộp". */
+  drop_rate: number
+}
+
+export interface IncidentHealth {
+  incident_id: number
+  incident_title: string
+  active: boolean
+  lab_slug: string
+  attempts: number
+  solved: number
+  best_seconds: number
+}
+
+export interface CourseHealth {
+  course_id: number
+  course_slug: string
+  course_title: string
+  status: string
+  enrolled: number
+  started: number
+  finished: number
+}
+
+export interface ContentHealth {
+  tasks: TaskHealth[]
+  labs: LabHealth[]
+  incidents: IncidentHealth[]
+  courses: CourseHealth[]
+}
+
+export interface AdminSharedReport {
+  token: string
+  session_id: string
+  player: string
+  lab_title: string
+  incident_title: string
+  started_at: string
+}
+
+export interface UserSummary {
+  id: number
+  username: string
+  email: string
+  status: string
+  created_at: string
+  sessions: number
+  submitted: number
+  sim_runs: number
+  chat_messages: number
+  enrolments: number
+}
+
+export interface UserSessionRow {
+  session_id: string
+  lab_slug: string
+  lab_title: string
+  status: string
+  started_at: string
+  ended_at: string | null
+  incident_title: string
+  passed: number
+  total: number
+  /** Có lịch sử lệnh để mở hay không. Bản thân lịch sử phải gọi riêng, vì mở nó
+   *  là một việc đáng được ghi lại. */
+  has_commands: boolean
+}
+
+/** Một pipeline người dùng đã viết và chạy. `pipeline` là thứ họ gõ — thứ đáng
+ *  đọc nhất trang, vì một pipeline sai nói đúng phần nào của mô hình chưa vào
+ *  đầu. Cắt ở server, `pipeline_length` nói độ dài thật. */
+export interface UserSimRun {
+  id: number
+  session_id: string
+  run_index: number
+  created_at: string
+  pipeline: string
+  pipeline_length: number
+  lab_title: string
+  total_seconds: number
+}
+
+export interface UserActivity {
+  summary: UserSummary
+  sessions: UserSessionRow[]
+  sim_runs: UserSimRun[]
+}
+
+export interface AdminChatMessage {
+  id: number
+  user_id: number | null
+  username: string
+  peer_id: number | null
+  body: string
+  created_at: string
+  edited_at: string | null
+  deleted_at: string | null
 }
