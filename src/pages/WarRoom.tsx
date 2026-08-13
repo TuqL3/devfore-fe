@@ -7,6 +7,7 @@ import { mdSummary } from '@/lib/mdSummary'
 import { Card, ErrorBox } from '@/components/ui'
 import { ChevronRightIcon, ClockIcon, TerminalIcon } from '@/components/icons'
 import type { Lab, LabSession } from '@/lib/types'
+import { useT } from '@/lib/i18n'
 
 /** War Room — thử thách có hạn giờ.
  *
@@ -18,6 +19,7 @@ import type { Lab, LabSession } from '@/lib/types'
  *  đổ nguyên vào danh sách thì code tràn ngang, tiêu đề lặp lại tên vừa in, và
  *  một thẻ dài hơn cả màn hình. Chỗ đọc đề là màn làm bài, nơi đồng hồ đã chạy. */
 export default function WarRoom() {
+  const t = useT()
   const drills = useQuery({ queryKey: ['drills'], queryFn: labsApi.drills })
   const current = useQuery({ queryKey: ['lab-session'], queryFn: labsApi.current })
   const running = current.data ?? null
@@ -31,26 +33,25 @@ export default function WarRoom() {
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="text-2xl font-bold text-fg-strong">War Room</h1>
           <span className="rounded-full bg-danger/10 px-2.5 py-0.5 text-xs font-medium text-danger">
-            Có đồng hồ
+            {t('war.timed')}
           </span>
         </div>
         <p className="mt-2 max-w-2xl text-sm text-fg">
-          Một hệ thống đang hỏng, một đồng hồ đang chạy, và không ai nói cho bạn
-          biết hỏng ở đâu. Tìm ra và sửa trước khi hết giờ.
+          {t('war.lead')}
         </p>
         <p className="mt-1 max-w-2xl text-sm text-fg-muted">
-          Mỗi lần vào là một lỗi khác, bốc ngẫu nhiên. Hết giờ mà chưa cứu được
-          cũng là một kết quả — bạn vẫn nhận bản tường trình: mất bao lâu, hỏng ở
-          đâu, và bạn đã gõ những gì.
+          {t('war.sub')}
         </p>
       </header>
 
       {running && <RunningNow session={running} />}
 
-      {drills.isLoading && <p className="text-sm text-fg-subtle">Đang tải…</p>}
-      {drills.isError && <ErrorBox>Không tải được danh sách thử thách.</ErrorBox>}
+      {drills.isLoading && (
+        <p className="text-sm text-fg-subtle">{t('common.loading')}</p>
+      )}
+      {drills.isError && <ErrorBox>{t('war.loadError')}</ErrorBox>}
       {drills.data?.length === 0 && (
-        <p className="text-sm text-fg-subtle">Chưa có thử thách nào.</p>
+        <p className="text-sm text-fg-subtle">{t('war.empty')}</p>
       )}
 
       <ul className="space-y-4">
@@ -68,21 +69,22 @@ export default function WarRoom() {
  *  chuyện đó kèm đường quay lại, thay vì để người dùng bấm vào một nút xám và tự
  *  đoán vì sao. */
 function RunningNow({ session }: { session: LabSession }) {
+  const t = useT()
   const to = session.incident
     ? `/war-room/${session.lab_slug}`
     : `/courses/${session.course_slug}/labs/${session.lab_slug}`
   return (
     <Card className="mb-6 flex flex-wrap items-center justify-between gap-3 border-accent/40 p-4">
       <p className="text-sm text-fg">
-        Bạn đang có một phiên chạy dở
-        {session.incident ? ' — ca trực vẫn đang đếm giờ.' : '.'} Kết thúc nó rồi
-        mới bắt đầu ca mới được.
+        {t('war.blockedBefore')}
+        {session.incident ? t('war.blockedIncident') : '.'}{' '}
+        {t('war.blockedAfter')}
       </p>
       <Link
         to={to}
         className="inline-flex items-center gap-1.5 rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg-strong transition hover:border-accent"
       >
-        Quay lại phiên đó
+        {t('war.backToSession')}
         <ChevronRightIcon className="h-3.5 w-3.5" />
       </Link>
     </Card>
@@ -90,6 +92,7 @@ function RunningNow({ session }: { session: LabSession }) {
 }
 
 function DrillCard({ drill, blocked }: { drill: Lab; blocked: boolean }) {
+  const t = useT()
   const navigate = useNavigate()
   const qc = useQueryClient()
 
@@ -119,11 +122,11 @@ function DrillCard({ drill, blocked }: { drill: Lab; blocked: boolean }) {
           <ul className="mt-3 flex flex-wrap gap-2 text-xs text-fg-subtle">
             <Chip>
               <ClockIcon className="h-3.5 w-3.5" />
-              {drill.duration_minutes} phút để cứu
+              {t('war.minutesToFix', { n: drill.duration_minutes })}
             </Chip>
-            <Chip>Container Linux thật</Chip>
-            <Chip>Lỗi bốc ngẫu nhiên</Chip>
-            <Chip>Không cần đăng ký khoá</Chip>
+            <Chip>{t('war.chipContainer')}</Chip>
+            <Chip>{t('war.chipRandom')}</Chip>
+            <Chip>{t('war.chipNoEnrol')}</Chip>
           </ul>
         </div>
 
@@ -131,28 +134,28 @@ function DrillCard({ drill, blocked }: { drill: Lab; blocked: boolean }) {
           <button
             onClick={() => start.mutate()}
             disabled={start.isPending || blocked}
-            title={blocked ? 'Đang có một phiên chạy dở — kết thúc nó trước' : undefined}
+            title={blocked ? t('war.blockedTitle') : undefined}
             className="inline-flex items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
             <TerminalIcon className="h-4 w-4" />
-            {start.isPending ? 'Đang dựng…' : 'Bắt đầu ca trực'}
+            {start.isPending ? t('war.starting') : t('war.start')}
           </button>
           {/* Cảnh báo đứng cạnh nút chứ không nằm cuối thẻ: bấm xong là đồng hồ
               chạy, không có màn xác nhận nào ở giữa. */}
           <p className="text-xs text-fg-subtle sm:text-right">
-            Bấm là đồng hồ chạy ngay.
+            {t('war.clockWarning')}
           </p>
         </div>
       </div>
 
       {busy && (
         <p className="mt-3 text-sm text-danger">
-          Bạn đang có một phiên khác chạy dở. Kết thúc phiên đó rồi quay lại.
+          {t('war.blockedShort')}
         </p>
       )}
       {start.isError && !busy && (
         <p className="mt-3 text-sm text-danger">
-          Không bắt đầu được ca trực. Thử lại sau ít phút.
+          {t('war.startFailed')}
         </p>
       )}
     </Card>

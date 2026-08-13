@@ -15,19 +15,21 @@ import {
   UsersIcon,
 } from '@/components/icons'
 import type { CourseSummary } from '@/lib/types'
+import { useT, type Key } from '@/lib/i18n'
 
 type Filter = 'all' | 'published' | 'draft'
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'Tất cả' },
-  { key: 'published', label: 'Đã đăng' },
-  { key: 'draft', label: 'Nháp' },
+const FILTERS: { key: Filter; label: Key }[] = [
+  { key: 'all', label: 'admin.filter.all' },
+  { key: 'published', label: 'admin.filter.published' },
+  { key: 'draft', label: 'admin.filter.draft' },
 ]
 
 /** The course list. Adding and editing live at their own URLs, so this screen
  *  only ever shows the totals and the table — and Back from a form lands here
  *  rather than leaving the admin area. */
 export default function Admin() {
+  const t = useT()
   const qc = useQueryClient()
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
@@ -43,7 +45,7 @@ export default function Admin() {
       setError('')
     },
     onError: (e) =>
-      setError(e instanceof ApiError ? e.message : 'không xoá được, thử lại'),
+      setError(e instanceof ApiError ? e.message : t('admin.deleteFailed')),
   })
 
   // The totals are a fold over the rows already on screen — a dashboard
@@ -81,16 +83,15 @@ export default function Admin() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-fg-strong">Quản trị khoá học</h1>
+          <h1 className="text-2xl font-bold text-fg-strong">{t('admin.title')}</h1>
           <p className="mt-1 text-sm text-fg-muted">
-            Thêm, sửa, xoá khoá học. Khoá ở trạng thái nháp không hiện ngoài danh
-            sách công khai.
+            {t('admin.subtitle')}
           </p>
         </div>
         <Link to="/admin/courses/new">
           <Button>
             <PlusIcon className="h-4 w-4" />
-            Thêm khoá học
+            {t('admin.addCourse')}
           </Button>
         </Link>
       </div>
@@ -102,23 +103,30 @@ export default function Admin() {
       )}
 
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-fg-strong">Tổng quan</h2>
+        <h2 className="mb-3 text-sm font-semibold text-fg-strong">
+          {t('admin.overview')}
+        </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard
-            label="Khoá học"
+            label={t('admin.statCourses')}
             value={totals.courses}
             icon={BookIcon}
             tint="amber"
           />
           <StatCard
-            label="Đã đăng"
+            label={t('admin.statPublished')}
             value={totals.published}
             icon={CheckIcon}
             tint="emerald"
           />
-          <StatCard label="Lab" value={totals.labs} icon={LayersIcon} tint="sky" />
           <StatCard
-            label="Học viên"
+            label={t('admin.statLabs')}
+            value={totals.labs}
+            icon={LayersIcon}
+            tint="sky"
+          />
+          <StatCard
+            label={t('admin.statStudents')}
             value={totals.students}
             icon={UsersIcon}
             tint="violet"
@@ -129,7 +137,7 @@ export default function Admin() {
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-fg-strong">
-            Danh sách khoá học
+            {t('admin.courseList')}
             {!empty && (
               <span className="ml-2 font-normal text-fg-subtle">
                 {shown.length}/{all.length}
@@ -144,15 +152,15 @@ export default function Admin() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 type="search"
-                placeholder="Tìm theo tên hoặc slug…"
-                aria-label="Tìm khoá học"
+                placeholder={t('admin.searchPlaceholder')}
+                aria-label={t('admin.searchLabel')}
                 className="w-56 rounded-lg border border-border-strong bg-bg py-2 pr-3 pl-9 text-sm text-fg outline-none transition placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/25"
               />
             </div>
 
             <div
               role="group"
-              aria-label="Lọc theo trạng thái"
+              aria-label={t('admin.filterGroup')}
               className="flex gap-1 rounded-lg border border-border bg-surface p-1"
             >
               {FILTERS.map((f) => (
@@ -167,7 +175,7 @@ export default function Admin() {
                       : 'text-fg-muted hover:text-fg-strong')
                   }
                 >
-                  {f.label}
+                  {t(f.label)}
                 </button>
               ))}
             </div>
@@ -176,16 +184,18 @@ export default function Admin() {
 
         <Card className="overflow-hidden">
           {courses.isLoading && (
-            <p className="px-4 py-10 text-center text-sm text-fg-subtle">Đang tải…</p>
+            <p className="px-4 py-10 text-center text-sm text-fg-subtle">
+              {t('common.loading')}
+            </p>
           )}
 
           {!courses.isLoading && empty && (
             <div className="px-4 py-12 text-center">
-              <p className="text-sm text-fg-muted">Chưa có khoá học nào.</p>
+              <p className="text-sm text-fg-muted">{t('admin.empty')}</p>
               <Link to="/admin/courses/new" className="mt-3 inline-block">
                 <Button>
                   <PlusIcon className="h-4 w-4" />
-                  Tạo khoá đầu tiên
+                  {t('admin.createFirst')}
                 </Button>
               </Link>
             </div>
@@ -193,7 +203,7 @@ export default function Admin() {
 
           {!courses.isLoading && !empty && shown.length === 0 && (
             <p className="px-4 py-12 text-center text-sm text-fg-subtle">
-              Không khoá nào khớp bộ lọc.
+              {t('admin.noMatch')}
             </p>
           )}
 
@@ -205,11 +215,11 @@ export default function Admin() {
               <table className="hidden w-full text-left text-sm md:table">
                 <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-fg-subtle">
                   <tr>
-                    <th className="px-4 py-3 font-medium">Khoá học</th>
-                    <th className="px-4 py-3 font-medium">Cấp độ</th>
-                    <th className="px-4 py-3 font-medium">Trạng thái</th>
-                    <th className="px-4 py-3 text-right font-medium">Lab</th>
-                    <th className="px-4 py-3 text-right font-medium">Học viên</th>
+                    <th className="px-4 py-3 font-medium">{t('admin.colCourse')}</th>
+                    <th className="px-4 py-3 font-medium">{t('admin.colLevel')}</th>
+                    <th className="px-4 py-3 font-medium">{t('admin.colStatus')}</th>
+                    <th className="px-4 py-3 text-right font-medium">{t('admin.colLabs')}</th>
+                    <th className="px-4 py-3 text-right font-medium">{t('admin.colStudents')}</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
@@ -261,8 +271,12 @@ export default function Admin() {
                     </div>
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-muted">
                       <span>{c.level}</span>
-                      <span>{c.lab_count} lab</span>
-                      <span>{c.student_count} học viên</span>
+                      <span>
+                        {c.lab_count} {t('admin.labsWord')}
+                      </span>
+                      <span>
+                        {c.student_count} {t('admin.studentsWord')}
+                      </span>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-1">
                       <RowActions
@@ -283,8 +297,10 @@ export default function Admin() {
           mất theo mới là khác biệt giữa một lời xác nhận và một thủ tục. */}
       {deleting && (
         <ConfirmModal
-          title={`Xoá "${deleting.title}"?`}
-          confirmLabel={remove.isPending ? 'Đang xoá…' : 'Xoá khoá học'}
+          title={t('admin.deleteTitle', { name: deleting.title })}
+          confirmLabel={
+            remove.isPending ? t('admin.deleting') : t('admin.deleteCourse')
+          }
           tone="danger"
           busy={remove.isPending}
           onClose={() => setDeleting(null)}
@@ -293,19 +309,19 @@ export default function Admin() {
             setDeleting(null)
           }}
         >
-          <p>Mất theo:</p>
+          <p>{t('admin.lostWith')}</p>
           <ul className="ml-4 list-disc space-y-1">
             <li>
-              <strong className="text-fg-strong">{deleting.lab_count}</strong> lab,
-              kèm toàn bộ nhiệm vụ của chúng
+              <strong className="text-fg-strong">{deleting.lab_count}</strong>{' '}
+              {t('admin.lostLabs')}
             </li>
             <li>
               <strong className="text-fg-strong">{deleting.student_count}</strong>{' '}
-              lượt ghi danh
+              {t('admin.lostEnrolments')}
             </li>
-            <li>toàn bộ điểm học viên đã kiếm được ở khoá này</li>
+            <li>{t('admin.lostScores')}</li>
           </ul>
-          <p className="text-danger">Không khôi phục được.</p>
+          <p className="text-danger">{t('admin.notRecoverable')}</p>
         </ConfirmModal>
       )}
     </div>
@@ -313,6 +329,7 @@ export default function Admin() {
 }
 
 function StatusPill({ status }: { status: CourseSummary['status'] }) {
+  const t = useT()
   return (
     <span
       className={
@@ -329,7 +346,7 @@ function StatusPill({ status }: { status: CourseSummary['status'] }) {
         }
         aria-hidden="true"
       />
-      {status === 'published' ? 'đã đăng' : 'nháp'}
+      {status === 'published' ? t('admin.published') : t('admin.draft')}
     </span>
   )
 }
@@ -343,6 +360,7 @@ function RowActions({
   onDelete: (c: CourseSummary) => void
   disabled: boolean
 }) {
+  const t = useT()
   return (
     <>
       {/* "Nội dung" rather than "Lab & nhiệm vụ": the page behind it also holds
@@ -352,20 +370,20 @@ function RowActions({
         to={`/admin/courses/${course.id}`}
         className="rounded px-2 py-1 text-sm text-accent-soft transition hover:bg-muted"
       >
-        Nội dung
+        {t('admin.rowContent')}
       </Link>
       <Link
         to={`/admin/courses/${course.id}/edit`}
         className="rounded px-2 py-1 text-sm text-accent-soft transition hover:bg-muted"
       >
-        Sửa
+        {t('admin.rowEdit')}
       </Link>
       <button
         onClick={() => onDelete(course)}
         disabled={disabled}
         className="rounded px-2 py-1 text-sm text-danger transition hover:bg-danger/10 disabled:opacity-50"
       >
-        Xoá
+        {t('admin.rowDelete')}
       </button>
     </>
   )

@@ -1,37 +1,50 @@
 import { NavLink, Outlet } from 'react-router-dom'
 
-import { BookIcon, ChartIcon, ClockIcon, UsersIcon } from '@/components/icons'
+import {
+  BookIcon,
+  ChartIcon,
+  ClockIcon,
+  TerminalIcon,
+  UsersIcon,
+} from '@/components/icons'
+import { useT, type Key } from '@/lib/i18n'
 
 type Section = {
   to: string
-  label: string
-  hint: string
+  label: Key
+  hint: Key
   icon: (p: { className?: string }) => React.ReactElement
 }
 
 const SECTIONS: Section[] = [
   {
     to: '/admin/dashboard',
-    label: 'Tổng quan',
-    hint: 'số liệu học viên, lượt làm lab',
+    label: 'adminNav.overview',
+    hint: 'adminNav.overviewHint',
     icon: ChartIcon,
   },
   {
     to: '/admin/courses',
-    label: 'Khoá học',
-    hint: 'khoá, lab và nhiệm vụ',
+    label: 'adminNav.courses',
+    hint: 'adminNav.coursesHint',
     icon: BookIcon,
   },
   {
+    to: '/admin/war-room',
+    label: 'adminNav.warRoom',
+    hint: 'adminNav.warRoomHint',
+    icon: TerminalIcon,
+  },
+  {
     to: '/admin/users',
-    label: 'Người dùng',
-    hint: 'tài khoản, phân quyền',
+    label: 'adminNav.users',
+    hint: 'adminNav.usersHint',
     icon: UsersIcon,
   },
   {
     to: '/admin/audit',
-    label: 'Nhật ký',
-    hint: 'ai làm gì, lúc nào',
+    label: 'adminNav.audit',
+    hint: 'adminNav.auditHint',
     icon: ClockIcon,
   },
 ]
@@ -40,6 +53,7 @@ const SECTIONS: Section[] = [
  *  right. One layout rather than a header repeated per page, so adding the next
  *  section is a route plus one entry above. */
 export default function AdminLayout() {
+  const t = useT()
   return (
     <div className="mx-auto flex max-w-7xl gap-6 px-4 py-8">
       {/* The nav is a card like every other block, and it sticks: the course
@@ -48,7 +62,7 @@ export default function AdminLayout() {
       <aside className="hidden w-56 shrink-0 lg:block">
         <div className="sticky top-8 rounded-xl border border-border bg-surface p-2 shadow-sm">
           <p className="px-3 pt-1 pb-2 font-mono text-xs uppercase tracking-wide text-fg-subtle">
-            Quản trị
+            {t('adminNav.section')}
           </p>
           <nav className="space-y-1">
             {SECTIONS.map((s) => (
@@ -78,6 +92,7 @@ function SectionLink({
   section: Section
   compact?: boolean
 }) {
+  const t = useT()
   const { icon: Icon, label, hint, to } = section
 
   return (
@@ -95,7 +110,7 @@ function SectionLink({
         <>
           <Icon className="h-4 w-4 shrink-0" />
           <span className="min-w-0">
-            <span className="block truncate">{label}</span>
+            <span className="block truncate">{t(label)}</span>
             {!compact && (
               <span
                 className={
@@ -103,7 +118,7 @@ function SectionLink({
                   (isActive ? 'text-accent-fg/75' : 'text-fg-subtle')
                 }
               >
-                {hint}
+                {t(hint)}
               </span>
             )}
           </span>

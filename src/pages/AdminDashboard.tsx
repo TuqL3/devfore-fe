@@ -14,6 +14,7 @@ import {
 } from '@/components/icons'
 import { formatWhen, timeAgo } from '@/lib/relativeTime'
 import type { LabStat, RunningSession } from '@/lib/types'
+import { useT } from '@/lib/i18n'
 
 const pct = (part: number, whole: number) =>
   whole > 0 ? Math.round((part / whole) * 100) : 0
@@ -22,13 +23,18 @@ const pct = (part: number, whole: number) =>
  *  per-lab table under them. No time series — "what does the platform look like
  *  right now" is the question here, and a trend is a different screen. */
 export default function AdminDashboard() {
+  const t = useT()
   const stats = useQuery({ queryKey: ['admin-stats'], queryFn: adminApi.stats })
 
   if (stats.isLoading) {
-    return <p className="py-12 text-center text-sm text-fg-subtle">Đang tải…</p>
+    return (
+      <p className="py-12 text-center text-sm text-fg-subtle">
+        {t('common.loading')}
+      </p>
+    )
   }
   if (stats.isError || !stats.data) {
-    return <ErrorBox>Không đọc được số liệu. Thử tải lại trang.</ErrorBox>
+    return <ErrorBox>{t('dash.loadError')}</ErrorBox>
   }
 
   const s = stats.data
@@ -37,9 +43,9 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-fg-strong">Tổng quan</h1>
+        <h1 className="text-2xl font-bold text-fg-strong">{t('dash.title')}</h1>
         <p className="mt-1 text-sm text-fg-muted">
-          Số liệu học viên và lượt làm lab. “Tuần” là 7 ngày gần nhất.
+          {t('dash.subtitle')}
         </p>
       </div>
 
@@ -47,26 +53,26 @@ export default function AdminDashboard() {
         {/* Registrations on their own say nothing about use, so the figure that
             gets the tile is the one with a person behind it. */}
         <StatCard
-          label="Học viên hoạt động (7 ngày)"
+          label={t('dash.activeStudents')}
           value={s.active_students}
           icon={UsersIcon}
           tint="sky"
         />
         <StatCard
-          label="Lượt làm lab (7 ngày)"
+          label={t('dash.sessionsWeek')}
           value={s.sessions_week}
           icon={LayersIcon}
           tint="violet"
         />
         <StatCard
-          label="Khoá đã đăng"
+          label={t('dash.published')}
           value={s.published}
           icon={BookIcon}
           tint="amber"
         />
         {/* The one number here that costs money while nobody is watching it. */}
         <StatCard
-          label="Container đang chạy"
+          label={t('dash.running')}
           value={s.running}
           icon={TerminalIcon}
           tint="emerald"
@@ -74,13 +80,19 @@ export default function AdminDashboard() {
       </div>
 
       <Card className="p-5">
-        <p className="text-sm font-medium text-fg-strong">Cộng dồn từ đầu</p>
+        <p className="text-sm font-medium text-fg-strong">{t('dash.cumulative')}</p>
         <dl className="mt-3 grid gap-x-6 gap-y-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Total label="Tài khoản" value={s.students} />
-          <Total label="Khoá học" value={`${s.published}/${s.courses} đã đăng`} />
-          <Total label="Lượt làm lab" value={s.sessions} />
+          <Total label={t('dash.accounts')} value={s.students} />
           <Total
-            label="Đã nộp bài"
+            label={t('dash.courses')}
+            value={t('dash.publishedOf', {
+              published: s.published,
+              total: s.courses,
+            })}
+          />
+          <Total label={t('dash.sessions')} value={s.sessions} />
+          <Total
+            label={t('dash.submitted')}
             value={`${s.submitted} (${pct(s.submitted, s.sessions)}%)`}
           />
         </dl>
@@ -90,20 +102,19 @@ export default function AdminDashboard() {
 
       <Card className="overflow-hidden">
         <div className="border-b border-border px-5 py-3">
-          <p className="font-medium text-fg-strong">Theo bài lab</p>
+          <p className="font-medium text-fg-strong">{t('dash.byLab')}</p>
           <p className="mt-0.5 text-xs text-fg-muted">
-            “Phải thử lại” là số câu học viên làm đúng nhưng cần hơn một lần chấm
-            — lab có tỉ lệ cao là lab có câu hỏi khó hiểu hoặc thiếu gợi ý.
+            {t('dash.byLabHint')}
           </p>
         </div>
 
         {labs.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-fg-subtle">
-            Chưa có bài lab nào.{' '}
+            {t('dash.noLabsBefore')}{' '}
             <Link to="/admin/courses" className="text-accent-soft hover:underline">
-              Tạo khoá học
+              {t('dash.createCourse')}
             </Link>{' '}
-            trước đã.
+            {t('dash.noLabsAfter')}
           </p>
         ) : (
           /* The table scrolls inside the card rather than widening the page:
@@ -114,10 +125,10 @@ export default function AdminDashboard() {
               <thead>
                 <tr className="border-b border-border text-left text-xs text-fg-muted">
                   <th className="px-5 py-2 font-medium">Lab</th>
-                  <th className="px-3 py-2 text-right font-medium">Lượt</th>
-                  <th className="px-3 py-2 text-right font-medium">Đã nộp</th>
-                  <th className="px-3 py-2 text-right font-medium">Câu đã chấm</th>
-                  <th className="px-5 py-2 text-right font-medium">Phải thử lại</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('dash.colRuns')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('dash.colSubmitted')}</th>
+                  <th className="px-3 py-2 text-right font-medium">{t('dash.colGraded')}</th>
+                  <th className="px-5 py-2 text-right font-medium">{t('dash.colRetried')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -138,6 +149,7 @@ export default function AdminDashboard() {
  *  seconds, and killing one reloads only this. Renders nothing when the list is
  *  empty — an empty table is noise on a screen that is mostly numbers. */
 function RunningSessions() {
+  const t = useT()
   const qc = useQueryClient()
   const [target, setTarget] = useState<RunningSession | null>(null)
   const [error, setError] = useState('')
@@ -160,7 +172,7 @@ function RunningSessions() {
       setError('')
     },
     onError: (e) =>
-      setError(e instanceof ApiError ? e.message : 'không dừng được, thử lại'),
+      setError(e instanceof ApiError ? e.message : t('dash.killFailed')),
   })
 
   const rows = sessions.data ?? []
@@ -173,11 +185,10 @@ function RunningSessions() {
       <Card className="overflow-hidden">
         <div className="border-b border-border px-5 py-3">
           <p className="font-medium text-fg-strong">
-            Container đang chạy ({rows.length})
+            {t('dash.runningCount', { n: rows.length })}
           </p>
           <p className="mt-0.5 text-xs text-fg-muted">
-            Cũ nhất lên đầu — phiên chạy lâu nhất thường là phiên bị bỏ quên.
-            Dừng sẽ xoá container; đáp án đã chấm vẫn giữ nguyên.
+            {t('dash.runningHint')}
           </p>
         </div>
 
@@ -191,11 +202,11 @@ function RunningSessions() {
           <table className="w-full min-w-[40rem] text-sm">
             <thead>
               <tr className="border-b border-border text-left text-xs text-fg-muted">
-                <th className="px-5 py-2 font-medium">Học viên</th>
-                <th className="px-3 py-2 font-medium">Lab</th>
-                <th className="px-3 py-2 font-medium">Bắt đầu</th>
-                <th className="px-3 py-2 font-medium">Hết hạn</th>
-                <th className="px-5 py-2 text-right font-medium">Thao tác</th>
+                <th className="px-5 py-2 font-medium">{t('dash.colStudent')}</th>
+                <th className="px-3 py-2 font-medium">{t('dash.colLab')}</th>
+                <th className="px-3 py-2 font-medium">{t('dash.colStarted')}</th>
+                <th className="px-3 py-2 font-medium">{t('dash.colExpires')}</th>
+                <th className="px-5 py-2 text-right font-medium">{t('dash.colActions')}</th>
               </tr>
             </thead>
             <tbody>
@@ -212,10 +223,10 @@ function RunningSessions() {
                       {s.lab_title}
                       {!s.has_container && (
                         <span
-                          title="hàng phiên có nhưng container không lên"
+                          title={t('dash.noContainerTitle')}
                           className="ml-2 rounded bg-danger/10 px-1.5 py-0.5 text-xs text-danger"
                         >
-                          không có container
+                          {t('dash.noContainer')}
                         </span>
                       )}
                     </td>
@@ -224,7 +235,7 @@ function RunningSessions() {
                     </td>
                     <td className="px-3 py-2.5 whitespace-nowrap text-xs">
                       <span className={overdue ? 'text-danger' : 'text-fg-muted'}>
-                        {overdue ? 'quá hạn — ' : ''}
+                        {overdue ? t('dash.overdue') : ''}
                         {formatWhen(s.expires_at)}
                       </span>
                     </td>
@@ -234,7 +245,7 @@ function RunningSessions() {
                         disabled={kill.isPending}
                         className="rounded-md border border-danger/50 px-3 py-1.5 text-sm font-medium whitespace-nowrap text-danger transition hover:bg-danger/10 disabled:cursor-not-allowed disabled:opacity-40"
                       >
-                        Dừng
+                        {t('dash.kill')}
                       </button>
                     </td>
                   </tr>
@@ -247,20 +258,18 @@ function RunningSessions() {
 
       {target && (
         <ConfirmModal
-          title={`Dừng phiên của “${target.username}”?`}
-          confirmLabel={kill.isPending ? 'Đang dừng…' : 'Dừng phiên'}
+          title={t('dash.killTitle', { name: target.username })}
+          confirmLabel={kill.isPending ? t('dash.killing') : t('dash.killSession')}
           tone="danger"
           busy={kill.isPending}
           onClose={() => setTarget(null)}
           onConfirm={() => kill.mutate(target.id)}
         >
           <p>
-            Container và mọi thứ họ đang làm dở bên trong sẽ bị xoá. Terminal của
-            họ đóng ngay, không có cảnh báo trước.
+            {t('dash.killBody1')}
           </p>
           <p>
-            Các câu đã chấm đúng vẫn được giữ — điểm ghi ngay lúc bấm kiểm tra,
-            không đợi nộp bài.
+            {t('dash.killBody2')}
           </p>
         </ConfirmModal>
       )}

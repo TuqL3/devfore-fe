@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '@/api/auth'
+import { useT } from '@/lib/i18n'
 import { ApiError } from '@/lib/api'
 import { Input, PasswordInput } from '@/components/ui'
 import { GoogleButton } from '@/components/GoogleButton'
@@ -15,6 +16,7 @@ import {
 
 export default function Register() {
   const nav = useNavigate()
+  const t = useT()
   const [form, setForm] = useState({ username: '', email: '', password: '' })
 
   const mut = useMutation({
@@ -34,13 +36,13 @@ export default function Register() {
   const error = mut.isError
     ? mut.error instanceof ApiError
       ? mut.error.message
-      : 'đăng ký thất bại'
+      : t('auth.registerFailed')
     : ''
 
   return (
     <AuthShell cmd="register">
       <form onSubmit={onSubmit} className="space-y-4">
-        <TermField flag="username" hint="tối thiểu 3 ký tự">
+        <TermField flag="username" hint={t('auth.min3')}>
           <Input
             variant="terminal"
             value={form.username}
@@ -62,7 +64,7 @@ export default function Register() {
             required
           />
         </TermField>
-        <TermField flag="password" hint="tối thiểu 8 ký tự">
+        <TermField flag="password" hint={t('auth.min8')}>
           <PasswordInput
             variant="terminal"
             value={form.password}
@@ -78,7 +80,7 @@ export default function Register() {
           {mut.isPending ? 'creating account…' : './create-account'}
         </TermButton>
         <p className="font-mono text-xs text-fg-subtle">
-          # sẽ gửi mã xác thực 6 số tới email của bạn
+          # {t('auth.codeWillBeSent')}
         </p>
       </form>
 
@@ -86,7 +88,7 @@ export default function Register() {
       <GoogleButton />
 
       <p className="font-mono text-sm text-fg-subtle">
-        # đã có tài khoản?{' '}
+        # {t('auth.haveAccount')}{' '}
         <Link to="/login" className="text-accent-soft hover:underline">
           ./login
         </Link>

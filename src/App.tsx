@@ -19,6 +19,7 @@ import Admin from '@/pages/Admin'
 import AdminDashboard from '@/pages/AdminDashboard'
 import AdminUsers from '@/pages/AdminUsers'
 import AdminAudit from '@/pages/AdminAudit'
+import AdminWarRoom from '@/pages/AdminWarRoom'
 import AdminCourse from '@/pages/AdminCourse'
 import AdminCourseForm from '@/pages/AdminCourseForm'
 import SimList from '@/pages/SimList'
@@ -84,6 +85,7 @@ export default function App() {
             <Route path="dashboard" element={<AdminDashboard />} />
             <Route path="users" element={<AdminUsers />} />
             <Route path="audit" element={<AdminAudit />} />
+            <Route path="war-room" element={<AdminWarRoom />} />
             <Route path="courses" element={<Admin />} />
             {/* Static before param: /admin/courses/new must not be read as a
                 course whose id is "new". */}

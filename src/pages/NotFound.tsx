@@ -2,6 +2,7 @@ import { Link, useLocation } from 'react-router-dom'
 
 import { Card } from '@/components/ui'
 import { SearchIcon } from '@/components/icons'
+import { useT } from '@/lib/i18n'
 
 /** Đường dẫn không khớp route nào.
  *
@@ -16,19 +17,20 @@ import { SearchIcon } from '@/components/icons'
  *  được mời về trang chủ.
  */
 export function NotFound({ variant = 'site' }: { variant?: 'site' | 'admin' }) {
+  const t = useT()
   const { pathname } = useLocation()
 
   const links =
     variant === 'admin'
       ? [
-          { to: '/admin/dashboard', label: 'Tổng quan' },
-          { to: '/admin/courses', label: 'Khoá học' },
-          { to: '/admin/users', label: 'Người dùng' },
+          { to: '/admin/dashboard', label: t('notFound.overview') },
+          { to: '/admin/courses', label: t('nav.courses') },
+          { to: '/admin/users', label: t('notFound.users') },
         ]
       : [
-          { to: '/', label: 'Trang chủ' },
-          { to: '/courses', label: 'Khoá học' },
-          { to: '/sim', label: 'Mô phỏng' },
+          { to: '/', label: t('footer.home') },
+          { to: '/courses', label: t('nav.courses') },
+          { to: '/sim', label: t('nav.sim') },
         ]
 
   return (
@@ -38,13 +40,13 @@ export function NotFound({ variant = 'site' }: { variant?: 'site' | 'admin' }) {
       </span>
       <p className="mt-4 font-mono text-sm text-fg-subtle">404</p>
       <h1 className="mt-1 text-lg font-bold text-fg-strong">
-        Không có trang này
+        {t('notFound.title')}
       </h1>
       {/* In lại đúng đường dẫn: phần lớn lỗi loại này là gõ nhầm hoặc link cũ,
           và nhìn thấy nó là biết ngay sai ở đâu. */}
       <p className="mt-2 break-all font-mono text-xs text-fg-muted">{pathname}</p>
       <p className="mt-3 text-sm text-fg-muted">
-        Có thể địa chỉ gõ nhầm, hoặc trang này đã được gỡ đi.
+        {t('notFound.body')}
       </p>
 
       <div className="mt-5 flex flex-wrap justify-center gap-2">

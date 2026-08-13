@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
+import { useT } from "@/lib/i18n";
 
 export default function AuthCallback() {
   const nav = useNavigate();
+  const t = useT();
   const { refreshUser } = useAuth();
   const [error, setError] = useState("");
   const ran = useRef(false);
@@ -17,8 +19,8 @@ export default function AuthCallback() {
 
     refreshUser()
       .then(() => nav("/", { replace: true }))
-      .catch(() => setError("Không lấy được thông tin người dùng"));
-  }, [refreshUser, nav]);
+      .catch(() => setError(t("auth.callbackFailed")));
+  }, [refreshUser, nav, t]);
 
   return (
     <div className="flex min-h-screen items-center justify-center text-fg-muted">
@@ -26,11 +28,11 @@ export default function AuthCallback() {
         <div className="text-center">
           <p className="text-danger">{error}</p>
           <a href="/login" className="text-accent-soft hover:underline">
-            Về trang đăng nhập
+            {t("auth.backToLogin")}
           </a>
         </div>
       ) : (
-        "Đang đăng nhập…"
+        t("auth.signingIn")
       )}
     </div>
   );

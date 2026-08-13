@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 
 import { clockLabel } from '@/lib/clock'
+import { locale, useT } from '@/lib/i18n'
 
 /** Dải trạng thái của một ca trực: đồng hồ chạy từ lúc phiên bắt đầu, và số
  *  request hỏng tăng theo từng giây.
@@ -25,6 +26,7 @@ export function IncidentBar({
    *  màn hình thấy nó dừng. */
   live: boolean
 }) {
+  const t = useT()
   const [now, setNow] = useState(() => Date.now())
   // Giây lúc dịch vụ sống lại, chốt đúng một lần. Nếu để đồng hồ chạy tiếp thì
   // dải này vẫn tính tiền một sự cố đã xong; nếu tính lại từ `Date.now()` mỗi
@@ -60,20 +62,22 @@ export function IncidentBar({
       }
     >
       <span className="font-semibold">
-        {live ? 'Đang có sự cố' : 'Dịch vụ đã sống lại'}
+        {live ? t('incident.live') : t('incident.recovered')}
       </span>
 
-      <span className="font-mono tabular-nums" aria-label="Thời gian sự cố">
+      <span className="font-mono tabular-nums" aria-label={t('incident.clockLabel')}>
         {clockLabel(seconds)}
       </span>
 
       <span className="text-fg-muted">
-        <span className="font-mono tabular-nums">~{failed.toLocaleString('vi-VN')}</span>{' '}
-        request hỏng
+        <span className="font-mono tabular-nums">
+          ~{failed.toLocaleString(locale())}
+        </span>{' '}
+        {t('incident.failedRequests')}
       </span>
 
       <span className="ml-auto text-xs text-fg-subtle">
-        Ước lượng ở {rps} request/giây — con số mô phỏng, không đo từ hệ thống thật.
+        {t('incident.estimate', { rps })}
       </span>
     </div>
   )

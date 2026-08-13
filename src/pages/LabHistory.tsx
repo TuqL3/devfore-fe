@@ -14,33 +14,34 @@ import {
 } from '@/components/icons'
 import type { LabHistoryRow, SessionStatus } from '@/lib/types'
 import { formatWhen } from '@/lib/relativeTime'
+import { useT, type Key } from '@/lib/i18n'
 
 /** How a finished session reads. `running` is the one still open, and it is the
  *  only row that leads back into the lab rather than into a report. */
 const STATUS: Record<
   SessionStatus,
-  { label: string; dot: string; text: string; bg: string }
+  { label: Key; dot: string; text: string; bg: string }
 > = {
   submitted: {
-    label: 'Đã nộp',
+    label: 'history.status.submitted',
     dot: 'bg-success',
     text: 'text-success',
     bg: 'bg-success-soft',
   },
   running: {
-    label: 'Đang chạy',
+    label: 'history.status.running',
     dot: 'bg-accent',
     text: 'text-accent-soft',
     bg: 'bg-accent/10',
   },
   ended: {
-    label: 'Bỏ dở',
+    label: 'history.status.ended',
     dot: 'bg-fg-subtle',
     text: 'text-fg-muted',
     bg: 'bg-muted',
   },
   expired: {
-    label: 'Hết giờ',
+    label: 'history.status.expired',
     dot: 'bg-danger',
     text: 'text-danger',
     bg: 'bg-danger/10',
@@ -49,15 +50,16 @@ const STATUS: Record<
 
 type Filter = 'all' | SessionStatus
 
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: 'all', label: 'Tất cả' },
-  { key: 'submitted', label: 'Đã nộp' },
-  { key: 'running', label: 'Đang chạy' },
-  { key: 'ended', label: 'Bỏ dở' },
-  { key: 'expired', label: 'Hết giờ' },
+const FILTERS: { key: Filter; label: Key }[] = [
+  { key: 'all', label: 'history.filter.all' },
+  { key: 'submitted', label: 'history.status.submitted' },
+  { key: 'running', label: 'history.status.running' },
+  { key: 'ended', label: 'history.status.ended' },
+  { key: 'expired', label: 'history.status.expired' },
 ]
 
 export default function LabHistory() {
+  const t = useT()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<Filter>('all')
 
@@ -76,9 +78,9 @@ export default function LabHistory() {
   return (
     // Bề rộng do `Layout` quyết — xem chú thích ở SimList.
     <div>
-      <h1 className="text-2xl font-bold text-fg-strong">Lịch sử thực hành</h1>
+      <h1 className="text-2xl font-bold text-fg-strong">{t('history.title')}</h1>
       <p className="mt-1 text-sm text-fg-muted">
-        Mỗi lần bạn mở một bài lab là một lượt. Mở một lượt để xem lại từng câu.
+        {t('history.subtitle')}
       </p>
 
       <div className="mt-6 space-y-3">
@@ -88,15 +90,15 @@ export default function LabHistory() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             type="search"
-            placeholder="Tìm bài thực hành…"
-            aria-label="Tìm bài thực hành"
+            placeholder={t('history.search')}
+            aria-label={t('history.search')}
             className="w-full rounded-lg border border-border-strong bg-bg py-2.5 pr-3 pl-9 text-sm text-fg outline-none transition placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/25"
           />
         </div>
 
         <div
           role="group"
-          aria-label="Lọc theo trạng thái"
+          aria-label={t('history.filterGroup')}
           className="flex flex-wrap gap-1 rounded-lg border border-border bg-surface p-1"
         >
           {FILTERS.map((f) => (
@@ -111,7 +113,7 @@ export default function LabHistory() {
                   : 'text-fg-muted hover:text-fg-strong')
               }
             >
-              {f.label}
+              {t(f.label)}
             </button>
           ))}
         </div>
@@ -119,12 +121,12 @@ export default function LabHistory() {
 
       <div className="mt-4 space-y-2">
         {history.isLoading && (
-          <p className="py-10 text-center text-sm text-fg-subtle">Đang tải…</p>
+          <p className="py-10 text-center text-sm text-fg-subtle">{t('common.loading')}</p>
         )}
 
         {history.isError && (
           <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
-            Không tải được lịch sử, thử lại sau.
+            {t('history.loadError')}
           </p>
         )}
 
@@ -134,20 +136,20 @@ export default function LabHistory() {
               <TerminalIcon className="h-5 w-5" />
             </span>
             <p className="mt-3 text-sm font-medium text-fg">
-              Bạn chưa làm bài thực hành nào
+              {t('history.empty')}
             </p>
             <Link
               to="/courses"
               className="mt-4 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:bg-accent-hover"
             >
-              Xem khoá học
+              {t('history.viewCourses')}
             </Link>
           </Card>
         )}
 
         {!history.isLoading && all.length > 0 && shown.length === 0 && (
           <p className="py-10 text-center text-sm text-fg-subtle">
-            Không lượt nào khớp bộ lọc.
+            {t('history.noMatch')}
           </p>
         )}
 
@@ -160,6 +162,7 @@ export default function LabHistory() {
 }
 
 function HistoryCard({ row }: { row: LabHistoryRow }) {
+  const t = useT()
   const s = STATUS[row.status]
   const running = row.status === 'running'
   // A running session has no report to read yet; the only useful thing to do
@@ -198,7 +201,7 @@ function HistoryCard({ row }: { row: LabHistoryRow }) {
               not a result anybody handed in. */}
           {row.status === 'submitted' && (
             <span className="tabular-nums">
-              {row.correct}/{row.total} câu đúng
+              {row.correct}/{row.total} {t('history.correctOf')}
             </span>
           )}
         </p>
@@ -213,7 +216,7 @@ function HistoryCard({ row }: { row: LabHistoryRow }) {
         }
       >
         <span className={'h-1.5 w-1.5 rounded-full ' + s.dot} aria-hidden="true" />
-        {s.label}
+        {t(s.label)}
       </span>
       <ChevronRightIcon className="h-4 w-4 shrink-0 text-fg-subtle" />
     </Link>

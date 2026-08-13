@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { Avatar } from '@/components/Avatar'
 import { SignOutButton } from '@/components/SignOutButton'
 import { ChartIcon, LogOutIcon, UsersIcon } from '@/components/icons'
+import { useT } from '@/lib/i18n'
 import type { User } from '@/lib/types'
 
 /** Menu tài khoản: hồ sơ, quản trị, giao diện, đăng xuất.
@@ -18,6 +19,7 @@ export function UserMenu({ user, isAdmin }: { user: User; isAdmin: boolean }) {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
   const { pathname } = useLocation()
+  const t = useT()
 
   // Đổi trang là đóng. Không có dòng này thì bấm "Quản trị" xong menu vẫn treo
   // trên trang mới, che đúng chỗ vừa mở ra.
@@ -71,7 +73,7 @@ export function UserMenu({ user, isAdmin }: { user: User; isAdmin: boolean }) {
             className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-fg transition hover:bg-muted hover:text-fg-strong"
           >
             <UsersIcon className="h-4 w-4 text-fg-subtle" />
-            Hồ sơ của bạn
+            {t('menu.profile')}
           </Link>
 
           {isAdmin && (
@@ -81,7 +83,7 @@ export function UserMenu({ user, isAdmin }: { user: User; isAdmin: boolean }) {
               className="flex items-center gap-2.5 px-3 py-2.5 text-sm text-fg transition hover:bg-muted hover:text-fg-strong"
             >
               <ChartIcon className="h-4 w-4 text-fg-subtle" />
-              Quản trị
+              {t('menu.admin')}
             </Link>
           )}
 
@@ -94,7 +96,7 @@ export function UserMenu({ user, isAdmin }: { user: User; isAdmin: boolean }) {
               className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm text-fg-muted transition hover:bg-muted hover:text-danger"
             >
               <LogOutIcon className="h-4 w-4" />
-              Đăng xuất
+              {t('menu.signOut')}
             </SignOutButton>
           </div>
         </div>

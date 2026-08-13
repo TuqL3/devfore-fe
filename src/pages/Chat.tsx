@@ -10,6 +10,7 @@ import { ChatSidebar, type Target } from '@/components/ChatSidebar'
 import { ChatThread } from '@/components/ChatThread'
 import { UsersIcon } from '@/components/icons'
 import type { ChatMessage } from '@/lib/types'
+import { useT } from '@/lib/i18n'
 
 /** The shared room and every direct thread.
  *
@@ -17,6 +18,7 @@ import type { ChatMessage } from '@/lib/types'
  *  while somebody is on another page still counts. This screen only reads what
  *  the provider holds and fetches the history the socket cannot know about. */
 export default function Chat() {
+  const t = useT()
   const { user } = useAuth()
   const { status, live, unread, send, edit, remove, markRead } = useChat()
   const [target, setTarget] = useState<Target>(null)
@@ -92,12 +94,10 @@ export default function Chat() {
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-fg-strong">
-              {target === null ? 'Phòng chung' : (peer?.username ?? 'Trò chuyện')}
+              {target === null ? t('chat.room') : (peer?.username ?? t('chat.dm'))}
             </p>
             <p className="truncate text-xs text-fg-muted">
-              {target === null
-                ? 'Mọi người trên nền tảng đều đọc được'
-                : 'Chỉ hai người đọc được'}
+              {target === null ? t('chat.roomSub') : t('chat.dmSub')}
             </p>
           </div>
           <ConnBadge status={status} online={pages?.[0]?.online} />
@@ -114,7 +114,9 @@ export default function Chat() {
           loadingOlder={history.isFetchingNextPage}
           onLoadOlder={history.fetchNextPage}
           canSend={status === 'open'}
-          placeholder={status === 'open' ? 'Nhập tin nhắn…' : 'Đang kết nối lại…'}
+          placeholder={
+            status === 'open' ? t('chat.placeholder') : t('chat.reconnecting')
+          }
           // Notifications are on by default and there is no switch for them, so
           // the permission is asked for here rather than from a button: sending
           // a message is a real user gesture, which is what a browser requires,
@@ -149,6 +151,7 @@ function ConnBadge({
   status: 'connecting' | 'open' | 'closed'
   online?: number
 }) {
+  const t = useT()
   const tone =
     status === 'open'
       ? 'bg-success-soft text-success'
@@ -158,11 +161,11 @@ function ConnBadge({
   const label =
     status === 'open'
       ? online
-        ? `${online} đang mở`
-        : 'đã kết nối'
+        ? t('chat.online', { n: online })
+        : t('chat.connected')
       : status === 'connecting'
-        ? 'đang kết nối…'
-        : 'mất kết nối'
+        ? t('chat.connecting')
+        : t('chat.disconnected')
 
   return (
     <span

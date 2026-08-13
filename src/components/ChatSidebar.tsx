@@ -6,6 +6,7 @@ import { Avatar } from '@/components/Avatar'
 import { SearchIcon, UsersIcon } from '@/components/icons'
 import { timeAgo } from '@/lib/relativeTime'
 import type { ChatConversation } from '@/lib/types'
+import { useT } from '@/lib/i18n'
 
 /** null is the shared room. A number is the other person in a direct thread. */
 export type Target = number | null
@@ -26,6 +27,7 @@ export function ChatSidebar({
    *  shared room, anything else is the other person's id. */
   unread: Record<number, number>
 }) {
+  const t = useT()
   const [query, setQuery] = useState('')
   // Built in, so typing does not fire a request per keystroke.
   const q = useDeferredValue(query)
@@ -49,7 +51,7 @@ export function ChatSidebar({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Tìm người để nhắn riêng"
+          placeholder={t('chat.searchPeople')}
           className="w-full rounded-lg border border-border-strong bg-bg py-2 pr-3 pl-9 text-sm outline-none transition placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/25"
         />
       </div>
@@ -63,18 +65,18 @@ export function ChatSidebar({
               <UsersIcon className="h-4 w-4" />
             </span>
           }
-          title="Phòng chung"
-          subtitle="Cả nền tảng đọc được"
+          title={t('chat.room')}
+          subtitle={t('chat.roomSubShort')}
           unread={unread[0] ?? 0}
         />
 
         {searching ? (
           <>
-            <Label>Kết quả tìm kiếm</Label>
+            <Label>{t('chat.searchResults')}</Label>
             {people.isLoading ? (
-              <Empty>Đang tìm…</Empty>
+              <Empty>{t('chat.searching')}</Empty>
             ) : found.length === 0 ? (
-              <Empty>Không có ai khớp.</Empty>
+              <Empty>{t('chat.noMatch')}</Empty>
             ) : (
               found.map((p) => (
                 <Row
@@ -86,17 +88,17 @@ export function ChatSidebar({
                   }}
                   icon={<Avatar user={p} className="h-9 w-9 rounded-lg text-xs" />}
                   title={p.username}
-                  subtitle="Bắt đầu trò chuyện"
+                  subtitle={t('chat.startConversation')}
                 />
               ))
             )}
           </>
         ) : (
           <>
-            <Label>Tin nhắn riêng</Label>
+            <Label>{t('chat.directMessages')}</Label>
             {conversations.length === 0 ? (
               <Empty>
-                Chưa có cuộc trò chuyện nào. Tìm tên ở ô trên để bắt đầu.
+                {t('chat.noConversations')}
               </Empty>
             ) : (
               conversations.map((c) => (
@@ -112,7 +114,7 @@ export function ChatSidebar({
                   }
                   title={c.username}
                   subtitle={
-                    c.last_deleted ? 'Tin nhắn đã thu hồi' : c.last_body || '—'
+                    c.last_deleted ? t('chat.deletedShort') : c.last_body || '—'
                   }
                   meta={c.last_at ? timeAgo(c.last_at) : undefined}
                   muted={c.last_deleted}
