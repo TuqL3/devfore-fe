@@ -493,6 +493,52 @@ export interface IncidentReport {
   timeline: IncidentCommand[]
 }
 
+/** Một ca trực đã kết thúc, dưới con mắt người lạ.
+ *
+ *  Thứ **không** có ở đây mới là điểm chính, và nó được quyết ở câu SQL bên
+ *  server chứ không phải ở chỗ vẽ: không có timeline (bản ghi nguyên văn thứ
+ *  người ta gõ vào shell — chỗ một cái mật khẩu gõ nhầm hay tên host nội bộ lọt
+ *  ra), không có `reveal_md` (lời giải, mà chính trang này lại mời người đọc thử
+ *  ca đó), không email, không id phiên.
+ *
+ *  `incident_title` gọi tên lỗi nên nó là spoiler. Vẫn gửi — kết quả này nói về
+ *  đúng cái lỗi đó — và trang giữ nó sau một cú bấm có cảnh báo. */
+export interface SharedDrill {
+  token: string
+  lab_slug: string
+  lab_title: string
+  /** Kịch bản để giao cho người bấm "Thử ca này". Đây là toàn bộ nghĩa của "cùng
+   *  seed": ca trực phát lại một hàng dữ liệu, không phải một số ngẫu nhiên. */
+  incident_id: number
+  incident_title: string
+  /** Tên hiển thị, không bao giờ là email. */
+  player: string
+  started_at: string
+  /** false nghĩa là hết giờ mà dịch vụ vẫn chết — một kết quả, không phải thiếu. */
+  recovered: boolean
+  downtime_seconds: number
+  requests_failed: number
+  rps: number
+}
+
+export interface DrillLeader {
+  player: string
+  downtime_seconds: number
+  requests_failed: number
+}
+
+/** Ca trực hôm nay và bảng xếp hạng của nó. Một kịch bản cho cả ngày, chọn từ
+ *  ngày tháng chứ không bốc ngẫu nhiên, nên hai người so giờ với nhau là đang so
+ *  trên cùng một sự cố. `day` theo UTC — mốc nửa đêm chạy theo múi giờ người xem
+ *  thì bảng xếp hạng thành mấy cái bảng khác nhau. */
+export interface DailyDrill {
+  day: string
+  lab_slug: string
+  lab_title: string
+  incident_id: number
+  leaders: DrillLeader[]
+}
+
 export interface LabReport {
   session_id: string
   lab_title: string

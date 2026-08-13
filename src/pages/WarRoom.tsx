@@ -6,6 +6,7 @@ import { ApiError } from '@/lib/api'
 import { mdSummary } from '@/lib/mdSummary'
 import { Card, ErrorBox } from '@/components/ui'
 import { ChevronRightIcon, ClockIcon, TerminalIcon } from '@/components/icons'
+import { clockLabel } from '@/lib/clock'
 import type { Lab, LabSession } from '@/lib/types'
 import { useT } from '@/lib/i18n'
 
@@ -45,6 +46,8 @@ export default function WarRoom() {
       </header>
 
       {running && <RunningNow session={running} />}
+
+      <DailyCard blocked={Boolean(running)} />
 
       {drills.isLoading && (
         <p className="text-sm text-fg-subtle">{t('common.loading')}</p>
@@ -87,6 +90,94 @@ function RunningNow({ session }: { session: LabSession }) {
         {t('war.backToSession')}
         <ChevronRightIcon className="h-3.5 w-3.5" />
       </Link>
+    </Card>
+  )
+}
+
+/** Ca trực hôm nay: **cùng một sự cố cho tất cả mọi người**, đổi lúc nửa đêm UTC.
+ *
+ *  Đây là thứ khiến bảng xếp hạng có nghĩa. Danh sách bên dưới bốc sự cố ngẫu
+ *  nhiên mỗi lượt chạy — đúng cho việc luyện tập, nhưng hai người chơi hai sự cố
+ *  khác nhau thì hai con số của họ không so được với nhau. Ở đây thì so được, và
+ *  đó là toàn bộ lý do khối này đứng trên cùng.
+ *
+ *  Chưa có kịch bản nào được xuất bản thì server trả 404 và khối này biến mất —
+ *  vẽ một cái bảng rỗng là hứa một thử thách không tồn tại. */
+function DailyCard({ blocked }: { blocked: boolean }) {
+  const t = useT()
+  const navigate = useNavigate()
+  const qc = useQueryClient()
+  const daily = useQuery({ queryKey: ['daily-drill'], queryFn: labsApi.daily, retry: false })
+
+  const start = useMutation({
+    mutationFn: () => labsApi.start(daily.data!.lab_slug, daily.data!.incident_id),
+    onSuccess: (session) => {
+      qc.setQueryData(['lab-session'], session)
+      navigate(`/war-room/${daily.data!.lab_slug}`)
+    },
+  })
+
+  if (daily.isLoading || daily.isError || !daily.data) return null
+  const d = daily.data
+  const busy = start.error instanceof ApiError && start.error.status === 409
+
+  return (
+    <Card className="mb-6 border-accent/40 p-5">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent-soft">
+              {t('daily.badge')}
+            </span>
+            <span className="font-mono text-xs text-fg-subtle">{d.day}</span>
+          </div>
+          <h2 className="mt-2 font-semibold text-fg-strong">{d.lab_title}</h2>
+          <p className="mt-1 text-sm text-fg-muted">{t('daily.sameForAll')}</p>
+        </div>
+
+        <button
+          onClick={() => start.mutate()}
+          disabled={start.isPending || blocked}
+          title={blocked ? t('war.blockedTitle') : undefined}
+          className="inline-flex shrink-0 items-center justify-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          <TerminalIcon className="h-4 w-4" />
+          {start.isPending ? t('war.starting') : t('daily.start')}
+        </button>
+      </div>
+
+      {busy && <p className="mt-3 text-sm text-danger">{t('war.blockedShort')}</p>}
+      {start.isError && !busy && (
+        <p className="mt-3 text-sm text-danger">{t('war.startFailed')}</p>
+      )}
+
+      <div className="mt-4 border-t border-border pt-3">
+        <p className="text-[11px] uppercase tracking-wide text-fg-subtle">
+          {t('daily.board')}
+        </p>
+        {d.leaders.length === 0 ? (
+          // Chưa ai cứu được hôm nay là một trạng thái đáng nói ra, không phải
+          // một khoảng trắng: nó là lời mời đứng đầu bảng.
+          <p className="mt-2 text-sm text-fg-subtle">{t('daily.empty')}</p>
+        ) : (
+          <ol className="mt-2 space-y-1">
+            {d.leaders.map((l, i) => (
+              <li key={l.player + i} className="flex items-baseline gap-3 text-sm">
+                <span className="w-5 shrink-0 text-right font-mono text-xs text-fg-subtle">
+                  {i + 1}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-fg">{l.player}</span>
+                <span className="font-mono tabular-nums text-fg-strong">
+                  {clockLabel(l.downtime_seconds)}
+                </span>
+                <span className="hidden font-mono text-xs tabular-nums text-fg-subtle sm:inline">
+                  {t('daily.requests', { n: l.requests_failed.toLocaleString() })}
+                </span>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
     </Card>
   )
 }

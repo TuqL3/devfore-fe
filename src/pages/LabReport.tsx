@@ -1,5 +1,6 @@
+import { useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { labsApi } from '@/api/labs'
 import { Card } from '@/components/ui'
@@ -109,7 +110,13 @@ export default function LabReport() {
       {/* Trên phần câu hỏi: ở một ca trực, thứ đáng đọc trước là sự cố vừa rồi
           là gì và mất bao lâu mới cứu được. Danh sách câu hỏi vẫn nguyên bên
           dưới, không lab nào mất gì. */}
-      {r.incident && <IncidentPanel incident={r.incident} startedAt={r.started_at} />}
+      {r.incident && (
+        <IncidentPanel
+          incident={r.incident}
+          startedAt={r.started_at}
+          sessionID={r.session_id}
+        />
+      )}
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_14rem]">
         <ol className="space-y-4">
@@ -197,6 +204,97 @@ export default function LabReport() {
   )
 }
 
+/** Đăng kết quả ca trực lên một trang ai cũng mở được, và gỡ nó xuống.
+ *
+ *  Trang công khai chỉ mang **con số và tên sự cố** — không có dòng thời gian,
+ *  không có lời giải. Dòng thời gian là bản ghi nguyên văn thứ người ta gõ vào
+ *  shell, tức là chỗ một cái mật khẩu gõ nhầm hay tên host nội bộ lọt ra ngoài;
+ *  danh sách cột được quyết ở câu SQL bên server chứ không phải ở đây. Câu chữ
+ *  dưới nút nói thẳng điều đó **trước** khi bấm, không phải sau.
+ *
+ *  Không có cờ "đang công khai" đọc sẵn từ báo cáo: bấm Chia sẻ lần nữa trả về
+ *  đúng link cũ chứ không sinh trang thứ hai, nên trạng thái lấy lại được bằng
+ *  một cú bấm và báo cáo không phải mọc thêm một trường chỉ để hiển thị. */
+function ShareRow({ sessionID }: { sessionID: string }) {
+  const t = useT()
+  const [token, setToken] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const share = useMutation({
+    mutationFn: () => labsApi.share(sessionID),
+    onSuccess: (r) => setToken(r.token),
+  })
+  const unshare = useMutation({
+    mutationFn: () => labsApi.unshare(sessionID),
+    onSuccess: () => {
+      setToken(null)
+      setCopied(false)
+    },
+  })
+
+  const url = token ? `${window.location.origin}/r/${token}` : ''
+
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      {!token ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={() => share.mutate()}
+            disabled={share.isPending}
+            className="rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg-strong transition hover:border-accent disabled:opacity-40"
+          >
+            {share.isPending ? t('share.publishing') : t('share.publish')}
+          </button>
+          <p className="text-xs text-fg-subtle">{t('share.whatIsPublic')}</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <code className="min-w-0 flex-1 truncate rounded border border-border bg-muted px-2 py-1.5 font-mono text-xs text-fg">
+              {url}
+            </code>
+            <button
+              onClick={() => {
+                // `writeText` đòi ngữ cảnh bảo mật (https hoặc localhost). Không
+                // có thì link vẫn nằm đó cho người ta bôi đen — báo là chưa chép
+                // được còn hơn im lặng để họ tưởng đã chép.
+                navigator.clipboard
+                  ?.writeText(url)
+                  .then(() => setCopied(true))
+                  .catch(() => setCopied(false))
+              }}
+              className="rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg-strong transition hover:border-accent"
+            >
+              {copied ? t('share.copied') : t('share.copy')}
+            </button>
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg-muted transition hover:border-accent hover:text-fg"
+            >
+              {t('share.open')}
+            </a>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => unshare.mutate()}
+              disabled={unshare.isPending}
+              className="text-xs text-danger hover:underline disabled:opacity-40"
+            >
+              {t('share.takeDown')}
+            </button>
+            <p className="text-xs text-fg-subtle">{t('share.whatIsPublic')}</p>
+          </div>
+        </div>
+      )}
+      {(share.isError || unshare.isError) && (
+        <p className="mt-2 text-sm text-danger">{t('share.failed')}</p>
+      )}
+    </div>
+  )
+}
+
 /** Phần hậu sự cố: mất bao lâu, tốn bao nhiêu, hỏng cái gì, và bạn đã gõ gì.
  *
  *  Dòng thời gian mới là chỗ dạy. Sửa được rồi mà không nhìn lại thì lần sau vẫn
@@ -205,9 +303,11 @@ export default function LabReport() {
 function IncidentPanel({
   incident,
   startedAt,
+  sessionID,
 }: {
   incident: IncidentReport
   startedAt: string
+  sessionID: string
 }) {
   const t = useT()
   const started = Date.parse(startedAt)
@@ -251,6 +351,8 @@ function IncidentPanel({
           <dd className="mt-0.5 text-sm font-medium text-fg-strong">{incident.title}</dd>
         </div>
       </dl>
+
+      <ShareRow sessionID={sessionID} />
 
       {incident.reveal_md.trim() && (
         <div className="mt-4 border-t border-border pt-4">

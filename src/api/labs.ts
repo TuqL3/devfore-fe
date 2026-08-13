@@ -2,11 +2,13 @@ import { request } from "@/lib/api";
 import { getLang } from "@/lib/i18n";
 import type {
   CheckResult,
+  DailyDrill,
   Lab,
   LabDetail,
   LabHistoryRow,
   LabReport,
   LabSession,
+  SharedDrill,
 } from "@/lib/types";
 
 export const labsApi = {
@@ -24,8 +26,14 @@ export const labsApi = {
   drill: (labSlug: string) =>
     request<LabDetail>(`/api/war-room/${labSlug}`, { auth: false }),
 
-  start: (labSlug: string) =>
-    request<LabSession>(`/api/labs/${labSlug}/start`, { method: "POST" }),
+  /** `incidentID` xin đúng một kịch bản thay vì bốc ngẫu nhiên — đó là cách một
+   *  link chia sẻ và ca trực hôm nay giao đúng sự cố đó cho người bấm vào. Server
+   *  từ chối nếu kịch bản không thuộc lab này, không im lặng bốc cái khác. */
+  start: (labSlug: string, incidentID?: number) =>
+    request<LabSession>(
+      `/api/labs/${labSlug}/start` + (incidentID ? `?incident=${incidentID}` : ""),
+      { method: "POST" },
+    ),
 
   /** null when the student has no container running, which is the normal case
    *  on a fresh page load rather than an error. */
@@ -57,6 +65,28 @@ export const labsApi = {
   /** Báo cáo một phiên đã kết thúc. Server từ chối khi phiên còn chạy. */
   report: (sessionID: string) =>
     request<LabReport>(`/api/lab-sessions/${sessionID}/report`),
+
+  /** Đăng báo cáo ca trực lên một trang công khai, trả về token của link. Bấm
+   *  lần nữa trả đúng token cũ — người bấm lại là người làm mất link, không phải
+   *  người xin thêm một trang thứ hai. */
+  share: (sessionID: string) =>
+    request<{ token: string }>(`/api/lab-sessions/${sessionID}/share`, {
+      method: "POST",
+    }),
+
+  /** Gỡ trang công khai xuống. Link cũ chết hẳn — đăng lại sinh token mới. */
+  unshare: (sessionID: string) =>
+    request<void>(`/api/lab-sessions/${sessionID}/share`, { method: "DELETE" }),
+
+  /** Trang công khai. Route duy nhất của cả nền tảng không cần đăng nhập, nên
+   *  `auth: false` ở đây không phải tiện tay mà là cả tính năng. */
+  shared: (token: string) =>
+    request<SharedDrill>(`/api/shared-drills/${token}`, { auth: false }),
+
+  /** Ca trực hôm nay: cùng một kịch bản cho tất cả mọi người, cộng bảng xếp hạng
+   *  trong ngày. Cũng công khai — bắt người lạ đăng nhập chỉ để xem hôm nay có
+   *  gì là mất họ ngay ở cửa. */
+  daily: () => request<DailyDrill>("/api/daily-drill", { auth: false }),
 };
 
 /** The terminal lives on the API host, not the Vite dev server, and the scheme

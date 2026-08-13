@@ -25,6 +25,7 @@ import AdminCourseForm from '@/pages/AdminCourseForm'
 import SimList from '@/pages/SimList'
 import SimPlayground from '@/pages/SimPlayground'
 import WarRoom from '@/pages/WarRoom'
+import SharedDrill, { SharedDrillIndex } from '@/pages/SharedDrill'
 import { NotFound } from '@/pages/NotFound'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 
@@ -53,6 +54,12 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/courses" element={<Courses />} />
         <Route path="/courses/:slug" element={<CourseDetail />} />
+        {/* Báo cáo ca trực người ta đăng công khai. Ngoài ProtectedRoute một
+            cách cố ý: nó là link dán vào chỗ khác, và bắt đăng nhập trước khi
+            được xem thứ vừa bấm vào là mất người ngay ở cửa. Đường dẫn ngắn vì
+            nó sống trong tin nhắn của người khác. */}
+        <Route path="/r/:token" element={<SharedDrill />} />
+        <Route path="/r" element={<SharedDrillIndex />} />
 
         <Route element={<ProtectedRoute />}>
           <Route path="/profile" element={<Profile />} />
