@@ -4,9 +4,11 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 
 import { labsApi } from '@/api/labs'
 import { Card } from '@/components/ui'
+import { ShareTargets } from '@/components/ShareTargets'
 import { ArrowLeftIcon, CheckIcon } from '@/components/icons'
 import { Prose as Markdown } from '@/components/MarkdownEditor'
 import { clockLabel } from '@/lib/clock'
+import { track } from '@/lib/analytics'
 import { formatWhen } from '@/lib/relativeTime'
 import { locale, useT, type Key } from '@/lib/i18n'
 import type {
@@ -215,14 +217,25 @@ export default function LabReport() {
  *  Không có cờ "đang công khai" đọc sẵn từ báo cáo: bấm Chia sẻ lần nữa trả về
  *  đúng link cũ chứ không sinh trang thứ hai, nên trạng thái lấy lại được bằng
  *  một cú bấm và báo cáo không phải mọc thêm một trường chỉ để hiển thị. */
-function ShareRow({ sessionID }: { sessionID: string }) {
+function ShareRow({
+  sessionID,
+  recovered,
+  downtimeSeconds,
+}: {
+  sessionID: string
+  recovered: boolean
+  downtimeSeconds: number
+}) {
   const t = useT()
   const [token, setToken] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
   const share = useMutation({
     mutationFn: () => labsApi.share(sessionID),
-    onSuccess: (r) => setToken(r.token),
+    onSuccess: (r) => {
+      setToken(r.token)
+      track('drill-published')
+    },
   })
   const unshare = useMutation({
     mutationFn: () => labsApi.unshare(sessionID),
@@ -276,6 +289,14 @@ function ShareRow({ sessionID }: { sessionID: string }) {
               {t('share.open')}
             </a>
           </div>
+          <ShareTargets
+            url={url}
+            text={
+              recovered
+                ? t('share.boast', { time: clockLabel(downtimeSeconds) })
+                : t('share.boastFailed')
+            }
+          />
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={() => unshare.mutate()}
@@ -352,7 +373,11 @@ function IncidentPanel({
         </div>
       </dl>
 
-      <ShareRow sessionID={sessionID} />
+      <ShareRow
+        sessionID={sessionID}
+        recovered={recovered}
+        downtimeSeconds={incident.downtime_seconds}
+      />
 
       {incident.reveal_md.trim() && (
         <div className="mt-4 border-t border-border pt-4">

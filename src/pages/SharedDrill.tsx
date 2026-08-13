@@ -6,8 +6,10 @@ import { labsApi } from '@/api/labs'
 import { ApiError } from '@/lib/api'
 import { useAuth } from '@/context/AuthContext'
 import { Card, ErrorBox } from '@/components/ui'
+import { ShareTargets } from '@/components/ShareTargets'
 import { ChevronRightIcon, ClockIcon, TerminalIcon } from '@/components/icons'
 import { clockLabel } from '@/lib/clock'
+import { track } from '@/lib/analytics'
 import { useT } from '@/lib/i18n'
 import type { SharedDrill as Shared } from '@/lib/types'
 
@@ -113,6 +115,19 @@ function Result({ d }: { d: Shared }) {
 
       <TryIt d={d} />
 
+      {/* Người đọc thấy hay thì chuyền tiếp — đó là cách một link đi xa hơn một
+          lần dán. Chữ soạn sẵn nói về kết quả của người khác, không nhận vơ. */}
+      <div className="mt-6 flex justify-center">
+        <ShareTargets
+          url={window.location.href}
+          text={
+            d.recovered
+              ? t('shared.passOn', { player: d.player, time: clockLabel(d.downtime_seconds) })
+              : t('shared.passOnFailed', { player: d.player })
+          }
+        />
+      </div>
+
       <p className="mt-8 text-center text-xs text-fg-subtle">{t('shared.simulatedNote')}</p>
     </div>
   )
@@ -131,7 +146,12 @@ function TryIt({ d }: { d: Shared }) {
   const qc = useQueryClient()
 
   const start = useMutation({
-    mutationFn: () => labsApi.start(d.lab_slug, d.incident_id),
+    // Con số đáng đo nhất của cả tính năng: bao nhiêu người lạ đọc xong rồi
+    // thật sự nhận ca. Lượt xem trang không trả lời được câu đó.
+    mutationFn: () => {
+      track('shared-drill-try', { lab: d.lab_slug })
+      return labsApi.start(d.lab_slug, d.incident_id)
+    },
     onSuccess: (session) => {
       qc.setQueryData(['lab-session'], session)
       navigate(`/war-room/${d.lab_slug}`)
@@ -174,6 +194,7 @@ function TryIt({ d }: { d: Shared }) {
           <Link
             to="/login"
             state={{ from: location.pathname }}
+            onClick={() => track('shared-drill-signin', { lab: d.lab_slug })}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-accent-fg transition hover:bg-accent-hover"
           >
             {t('shared.signInToTry')}

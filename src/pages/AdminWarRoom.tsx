@@ -144,6 +144,8 @@ export default function AdminWarRoom() {
         )}
       </div>
 
+      <TakeDownBox />
+
       {form && (
         <DrillForm
           value={form}
@@ -570,4 +572,69 @@ function DrillForm({
       </form>
     </Card>
   )
+}
+
+/** Gỡ một báo cáo công khai xuống.
+ *
+ *  Cái van tồn tại vì mấy cái khác không đóng được. Trang `/r/:token` in tên
+ *  người chơi ra dưới tên miền của mình, mà username chỉ được kiểm hình dạng lúc
+ *  đăng ký — ba tới ba mươi hai ký tự chữ và số, đủ rộng cho một từ bậy nằm gọn
+ *  bên trong. Không có danh sách từ cấm nào bịt được chỗ đó: ngay ngày đầu nó đã
+ *  thiếu, ở hai thứ tiếng. Thứ bịt được là gỡ một trang xuống trong một lần bấm,
+ *  từ chính cái link ai đó gửi tới.
+ *
+ *  Nhận cả link đầy đủ lẫn mỗi token: người báo cáo dán nguyên cái họ nhận được,
+ *  và bắt họ tự cắt lấy đoạn cuối là bắt họ khỏi báo cáo. */
+function TakeDownBox() {
+  const t = useT()
+  const [raw, setRaw] = useState('')
+  const [done, setDone] = useState(false)
+
+  const drop = useMutation({
+    mutationFn: () => adminApi.unshareDrill(tokenOf(raw)),
+    onSuccess: () => {
+      setDone(true)
+      setRaw('')
+    },
+  })
+
+  const gone = drop.error instanceof ApiError && drop.error.status === 404
+
+  return (
+    <Card className="p-5">
+      <h2 className="font-semibold text-fg-strong">{t('war.takeDownTitle')}</h2>
+      <p className="mt-1 max-w-2xl text-sm text-fg-muted">{t('war.takeDownHint')}</p>
+      <form
+        className="mt-3 flex flex-wrap items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          setDone(false)
+          if (tokenOf(raw)) drop.mutate()
+        }}
+      >
+        <input
+          value={raw}
+          onChange={(e) => setRaw(e.target.value)}
+          placeholder={t('war.takeDownPlaceholder')}
+          className="min-w-0 flex-1 rounded-md border border-border bg-bg px-3 py-2 font-mono text-sm text-fg"
+        />
+        <Button type="submit" disabled={!tokenOf(raw) || drop.isPending}>
+          {drop.isPending ? t('war.takingDown') : t('war.takeDown')}
+        </Button>
+      </form>
+      {done && <p className="mt-2 text-sm text-success">{t('war.takenDown')}</p>}
+      {gone && <p className="mt-2 text-sm text-fg-muted">{t('war.takeDownGone')}</p>}
+      {drop.isError && !gone && (
+        <p className="mt-2 text-sm text-danger">{t('war.takeDownFailed')}</p>
+      )}
+    </Card>
+  )
+}
+
+/** Đoạn cuối của một đường dẫn, hoặc chính chuỗi đó nếu người ta chỉ dán token.
+ *  Cắt cả tham số truy vấn và dấu gạch chéo cuối — hai thứ hay dính theo khi
+ *  chép link từ trình duyệt. */
+function tokenOf(raw: string): string {
+  const clean = raw.trim().split(/[?#]/)[0].replace(/\/+$/, '')
+  return clean.slice(clean.lastIndexOf('/') + 1)
 }

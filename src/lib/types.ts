@@ -539,6 +539,28 @@ export interface DailyDrill {
   leaders: DrillLeader[]
 }
 
+/** Bảng tuần: xếp theo **số ngày giải được**, không phải tổng giây. Bảy ngày là
+ *  bảy sự cố khác nhau, nên cộng giây lại là đo xem ai bốc được tuần dễ hơn.
+ *  `total_time` chỉ dùng để phá hoà giữa hai người bằng số ngày. */
+export interface WeeklyLeader {
+  player: string
+  days_solved: number
+  total_time: number
+}
+
+export interface WeeklyBoard {
+  days: number
+  leaders: WeeklyLeader[]
+}
+
+/** Chuỗi ngày liên tiếp giải được ca trực. Hôm nay chưa giải **không** làm đứt
+ *  chuỗi — nếu đứt thì nó đứt mỗi nửa đêm và chẳng ai giữ nổi. */
+export interface DrillStreak {
+  current: number
+  longest: number
+  solved_today: boolean
+}
+
 export interface LabReport {
   session_id: string
   lab_title: string

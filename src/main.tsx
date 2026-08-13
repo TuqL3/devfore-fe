@@ -6,6 +6,11 @@ import './index.css'
 import App from './App.tsx'
 import { AuthProvider } from '@/context/AuthContext'
 import { ChatProvider } from '@/context/ChatContext'
+import { startAnalytics } from '@/lib/analytics'
+
+// Trước khi dựng cây React: một thẻ script `defer` không chặn gì, và đặt ở đây
+// thì nó nằm ngoài vòng đời component — không bị StrictMode gắn hai lần.
+startAnalytics()
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: 1, staleTime: 30_000 } },

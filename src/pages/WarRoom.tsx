@@ -2,10 +2,12 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { labsApi } from '@/api/labs'
+import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import { mdSummary } from '@/lib/mdSummary'
 import { Card, ErrorBox } from '@/components/ui'
 import { ChevronRightIcon, ClockIcon, TerminalIcon } from '@/components/icons'
+import { useState } from 'react'
 import { clockLabel } from '@/lib/clock'
 import type { Lab, LabSession } from '@/lib/types'
 import { useT } from '@/lib/i18n'
@@ -107,7 +109,16 @@ function DailyCard({ blocked }: { blocked: boolean }) {
   const t = useT()
   const navigate = useNavigate()
   const qc = useQueryClient()
-  const daily = useQuery({ queryKey: ['daily-drill'], queryFn: labsApi.daily, retry: false })
+  // Lùi bao nhiêu ngày so với hôm nay. Giữ số ngày chứ không giữ chuỗi ngày:
+  // trang mở lúc 23:59 rồi bấm "hôm qua" lúc 00:01 vẫn ra đúng một ngày trước
+  // cái ngày đang xem, không phải trước cái ngày lúc mở trang.
+  const [back, setBack] = useState(0)
+  const day = back === 0 ? undefined : dayString(back)
+  const daily = useQuery({
+    queryKey: ['daily-drill', day ?? 'today'],
+    queryFn: () => labsApi.daily(day),
+    retry: false,
+  })
 
   const start = useMutation({
     mutationFn: () => labsApi.start(daily.data!.lab_slug, daily.data!.incident_id),
@@ -130,9 +141,33 @@ function DailyCard({ blocked }: { blocked: boolean }) {
               {t('daily.badge')}
             </span>
             <span className="font-mono text-xs text-fg-subtle">{d.day}</span>
+            {/* Đi lùi từng ngày một. Ca cũ vẫn chơi được — nó chỉ là một kịch
+                bản khác, và người đến muộn vẫn đáng được thử ca hôm qua. Không
+                có nút tiến quá hôm nay: server từ chối ngày mai, nên một cái
+                nút mời bấm vào đó là mời bấm vào lỗi. */}
+            <span className="flex items-center gap-1">
+              <button
+                onClick={() => setBack((n) => Math.min(n + 1, ARCHIVE_DAYS))}
+                disabled={back >= ARCHIVE_DAYS}
+                className="rounded border border-border-strong px-1.5 text-xs text-fg-muted transition hover:border-accent hover:text-fg disabled:opacity-30"
+                aria-label={t('daily.prevDay')}
+              >
+                ←
+              </button>
+              <button
+                onClick={() => setBack((n) => Math.max(n - 1, 0))}
+                disabled={back === 0}
+                className="rounded border border-border-strong px-1.5 text-xs text-fg-muted transition hover:border-accent hover:text-fg disabled:opacity-30"
+                aria-label={t('daily.nextDay')}
+              >
+                →
+              </button>
+            </span>
           </div>
           <h2 className="mt-2 font-semibold text-fg-strong">{d.lab_title}</h2>
-          <p className="mt-1 text-sm text-fg-muted">{t('daily.sameForAll')}</p>
+          <p className="mt-1 text-sm text-fg-muted">
+            {back === 0 ? t('daily.sameForAll') : t('daily.archiveNote')}
+          </p>
         </div>
 
         <button
@@ -151,7 +186,10 @@ function DailyCard({ blocked }: { blocked: boolean }) {
         <p className="mt-3 text-sm text-danger">{t('war.startFailed')}</p>
       )}
 
-      <div className="mt-4 border-t border-border pt-3">
+      <StreakLine />
+
+      <div className="mt-4 grid gap-4 border-t border-border pt-3 sm:grid-cols-2">
+       <div>
         <p className="text-[11px] uppercase tracking-wide text-fg-subtle">
           {t('daily.board')}
         </p>
@@ -177,8 +215,80 @@ function DailyCard({ blocked }: { blocked: boolean }) {
             ))}
           </ol>
         )}
+       </div>
+       <WeeklyBoardList />
       </div>
     </Card>
+  )
+}
+
+/** Chuỗi ngày của chính người đang đăng nhập.
+ *
+ *  Chỉ hiện khi đã có chuỗi. Một dòng "chuỗi: 0" với người chưa chơi bao giờ là
+ *  một lời nhắc rằng họ chưa làm gì — thứ duy nhất nó thúc đẩy là đóng tab.
+ *
+ *  Hôm nay chưa giải **không** làm mất chuỗi, nên câu chữ đổi theo: còn nguyên
+ *  thì khen, chưa giải hôm nay thì nói thẳng là đang treo. */
+function StreakLine() {
+  const t = useT()
+  const { user } = useAuth()
+  const q = useQuery({
+    queryKey: ['drill-streak'],
+    queryFn: labsApi.streak,
+    enabled: Boolean(user),
+    retry: false,
+  })
+  const st = q.data
+  if (!st || st.current === 0) return null
+
+  return (
+    <p className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+      <span className="rounded-full bg-accent/10 px-2.5 py-0.5 font-medium text-accent-soft">
+        {t('daily.streak', { n: st.current })}
+      </span>
+      <span className="text-fg-muted">
+        {st.solved_today ? t('daily.streakSafe') : t('daily.streakAtRisk')}
+      </span>
+      {st.longest > st.current && (
+        <span className="text-fg-subtle">{t('daily.streakBest', { n: st.longest })}</span>
+      )}
+    </p>
+  )
+}
+
+/** Bảng bảy ngày, xếp theo **số ngày giải được** chứ không phải tổng giây.
+ *
+ *  Bảy ngày là bảy sự cố khác nhau: cộng giây lại thì người bốc được tuần dễ
+ *  đứng đầu, và con số trông chính xác mà không so được cái gì. "5 trên 7" thì
+ *  đứng vững kể cả khi các ca không cân nhau. */
+function WeeklyBoardList() {
+  const t = useT()
+  const q = useQuery({ queryKey: ['weekly-board'], queryFn: labsApi.weekly, retry: false })
+  if (q.isError || !q.data) return null
+
+  return (
+    <div className="border-t border-border pt-3 sm:border-l sm:border-t-0 sm:pl-4 sm:pt-0">
+      <p className="text-[11px] uppercase tracking-wide text-fg-subtle">
+        {t('daily.weekBoard', { n: q.data.days })}
+      </p>
+      {q.data.leaders.length === 0 ? (
+        <p className="mt-2 text-sm text-fg-subtle">{t('daily.weekEmpty')}</p>
+      ) : (
+        <ol className="mt-2 space-y-1">
+          {q.data.leaders.map((l, i) => (
+            <li key={l.player + i} className="flex items-baseline gap-3 text-sm">
+              <span className="w-5 shrink-0 text-right font-mono text-xs text-fg-subtle">
+                {i + 1}
+              </span>
+              <span className="min-w-0 flex-1 truncate text-fg">{l.player}</span>
+              <span className="font-mono tabular-nums text-fg-strong">
+                {t('daily.daysSolved', { n: l.days_solved, of: q.data!.days })}
+              </span>
+            </li>
+          ))}
+        </ol>
+      )}
+    </div>
   )
 }
 
@@ -260,3 +370,18 @@ function Chip({ children }: { children: React.ReactNode }) {
     </li>
   )
 }
+
+/** Số ngày lùi → chuỗi `YYYY-MM-DD` theo UTC.
+ *
+ *  UTC vì mốc đổi ca của server là nửa đêm UTC. Lấy ngày theo giờ máy người xem
+ *  thì ở Hà Nội, cả buổi sáng sẽ hỏi một ngày mà server coi là "ngày mai" và
+ *  nhận về 404. */
+function dayString(back: number): string {
+  const d = new Date()
+  d.setUTCDate(d.getUTCDate() - back)
+  return d.toISOString().slice(0, 10)
+}
+
+/** Khớp với `usecase.ArchiveDays` bên server. Lệch thì nút lùi vẫn bấm được vào
+ *  một ngày server đã từ chối. */
+const ARCHIVE_DAYS = 90

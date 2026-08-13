@@ -159,6 +159,17 @@ export const adminApi = {
       body: { lab_id: labID, script, setup },
     }),
 
+  /** Gỡ một báo cáo ca trực ai đó đã đăng công khai.
+   *
+   *  Nhận token vì đó là thứ người báo cáo gửi tới — một cái link — chứ không
+   *  phải id phiên. Trang công khai in tên người chơi ra dưới tên miền của mình
+   *  và username chỉ được kiểm hình dạng lúc đăng ký, nên đây là cái van duy
+   *  nhất thật sự đóng được. */
+  unshareDrill: (token: string) =>
+    request<void>(`/api/admin/shared-drills/${encodeURIComponent(token)}`, {
+      method: "DELETE",
+    }),
+
   /** Same shape as the public listing, drafts included. */
   courses: () => request<CourseSummary[]>("/api/admin/courses"),
 

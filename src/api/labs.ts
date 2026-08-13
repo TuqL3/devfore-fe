@@ -9,6 +9,8 @@ import type {
   LabReport,
   LabSession,
   SharedDrill,
+  WeeklyBoard,
+  DrillStreak,
 } from "@/lib/types";
 
 export const labsApi = {
@@ -85,8 +87,23 @@ export const labsApi = {
 
   /** Ca trực hôm nay: cùng một kịch bản cho tất cả mọi người, cộng bảng xếp hạng
    *  trong ngày. Cũng công khai — bắt người lạ đăng nhập chỉ để xem hôm nay có
-   *  gì là mất họ ngay ở cửa. */
-  daily: () => request<DailyDrill>("/api/daily-drill", { auth: false }),
+   *  gì là mất họ ngay ở cửa.
+   *
+   *  `day` (YYYY-MM-DD) đọc ca của một ngày đã qua. Server từ chối ngày mai —
+   *  kịch bản tính được cho mọi ngày, nên không chặn thì ai cũng xem trước được
+   *  ca ngày mai, mà "chưa ai thấy trước" là toàn bộ ý nghĩa của ca trực hôm
+   *  nay. */
+  daily: (day?: string) =>
+    request<DailyDrill>("/api/daily-drill" + (day ? `?day=${day}` : ""), {
+      auth: false,
+    }),
+
+  /** Bảng bảy ngày. Công khai như bảng ngày. */
+  weekly: () => request<WeeklyBoard>("/api/weekly-board", { auth: false }),
+
+  /** Chuỗi ngày của chính mình — số duy nhất trong nhóm này chỉ có nghĩa với một
+   *  người, nên nó nằm sau đăng nhập. */
+  streak: () => request<DrillStreak>("/api/my-drill-streak"),
 };
 
 /** The terminal lives on the API host, not the Vite dev server, and the scheme
