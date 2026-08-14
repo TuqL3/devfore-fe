@@ -435,6 +435,9 @@ export interface ManagedUsers {
 /** Một container đang sống, như màn quản trị liệt kê. */
 export interface RunningSession {
   id: string
+  /** Để màn Đang diễn ra bấm thẳng sang trang hoạt động của người đó — quyết
+   *  định ở đây là về một con người, mà một cái tên trơ thì phải đi tìm lại. */
+  user_id: number
   username: string
   lab_title: string
   started_at: string
@@ -493,6 +496,74 @@ export interface IncidentReport {
   timeline: IncidentCommand[]
 }
 
+/** Một ca trực đã kết thúc, dưới con mắt người lạ.
+ *
+ *  Thứ **không** có ở đây mới là điểm chính, và nó được quyết ở câu SQL bên
+ *  server chứ không phải ở chỗ vẽ: không có timeline (bản ghi nguyên văn thứ
+ *  người ta gõ vào shell — chỗ một cái mật khẩu gõ nhầm hay tên host nội bộ lọt
+ *  ra), không có `reveal_md` (lời giải, mà chính trang này lại mời người đọc thử
+ *  ca đó), không email, không id phiên.
+ *
+ *  `incident_title` gọi tên lỗi nên nó là spoiler. Vẫn gửi — kết quả này nói về
+ *  đúng cái lỗi đó — và trang giữ nó sau một cú bấm có cảnh báo. */
+export interface SharedDrill {
+  token: string
+  lab_slug: string
+  lab_title: string
+  /** Kịch bản để giao cho người bấm "Thử ca này". Đây là toàn bộ nghĩa của "cùng
+   *  seed": ca trực phát lại một hàng dữ liệu, không phải một số ngẫu nhiên. */
+  incident_id: number
+  incident_title: string
+  /** Tên hiển thị, không bao giờ là email. */
+  player: string
+  started_at: string
+  /** false nghĩa là hết giờ mà dịch vụ vẫn chết — một kết quả, không phải thiếu. */
+  recovered: boolean
+  downtime_seconds: number
+  requests_failed: number
+  rps: number
+}
+
+export interface DrillLeader {
+  player: string
+  downtime_seconds: number
+  requests_failed: number
+}
+
+/** Ca trực hôm nay và bảng xếp hạng của nó. Một kịch bản cho cả ngày, chọn từ
+ *  ngày tháng chứ không bốc ngẫu nhiên, nên hai người so giờ với nhau là đang so
+ *  trên cùng một sự cố. `day` theo UTC — mốc nửa đêm chạy theo múi giờ người xem
+ *  thì bảng xếp hạng thành mấy cái bảng khác nhau. */
+export interface DailyDrill {
+  day: string
+  lab_slug: string
+  lab_title: string
+  incident_id: number
+  leaders: DrillLeader[]
+}
+
+/** Bảng tuần: xếp theo **số ngày giải được**, không phải tổng giây. Bảy ngày là
+ *  bảy sự cố khác nhau, nên cộng giây lại là đo xem ai bốc được tuần dễ hơn.
+ *  `total_time` chỉ dùng để phá hoà giữa hai người bằng số ngày. */
+export interface WeeklyLeader {
+  player: string
+  days_solved: number
+  total_time: number
+}
+
+export interface WeeklyBoard {
+  days: number
+  leaders: WeeklyLeader[]
+}
+
+/** Chuỗi ngày liên tiếp giải được ca trực. Hôm nay chưa giải **không** làm đứt
+ *  chuỗi — nếu đứt thì nó đứt mỗi nửa đêm và chẳng ai giữ nổi. */
+export interface DrillStreak {
+  current: number
+  longest: number
+  solved_today: boolean
+}
+
 export interface LabReport {
   session_id: string
   lab_title: string
@@ -533,4 +604,170 @@ export interface LabSession {
    *  phá cái gì, tìm ra bằng cách nào đều là thứ học viên đang phải tự mò, nên
    *  không cái nào rời server lúc phiên còn chạy. */
   incident: { rps: number } | null
+}
+
+// ── Màn quản trị: những thứ trước đây admin không nhìn thấy ────────────────
+
+/** Một sự cố của hệ thống. Trước đây chỉ vào log rồi bay mất cùng container. */
+export interface SystemEvent {
+  id: number
+  at: string
+  /** Tên chấm: `lab.start_failed`, `check.timeout`, `capacity.refused`… */
+  kind: string
+  severity: 'info' | 'warn' | 'error'
+  actor_id: number
+  actor_name: string
+  /** Thứ nó xảy ra với: id phiên, slug lab, id container. */
+  subject: string
+  detail: string
+}
+
+export interface EventKindCount {
+  kind: string
+  severity: string
+  n: number
+}
+
+export interface PlatformCounts {
+  users: number
+  banned: number
+  new_users: number
+  running: number
+  sessions: number
+  submitted: number
+  sim_runs: number
+  chat_messages: number
+  shared_reports: number
+}
+
+export interface AdminOverview {
+  hours: number
+  counts: PlatformCounts
+  running: RunningSession[]
+  /** Trần container của máy chủ. Chạy sát trần là lúc người mới bị từ chối. */
+  max_slots: number
+  events: EventKindCount[] | null
+}
+
+/** Nhiệm vụ và tỉ lệ đậu. Hai đầu của thang đo mới đáng nhìn, và chúng nói hai
+ *  chuyện ngược nhau: 0% thường là check script hỏng chứ không phải câu khó,
+ *  100% ngay lần đầu là câu không hỏi gì. */
+export interface TaskHealth {
+  task_id: number
+  lab_id: number
+  lab_slug: string
+  lab_title: string
+  task_title: string
+  kind: string
+  attempts: number
+  passed: number
+  pass_rate: number
+}
+
+export interface LabHealth {
+  lab_id: number
+  lab_slug: string
+  lab_title: string
+  starts: number
+  submitted: number
+  expired: number
+  ended: number
+  running: number
+  /** Phần trăm lượt kết thúc bằng bất cứ gì khác "đã nộp". */
+  drop_rate: number
+}
+
+export interface IncidentHealth {
+  incident_id: number
+  incident_title: string
+  active: boolean
+  lab_slug: string
+  attempts: number
+  solved: number
+  best_seconds: number
+}
+
+export interface CourseHealth {
+  course_id: number
+  course_slug: string
+  course_title: string
+  status: string
+  enrolled: number
+  started: number
+  finished: number
+}
+
+export interface ContentHealth {
+  tasks: TaskHealth[]
+  labs: LabHealth[]
+  incidents: IncidentHealth[]
+  courses: CourseHealth[]
+}
+
+export interface AdminSharedReport {
+  token: string
+  session_id: string
+  player: string
+  lab_title: string
+  incident_title: string
+  started_at: string
+}
+
+export interface UserSummary {
+  id: number
+  username: string
+  email: string
+  status: string
+  created_at: string
+  sessions: number
+  submitted: number
+  sim_runs: number
+  chat_messages: number
+  enrolments: number
+}
+
+export interface UserSessionRow {
+  session_id: string
+  lab_slug: string
+  lab_title: string
+  status: string
+  started_at: string
+  ended_at: string | null
+  incident_title: string
+  passed: number
+  total: number
+  /** Có lịch sử lệnh để mở hay không. Bản thân lịch sử phải gọi riêng, vì mở nó
+   *  là một việc đáng được ghi lại. */
+  has_commands: boolean
+}
+
+/** Một pipeline người dùng đã viết và chạy. `pipeline` là thứ họ gõ — thứ đáng
+ *  đọc nhất trang, vì một pipeline sai nói đúng phần nào của mô hình chưa vào
+ *  đầu. Cắt ở server, `pipeline_length` nói độ dài thật. */
+export interface UserSimRun {
+  id: number
+  session_id: string
+  run_index: number
+  created_at: string
+  pipeline: string
+  pipeline_length: number
+  lab_title: string
+  total_seconds: number
+}
+
+export interface UserActivity {
+  summary: UserSummary
+  sessions: UserSessionRow[]
+  sim_runs: UserSimRun[]
+}
+
+export interface AdminChatMessage {
+  id: number
+  user_id: number | null
+  username: string
+  peer_id: number | null
+  body: string
+  created_at: string
+  edited_at: string | null
+  deleted_at: string | null
 }

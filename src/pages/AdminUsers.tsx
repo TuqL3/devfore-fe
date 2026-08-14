@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom'
 import { useDeferredValue, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
@@ -247,7 +248,15 @@ function UserRow({
           <Avatar user={user} className="h-8 w-8 text-xs" />
           <div className="min-w-0">
             <p className="truncate font-medium text-fg-strong">
-              {user.username}
+              {/* Tên là đường vào trang hoạt động: quyết định ở màn này là về
+                  một con người, và "họ đã làm gì" là câu hỏi đứng ngay trước
+                  mọi nút khoá tài khoản trên cùng hàng. */}
+              <Link
+                to={`/admin/users/${user.id}`}
+                className="hover:text-accent-soft hover:underline"
+              >
+                {user.username}
+              </Link>
               {isMe && (
                 <span className="ml-1.5 text-xs text-fg-subtle">
                   {t('users.you')}

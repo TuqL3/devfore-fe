@@ -1,8 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom'
 
 import {
+  AlertIcon,
   BookIcon,
   ChartIcon,
+  LayersIcon,
   ClockIcon,
   TerminalIcon,
   UsersIcon,
@@ -16,12 +18,26 @@ type Section = {
   icon: (p: { className?: string }) => React.ReactElement
 }
 
+// Thứ tự là thứ tự cần biết, không phải thứ tự làm ra: cái gì đang chạy và
+// đang hỏng trước, rồi nội dung nào hỏng, rồi mới tới sửa nội dung.
 const SECTIONS: Section[] = [
   {
     to: '/admin/dashboard',
-    label: 'adminNav.overview',
-    hint: 'adminNav.overviewHint',
+    label: 'adminNav.live',
+    hint: 'adminNav.liveHint',
     icon: ChartIcon,
+  },
+  {
+    to: '/admin/analysis',
+    label: 'adminNav.analysis',
+    hint: 'adminNav.analysisHint',
+    icon: LayersIcon,
+  },
+  {
+    to: '/admin/moderation',
+    label: 'adminNav.moderation',
+    hint: 'adminNav.moderationHint',
+    icon: AlertIcon,
   },
   {
     to: '/admin/courses',

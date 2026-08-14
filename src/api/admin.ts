@@ -1,10 +1,16 @@
 import { request } from "@/lib/api";
 import type {
+  AdminChatMessage,
+  AdminOverview,
+  AdminSharedReport,
   AdminStats,
   AuditLogs,
+  ContentHealth,
   CourseSummary,
   ManagedUsers,
   RunningSession,
+  SystemEvent,
+  UserActivity,
 } from "@/lib/types";
 
 export type UserFilter = {
@@ -158,6 +164,62 @@ export const adminApi = {
       method: "POST",
       body: { lab_id: labID, script, setup },
     }),
+
+  /** Gỡ một báo cáo ca trực ai đó đã đăng công khai.
+   *
+   *  Nhận token vì đó là thứ người báo cáo gửi tới — một cái link — chứ không
+   *  phải id phiên. Trang công khai in tên người chơi ra dưới tên miền của mình
+   *  và username chỉ được kiểm hình dạng lúc đăng ký, nên đây là cái van duy
+   *  nhất thật sự đóng được. */
+  unshareDrill: (token: string) =>
+    request<void>(`/api/admin/shared-drills/${encodeURIComponent(token)}`, {
+      method: "DELETE",
+    }),
+
+  /** Màn "Đang diễn ra": container đang chạy so với trần, số liệu trong cửa sổ
+   *  `hours` giờ, và bản tóm tắt sự cố hệ thống. Một lần gọi vì màn hình đọc
+   *  chúng cùng nhau — và một trang nạp nửa vời là một trang nói dối. */
+  overview: (hours = 24) =>
+    request<AdminOverview>(`/api/admin/overview?hours=${hours}`),
+
+  /** Dòng sự cố. Lọc khớp đúng chuỗi mà bản tóm tắt vừa hiện ra, nên không có
+   *  gì để gõ và không có gì gõ sai được. */
+  events: (kind = '', severity = '', limit = 100) =>
+    request<{ events: SystemEvent[] }>(
+      `/api/admin/events?kind=${encodeURIComponent(kind)}&severity=${severity}&limit=${limit}`,
+    ).then((r) => r.events),
+
+  /** Màn phân tích: nhiệm vụ nào, lab nào, kịch bản nào, khoá nào đang hỏng. */
+  contentHealth: () => request<ContentHealth>('/api/admin/content-health'),
+
+  /** Báo cáo ca trực đang công khai NGAY BÂY GIỜ — câu hỏi mà ô gỡ-theo-link
+   *  không bao giờ hỏi được. */
+  sharedReports: () =>
+    request<{ reports: AdminSharedReport[] }>('/api/admin/shared-drills').then(
+      (r) => r.reports,
+    ),
+
+  /** Hoạt động của một người: lượt làm bài và mọi pipeline họ đã viết.
+   *  **Có ghi audit** — đây là đọc việc của người khác. */
+  userActivity: (id: number) =>
+    request<UserActivity>(`/api/admin/users/${id}/activity`),
+
+  /** Lịch sử lệnh của một ca trực. Gọi riêng, và **mỗi lần mở là một dòng
+   *  audit**: đây là bản ghi nguyên văn thứ người ta gõ vào shell. */
+  sessionCommands: (sessionID: string) =>
+    request<{ command_log: string }>(
+      `/api/admin/lab-sessions/${sessionID}/commands`,
+    ).then((r) => r.command_log),
+
+  /** Phòng chat chung, kể cả tin đã bị thu hồi. */
+  chat: (limit = 100) =>
+    request<{ messages: AdminChatMessage[] }>(`/api/admin/chat?limit=${limit}`).then(
+      (r) => r.messages,
+    ),
+
+  /** Xoá tin của người khác. Có ghi audit. */
+  deleteChat: (id: number) =>
+    request<void>(`/api/admin/chat/${id}`, { method: 'DELETE' }),
 
   /** Same shape as the public listing, drafts included. */
   courses: () => request<CourseSummary[]>("/api/admin/courses"),
