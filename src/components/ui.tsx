@@ -66,8 +66,8 @@ export function PasswordInput({
       <button
         type="button"
         onClick={() => setShown(!shown)}
-        title={shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-        aria-label={shown ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+        title={shown ? 'Hide password' : 'Show password'}
+        aria-label={shown ? 'Hide password' : 'Show password'}
         className={
           'absolute inset-y-0 right-0 flex items-center px-3 transition ' +
           'text-fg-subtle hover:text-fg-strong'

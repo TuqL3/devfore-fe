@@ -4,7 +4,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { authApi } from '@/api/auth'
 import { ApiError } from '@/lib/api'
 import { Button, ErrorBox, Field, Input, PasswordInput } from '@/components/ui'
-import { useT } from '@/lib/i18n'
 
 const KEY = ['totp-status'] as const
 
@@ -19,7 +18,6 @@ function errText(e: unknown, fallback: string) {
  *  scanned it — until a code comes back, nothing about signing in changes, so a
  *  person who closes the tab halfway is not locked out of their own account. */
 export function TwoFactor() {
-  const t = useT()
   const qc = useQueryClient()
   const status = useQuery({ queryKey: KEY, queryFn: authApi.totpStatus })
   const [setup, setSetup] = useState<{
@@ -40,7 +38,7 @@ export function TwoFactor() {
   }
 
   if (status.isLoading) {
-    return <p className="text-sm text-fg-subtle">{t('common.loading')}</p>
+    return <p className="text-sm text-fg-subtle">Loading…</p>
   }
 
   // Shown once, after confirming. There is no endpoint that returns these
@@ -69,14 +67,14 @@ export function TwoFactor() {
   return (
     <section className="space-y-3">
       <div>
-        <h2 className="font-semibold text-fg-strong">{t('twoFactor.title')}</h2>
+        <h2 className="font-semibold text-fg-strong">Two-factor authentication</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          {t('twoFactor.intro')}
+          Once on, signing in also needs a 6-digit code from your authenticator app. A leaked password is no longer enough to get in.
         </p>
       </div>
-      {start.isError && <ErrorBox>{errText(start.error, t('twoFactor.enableFailed'))}</ErrorBox>}
+      {start.isError && <ErrorBox>{errText(start.error, 'could not turn it on')}</ErrorBox>}
       <Button onClick={() => start.mutate()} disabled={start.isPending}>
-        {start.isPending ? t('twoFactor.creating') : t('twoFactor.enable')}
+        {start.isPending ? 'Creating…' : 'Turn on two-factor'}
       </Button>
     </section>
   )
@@ -96,7 +94,6 @@ function Enrol({
   onCancel: () => void
   onConfirmed: (codes: string[]) => void
 }) {
-  const t = useT()
   const [code, setCode] = useState('')
   const confirm = useMutation({
     mutationFn: () => authApi.totpConfirm(code),
@@ -106,9 +103,9 @@ function Enrol({
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="font-semibold text-fg-strong">{t('twoFactor.step1')}</h2>
+        <h2 className="font-semibold text-fg-strong">Step 1 — add it to your app</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          {t('twoFactor.step1Hint')}
+          Open Google Authenticator, Aegis, 1Password… then scan the code below.
         </p>
       </div>
 
@@ -119,7 +116,7 @@ function Enrol({
       <div className="flex flex-wrap items-start gap-4 rounded-lg border border-border bg-muted/40 p-3">
         <img
           src={qr}
-          alt={t('twoFactor.qrAlt')}
+          alt="QR code to add to your authenticator app"
           width={168}
           height={168}
           // White plate under it: a QR inverted by a dark theme does not scan.
@@ -129,7 +126,7 @@ function Enrol({
         <div className="min-w-0 flex-1 space-y-2">
           <div>
             <p className="text-xs text-fg-muted">
-              {t('twoFactor.cannotScan')}
+              Cannot scan? Type this key by hand:
             </p>
             <p className="mt-1 font-mono text-sm break-all text-fg-strong select-all">
               {secret}
@@ -139,7 +136,7 @@ function Enrol({
             href={uri}
             className="inline-block font-mono text-xs text-accent-soft hover:underline"
           >
-            → {t('twoFactor.openApp')}
+            → on a phone? tap to open the app directly
           </a>
         </div>
       </div>
@@ -151,8 +148,8 @@ function Enrol({
         }}
         className="space-y-3"
       >
-        <h2 className="font-semibold text-fg-strong">{t('twoFactor.step2')}</h2>
-        <Field label={t('twoFactor.codeLabel')}>
+        <h2 className="font-semibold text-fg-strong">Step 2 — enter a code to confirm</h2>
+        <Field label="6-digit code">
           <Input
             value={code}
             onChange={(e) => setCode(e.target.value)}
@@ -163,18 +160,18 @@ function Enrol({
           />
         </Field>
         {confirm.isError && (
-          <ErrorBox>{errText(confirm.error, t('twoFactor.confirmFailed'))}</ErrorBox>
+          <ErrorBox>{errText(confirm.error, 'confirmation failed')}</ErrorBox>
         )}
         <div className="flex gap-2">
           <Button type="submit" disabled={confirm.isPending || code.trim() === ''}>
-            {confirm.isPending ? t('twoFactor.confirming') : t('twoFactor.confirmEnable')}
+            {confirm.isPending ? 'Confirming…' : 'Confirm and turn on'}
           </Button>
           <button
             type="button"
             onClick={onCancel}
             className="rounded-md border border-border-strong px-4 py-2.5 font-medium text-fg-muted transition hover:text-fg-strong"
           >
-            {t('common.cancel')}
+            Cancel
           </button>
         </div>
       </form>
@@ -183,15 +180,14 @@ function Enrol({
 }
 
 function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
-  const t = useT()
   const [saved, setSaved] = useState(false)
 
   return (
     <section className="space-y-4">
       <div>
-        <h2 className="font-semibold text-success">✓ {t('twoFactor.enabled')}</h2>
+        <h2 className="font-semibold text-success">✓ Two-factor is on</h2>
         <p className="mt-1 text-sm text-fg-muted">
-          {t('twoFactor.codesIntro')}
+          Save the recovery codes below right now. This is the only time they are shown — only their hashes are stored, so they cannot be read back. Each code works once, standing in for the 6-digit code if you lose your phone.
         </p>
       </div>
 
@@ -209,7 +205,7 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
           onClick={() => navigator.clipboard?.writeText(codes.join('\n'))}
           className="rounded-md border border-border-strong px-4 py-2.5 text-sm font-medium text-fg-muted transition hover:text-fg-strong"
         >
-          {t('twoFactor.copyAll')}
+          Copy all
         </button>
         <label className="flex items-center gap-2 text-sm text-fg">
           <input
@@ -218,12 +214,12 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
             onChange={(e) => setSaved(e.target.checked)}
             className="h-4 w-4 accent-[var(--accent)]"
           />
-          {t('twoFactor.codesSaved')}
+          I have saved these codes
         </label>
         {/* Gated on the checkbox on purpose: dismissing this panel is the last
             moment the codes exist anywhere readable. */}
         <Button onClick={onDone} disabled={!saved}>
-          {t('twoFactor.done')}
+          Done
         </Button>
       </div>
     </section>
@@ -231,7 +227,6 @@ function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void 
 }
 
 function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void }) {
-  const t = useT()
   const [password, setPassword] = useState('')
   const [confirming, setConfirming] = useState(false)
 
@@ -244,18 +239,18 @@ function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void })
     <section className="space-y-4">
       <div>
         <h2 className="font-semibold text-fg-strong">
-          {t('twoFactor.title')}{' '}
+          Two-factor authentication{' '}
           <span className="ml-1 rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">
-            {t('twoFactor.on')}
+            on
           </span>
         </h2>
         <p className="mt-1 text-sm text-fg-muted">
-          {t('twoFactor.leftBefore')}{' '}
+          You have{' '}
           <strong className={left === 0 ? 'text-danger' : 'text-fg-strong'}>
             {left}
           </strong>{' '}
-          {t('twoFactor.leftAfter')}
-          {left === 0 && t('twoFactor.noneLeft')}
+          unused recovery codes left.
+          {left === 0 && ' With none left, losing your phone means losing the account — turn it off and on again for a fresh set.'}
         </p>
       </div>
 
@@ -265,7 +260,7 @@ function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void })
           onClick={() => setConfirming(true)}
           className="rounded-md border border-danger/50 px-4 py-2.5 text-sm font-medium text-danger transition hover:bg-danger/10"
         >
-          {t('twoFactor.disable')}
+          Turn off two-factor
         </button>
       ) : (
         <form
@@ -276,9 +271,9 @@ function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void })
           className="space-y-3 rounded-lg border border-danger/40 bg-danger/5 p-4"
         >
           <p className="text-sm text-fg">
-            {t('twoFactor.disableWarn')}
+            Turning it off also deletes the recovery codes. Enter your current password to confirm — an open session alone is not enough to remove this layer.
           </p>
-          <Field label={t('twoFactor.currentPassword')}>
+          <Field label="Current password">
             <PasswordInput
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -287,7 +282,7 @@ function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void })
             />
           </Field>
           {disable.isError && (
-            <ErrorBox>{errText(disable.error, t('twoFactor.disableFailed'))}</ErrorBox>
+            <ErrorBox>{errText(disable.error, 'could not turn it off')}</ErrorBox>
           )}
           <div className="flex gap-2">
             <button
@@ -295,14 +290,14 @@ function Enabled({ left, onDisabled }: { left: number; onDisabled: () => void })
               disabled={disable.isPending}
               className="rounded-md bg-danger px-4 py-2.5 text-sm font-medium text-white transition hover:brightness-110 disabled:opacity-60"
             >
-              {disable.isPending ? t('twoFactor.disabling') : t('twoFactor.disableShort')}
+              {disable.isPending ? 'Turning off…' : 'Turn off'}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
               className="rounded-md border border-border-strong px-4 py-2.5 text-sm font-medium text-fg-muted transition hover:text-fg-strong"
             >
-              {t('common.cancel')}
+              Cancel
             </button>
           </div>
         </form>

@@ -8,14 +8,13 @@ import { PlusIcon } from '@/components/icons'
 import { IncidentPanel } from '@/components/IncidentPanel'
 import { MarkdownEditor } from '@/components/MarkdownEditor'
 import { ClockIcon, TerminalIcon } from '@/components/icons'
-import { useT, type Key } from '@/lib/i18n'
 
 type Filter = 'all' | 'published' | 'draft'
 
-const FILTERS: { key: Filter; label: Key }[] = [
-  { key: 'all', label: 'war.filterAll' },
-  { key: 'published', label: 'war.filterPublished' },
-  { key: 'draft', label: 'war.filterDraft' },
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'published', label: 'Published' },
+  { key: 'draft', label: 'Draft' },
 ]
 
 // A drill is a lab, so creating one is creating a lab — the same endpoint the
@@ -58,7 +57,6 @@ const textarea =
  *  Same two-column shape as the course content screen: a narrow rail to pick
  *  with, a wide area to work in. Picking is a glance, editing is the job. */
 export default function AdminWarRoom() {
-  const t = useT()
   const qc = useQueryClient()
   const [selectedID, setSelectedID] = useState<number | null>(null)
   const [filter, setFilter] = useState<Filter>('all')
@@ -91,8 +89,8 @@ export default function AdminWarRoom() {
         e instanceof ApiError
           ? e.message
           : editingID === null
-            ? t('war.createFailed')
-            : t('war.saveFailed'),
+            ? 'Could not create the drill, try again.'
+            : 'Could not save, try again.',
       ),
   })
 
@@ -106,7 +104,7 @@ export default function AdminWarRoom() {
       setError('')
     },
     onError: (e) =>
-      setError(e instanceof ApiError ? e.message : t('war.statusFailed')),
+      setError(e instanceof ApiError ? e.message : 'Could not change the status, try again.'),
   })
 
   const all = useMemo(() => drills.data ?? [], [drills.data])
@@ -124,9 +122,9 @@ export default function AdminWarRoom() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-fg-strong">{t('war.adminTitle')}</h1>
+          <h1 className="text-2xl font-bold text-fg-strong">War Room</h1>
           <p className="mt-1 max-w-3xl text-sm text-fg-muted">
-            {t('war.adminSubtitle')}
+            Every lab that already carries an incident scenario. A lab shows up in War Room once at least one of its scenarios is active — no other column says so.
           </p>
         </div>
         {!form && (
@@ -139,7 +137,7 @@ export default function AdminWarRoom() {
             }}
           >
             <PlusIcon className="h-4 w-4" />
-            {t('war.create')}
+            New drill
           </Button>
         )}
       </div>
@@ -168,10 +166,10 @@ export default function AdminWarRoom() {
 
       {drills.isLoading && (
         <p className="py-10 text-center text-sm text-fg-subtle">
-          {t('common.loading')}
+          Loading…
         </p>
       )}
-      {drills.isError && <ErrorBox>{t('war.adminLoadError')}</ErrorBox>}
+      {drills.isError && <ErrorBox>Could not load the drill list.</ErrorBox>}
 
       {/* Only when nothing is being created — an empty list behind an open form
           is telling somebody to do the thing they are already doing. */}
@@ -180,9 +178,9 @@ export default function AdminWarRoom() {
           <span className="grid h-12 w-12 place-items-center rounded-full bg-muted text-fg-subtle">
             <TerminalIcon className="h-5 w-5" />
           </span>
-          <p className="mt-3 text-sm font-medium text-fg">{t('war.adminEmpty')}</p>
+          <p className="mt-3 text-sm font-medium text-fg">No lab has a scenario yet.</p>
           <p className="mt-1 max-w-md text-sm text-fg-subtle">
-            {t('war.adminEmptyHint')}
+            A drill is a lab with incident scenarios and no course behind it. Press New drill above to build the first one.
           </p>
         </Card>
       )}
@@ -192,14 +190,14 @@ export default function AdminWarRoom() {
           <Card className="w-full shrink-0 overflow-hidden p-0 lg:w-76">
             <div className="border-b border-border px-4 py-3">
               <h2 className="text-sm font-semibold text-fg-strong">
-                {t('war.drillList')}
+                Drills
                 <span className="ml-1.5 font-normal text-fg-subtle">
                   {shown.length}/{all.length}
                 </span>
               </h2>
               <div
                 role="group"
-                aria-label={t('war.filterGroup')}
+                aria-label="Filter by status"
                 className="mt-2 flex gap-1 rounded-lg bg-muted p-1"
               >
                 {FILTERS.map((f) => (
@@ -214,7 +212,7 @@ export default function AdminWarRoom() {
                         : 'text-fg-muted hover:text-fg-strong')
                     }
                   >
-                    {t(f.label)}
+                    {f.label}
                   </button>
                 ))}
               </div>
@@ -222,7 +220,7 @@ export default function AdminWarRoom() {
             <ul className="max-h-[70vh] divide-y divide-border overflow-y-auto">
               {shown.length === 0 && (
                 <li className="px-4 py-6 text-center text-sm text-fg-subtle">
-                  {t('war.noMatch')}
+                  No drill matches the filter.
                 </li>
               )}
               {shown.map((d) => (
@@ -249,7 +247,7 @@ export default function AdminWarRoom() {
                     </span>
                     {d.course_id !== null && (
                       <span className="mt-0.5 block truncate text-xs text-fg-subtle">
-                        {t('war.inCourse')} {d.course_title}
+                        in course {d.course_title}
                       </span>
                     )}
                     <DrillBadges drill={d} />
@@ -292,7 +290,7 @@ export default function AdminWarRoom() {
                       }
                       title={
                         selected.status === 'draft' && selected.incident_count === 0
-                          ? t('war.cannotPublish')
+                          ? 'Turn on at least one scenario before publishing'
                           : undefined
                       }
                       className={
@@ -304,10 +302,10 @@ export default function AdminWarRoom() {
                       }
                     >
                       {setStatus.isPending
-                        ? t('war.publishing')
+                        ? 'Saving…'
                         : selected.status === 'published'
-                          ? t('war.unpublish')
-                          : t('war.publish')}
+                          ? 'Back to draft'
+                          : 'Publish'}
                     </button>
                     {/* Edited here, not elsewhere: a challenge with no course
                         has no lab page in the Courses section to be edited on. */}
@@ -328,7 +326,7 @@ export default function AdminWarRoom() {
                       }}
                       className="text-sm text-accent-soft hover:underline"
                     >
-                      {t('war.edit')}
+                      Edit
                     </button>
                   </div>
                 </Card>
@@ -336,7 +334,7 @@ export default function AdminWarRoom() {
                 {selected.incident_setup.trim() !== '' && (
                   <Card className="overflow-hidden p-0">
                     <p className="border-b border-border px-4 py-2 text-xs font-medium text-fg-muted">
-                      {t('war.setupScript')}
+                      Service setup script
                     </p>
                     <pre className="overflow-x-auto px-4 py-3 font-mono text-xs text-fg-muted">
                       {selected.incident_setup}
@@ -351,7 +349,7 @@ export default function AdminWarRoom() {
                   key={selected.id}
                   labID={selected.id}
                   onError={(e) =>
-                    setError(e instanceof Error ? e.message : t('war.adminLoadError'))
+                    setError(e instanceof Error ? e.message : 'Could not load the drill list.')
                   }
                   clearError={() => setError('')}
                 />
@@ -362,10 +360,10 @@ export default function AdminWarRoom() {
                   <TerminalIcon className="h-5 w-5" />
                 </span>
                 <p className="mt-3 text-sm font-medium text-fg">
-                  {t('war.noDrillPicked')}
+                  No drill selected
                 </p>
                 <p className="mt-1 max-w-xs text-sm text-fg-subtle">
-                  {t('war.pickDrill')}
+                  Pick a drill on the left to edit its scenarios.
                 </p>
               </Card>
             )}
@@ -380,7 +378,6 @@ export default function AdminWarRoom() {
  *  author expects. Shared by the rail and the header so the two cannot disagree
  *  about what is wrong with a lab. */
 function DrillBadges({ drill }: { drill: AdminDrill }) {
-  const t = useT()
   return (
     <span className="mt-1.5 flex flex-wrap gap-1.5">
       {/* Status first: it is the answer to "is anybody seeing this", and every
@@ -400,36 +397,36 @@ function DrillBadges({ drill }: { drill: AdminDrill }) {
           }
           aria-hidden="true"
         />
-        {drill.status === 'published' ? t('war.published') : t('war.draft')}
+        {drill.status === 'published' ? 'published' : 'draft'}
       </span>
       {/* Published with nothing to draw: the query hides it from students, so
           the admin list is the only place this can be noticed. */}
       {drill.status === 'published' && drill.incident_count === 0 && (
         <span className="rounded bg-danger/10 px-2 py-0.5 text-xs text-danger">
-          {t('war.publishedNoActive')}
+          published but no scenario is active — students cannot see it
         </span>
       )}
       {drill.incident_count > 0 ? (
         <span className="rounded bg-success-soft px-2 py-0.5 text-xs font-medium text-success">
-          {t('war.activeCount', { n: drill.incident_count })}
+          {`${drill.incident_count} active`}
         </span>
       ) : drill.scenario_count > 0 ? (
         <span className="rounded bg-muted px-2 py-0.5 text-xs text-fg-muted">
-          {t('war.retiredOnly')}
+          no active scenario — not shown in War Room
         </span>
       ) : (
         <span className="rounded bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">
-          {t('war.preparing')}
+          being prepared — no scenario yet
         </span>
       )}
       {drill.lab_image_id === null && (
         <span className="rounded bg-danger/10 px-2 py-0.5 text-xs text-danger">
-          {t('war.noImageWarn')}
+          no image assigned — cannot be started
         </span>
       )}
       {drill.incident_setup.trim() === '' && (
         <span className="rounded bg-amber-500/15 px-2 py-0.5 text-xs text-amber-500">
-          {t('war.noSetup')}
+          no service setup script yet
         </span>
       )}
     </span>
@@ -462,7 +459,6 @@ function DrillForm({
   onCancel: () => void
   onSubmit: () => void
 }) {
-  const t = useT()
   const set = <K extends keyof LabInput>(k: K, v: LabInput[K]) =>
     onChange({ ...value, [k]: v })
 
@@ -474,7 +470,7 @@ function DrillForm({
   return (
     <Card className="overflow-hidden p-0">
       <h2 className="border-b border-border px-5 py-3 font-semibold text-fg-strong">
-        {editing ? t('war.editTitle') : t('war.createTitle')}
+        {editing ? 'Edit the drill' : 'New drill'}
       </h2>
       <form
         onSubmit={(e) => {
@@ -485,21 +481,21 @@ function DrillForm({
       >
         {!editing && (
           <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-            {t('war.standalone')}
+            A drill stands on its own and belongs to no course. It is entered straight from War Room with no enrolment, and its points land on no course scoreboard.
           </p>
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t('ac.fieldTitle')}>
+          <Field label="Title">
             <Input
               value={value.title}
               onChange={(e) => set('title', e.target.value)}
-              placeholder={t('ac.incidentTitlePlaceholder')}
+              placeholder="nginx has the wrong port in its config"
               autoFocus
               required
             />
           </Field>
-          <Field label="Slug" hint={t('ac.slugHint')}>
+          <Field label="Slug" hint="unique across the whole system">
             <Input
               variant="terminal"
               value={value.slug}
@@ -510,17 +506,17 @@ function DrillForm({
           </Field>
         </div>
 
-        <Field label={t('ac.fieldGuide')} hint={t('ac.guideHint')}>
+        <Field label="Instructions" hint="shown on the Instructions tab">
           <MarkdownEditor
             rows={5}
             value={value.description_md}
             onChange={(v) => set('description_md', v)}
-            placeholder={t('ac.guidePlaceholder')}
+            placeholder="Describe the lab. Use **bold**, `commands`, lists…"
           />
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t('ac.duration')}>
+          <Field label="Duration (minutes)">
             <Input
               type="number"
               min={1}
@@ -531,22 +527,22 @@ function DrillForm({
           </Field>
         </div>
 
-        <Field label={t('ac.incidentSetup')} hint={t('ac.incidentSetupHint')}>
+        <Field label="Stand up the service (War Room)" hint="runs before the break script — leave empty for a normal lab">
           <textarea
             rows={3}
             value={value.incident_setup}
             onChange={(e) => set('incident_setup', e.target.value)}
             className={textarea + ' font-mono text-sm'}
-            placeholder={t('ac.incidentSetupPlaceholder')}
+            placeholder="systemctl enable --now nginx"
             required
           />
         </Field>
         <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-          {t('war.setupRequired')}
+          The setup script is required — it is what files this lab under War Room.
           {!editing && (
             <>
               <br />
-              {t('war.nextStep')}
+              Once created, add an incident scenario, then press Publish.
             </>
           )}
         </p>
@@ -555,18 +551,18 @@ function DrillForm({
           <Button type="submit" disabled={!ready || saving} className="px-3 py-2 text-sm">
             {saving
               ? editing
-                ? t('war.saving')
-                : t('war.creating')
+                ? 'Saving…'
+                : 'Creating…'
               : editing
-                ? t('war.save')
-                : t('war.create')}
+                ? 'Save'
+                : 'New drill'}
           </Button>
           <button
             type="button"
             onClick={onCancel}
             className="text-sm text-fg-muted transition hover:text-fg-strong"
           >
-            {t('common.cancel')}
+            Cancel
           </button>
         </div>
       </form>
@@ -586,7 +582,6 @@ function DrillForm({
  *  Nhận cả link đầy đủ lẫn mỗi token: người báo cáo dán nguyên cái họ nhận được,
  *  và bắt họ tự cắt lấy đoạn cuối là bắt họ khỏi báo cáo. */
 function TakeDownBox() {
-  const t = useT()
   const [raw, setRaw] = useState('')
   const [done, setDone] = useState(false)
 
@@ -602,8 +597,8 @@ function TakeDownBox() {
 
   return (
     <Card className="p-5">
-      <h2 className="font-semibold text-fg-strong">{t('war.takeDownTitle')}</h2>
-      <p className="mt-1 max-w-2xl text-sm text-fg-muted">{t('war.takeDownHint')}</p>
+      <h2 className="font-semibold text-fg-strong">Take a shared report down</h2>
+      <p className="mt-1 max-w-2xl text-sm text-fg-muted">Paste the link somebody sent you. The page dies immediately, the old link 404s, and the action is written to the audit log. The owner can publish again — that mints a new link.</p>
       <form
         className="mt-3 flex flex-wrap items-center gap-2"
         onSubmit={(e) => {
@@ -615,17 +610,17 @@ function TakeDownBox() {
         <input
           value={raw}
           onChange={(e) => setRaw(e.target.value)}
-          placeholder={t('war.takeDownPlaceholder')}
+          placeholder="https://…/r/<token> or just the token"
           className="min-w-0 flex-1 rounded-md border border-border bg-bg px-3 py-2 font-mono text-sm text-fg"
         />
         <Button type="submit" disabled={!tokenOf(raw) || drop.isPending}>
-          {drop.isPending ? t('war.takingDown') : t('war.takeDown')}
+          {drop.isPending ? 'Taking it down…' : 'Take it down'}
         </Button>
       </form>
-      {done && <p className="mt-2 text-sm text-success">{t('war.takenDown')}</p>}
-      {gone && <p className="mt-2 text-sm text-fg-muted">{t('war.takeDownGone')}</p>}
+      {done && <p className="mt-2 text-sm text-success">Done. That link now 404s.</p>}
+      {gone && <p className="mt-2 text-sm text-fg-muted">That link was already not shared.</p>}
       {drop.isError && !gone && (
-        <p className="mt-2 text-sm text-danger">{t('war.takeDownFailed')}</p>
+        <p className="mt-2 text-sm text-danger">That did not work. Try again.</p>
       )}
     </Card>
   )

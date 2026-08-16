@@ -19,22 +19,21 @@ import {
   ClockIcon,
   TerminalIcon,
 } from '@/components/icons'
-import { useT, type Key } from '@/lib/i18n'
 
 // Ids, not labels — the active tab is compared by value.
 const TABS = [
-  { id: 'task', label: 'lab.tab.task' },
-  { id: 'hint', label: 'lab.tab.hint' },
-  { id: 'assistant', label: 'lab.tab.assistant' },
-] as const satisfies readonly { id: string; label: Key }[]
+  { id: 'task', label: 'Tasks' },
+  { id: 'hint', label: 'Hints' },
+  { id: 'assistant', label: 'Assistant' },
+] as const satisfies readonly { id: string; label: string }[]
 
 /** How the question is marked, said on the card so a student knows whether to
     look at the terminal or at the options. */
-const KIND_LABEL: Record<LabTask['kind'], Key> = {
-  script: 'lab.kind.script',
-  command: 'lab.kind.command',
-  choice: 'lab.kind.choice',
-  sim: 'lab.kind.sim',
+const KIND_LABEL: Record<LabTask['kind'], string> = {
+  script: 'Hands-on',
+  command: 'Type a command',
+  choice: 'Theory',
+  sim: 'Pipeline',
 }
 type Tab = (typeof TABS)[number]['id']
 
@@ -106,7 +105,6 @@ function useLeaveGuard(active: boolean, onAttempt: () => void) {
  *  cả cái terminal, đồng hồ, ô nhiệm vụ và luồng nộp bài. Hai bản sao của chừng
  *  đó là hai chỗ để lệch nhau. */
 export default function LabRunner({ drill = false }: { drill?: boolean }) {
-  const t = useT()
   const { slug = '', labSlug = '' } = useParams()
   // Chỗ quay ra khi phiên không phải của màn này: danh sách thử thách, hoặc
   // trang khoá học đã dẫn tới đây.
@@ -246,10 +244,10 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
     return (
       <div className="flex h-screen flex-col items-center justify-center gap-3">
         <p className="text-danger">
-          {drill ? t('lab.drillNotFound') : t('lab.notFound')}
+          {drill ? 'This challenge was not found.' : 'This lab was not found.'}
         </p>
         <Link to={backTo} className="text-sm text-accent-soft hover:underline">
-          ← {drill ? t('lab.backWarRoom') : t('lab.backCourse')}
+          ← {drill ? 'Back to War Room' : 'Back to the course'}
         </Link>
       </div>
     )
@@ -326,7 +324,7 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
                     : 'text-fg-muted hover:text-fg-strong')
                 }
               >
-                {t(x.label)}
+                {x.label}
               </button>
             ))}
           </nav>
@@ -389,9 +387,9 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
         {sim ? (
           <main className="flex min-w-0 flex-1 flex-col bg-surface">
             <div className="flex h-10 shrink-0 items-center justify-between border-b border-border px-4">
-              <span className="font-mono text-sm text-fg-muted">{t('lab.simPipeline')}</span>
+              <span className="font-mono text-sm text-fg-muted">Simulated pipeline</span>
               <span className="text-xs text-fg-subtle">
-                {t('lab.simNote')}
+                simulated time, not measured from a real CI
               </span>
             </div>
             {session && mine ? (
@@ -404,7 +402,7 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
                 live={session.status === 'running'}
               />
             ) : (
-              <p className="p-4 text-sm text-fg-subtle">{t('lab.opening')}</p>
+              <p className="p-4 text-sm text-fg-subtle">Opening the lab…</p>
             )}
           </main>
         ) : (
@@ -438,7 +436,7 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
                   aria-hidden="true"
                   className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
                 />
-                {t('lab.openingTerminal')}
+                Opening the terminal…
               </div>
             )}
           </div>
@@ -448,13 +446,13 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
 
       {confirmStop && session && (
         <ConfirmModal
-          title={confirmStop === 'leave' ? t('lab.leaveTitle') : t('lab.stopTitle')}
+          title={confirmStop === 'leave' ? 'Leave the lab?' : 'End this lab session?'}
           confirmLabel={
             stop.isPending
-              ? t('lab.stopping')
+              ? 'Closing…'
               : confirmStop === 'leave'
-                ? t('lab.leaveEnd')
-                : t('lab.stop')
+                ? 'End it and leave'
+                : 'End'
           }
           tone="danger"
           busy={stop.isPending}
@@ -464,13 +462,13 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
           {/* Said first when they were on their way out: the thing they are
               about to lose is not obvious, and "ending" is not what pressing
               back asked for. */}
-          {confirmStop === 'leave' && <p>{t('lab.leaveBody')}</p>}
+          {confirmStop === 'leave' && <p>The session is still running. Leaving keeps the clock ticking and the container alive — you can come back to it any time from History.</p>}
           <p>
-            {sim ? t('lab.stopBodySim') : t('lab.stopBodyContainer')}
+            {sim ? 'This session closes and the pipeline runs cannot continue.' : 'Your container is deleted along with everything inside it. This session cannot be reopened.'}
           </p>
           <p>
-            {t('lab.stopKeepsScoreBefore')}{' '}
-            {sim ? t('lab.session') : t('lab.container')} {t('lab.stopKeepsScoreAfter')}
+            Points from tasks you passed are kept — only the{' '}
+            {sim ? 'session' : 'container'} is lost.
           </p>
           {/* The answer the header button has no use for. Without it the guard
               would take away the one thing back used to do — step out and come
@@ -484,7 +482,7 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
               }}
               className="text-sm text-accent-soft transition hover:underline"
             >
-              {t('lab.leaveKeep')} →
+              Leave, keep it running →
             </button>
           )}
         </ConfirmModal>
@@ -492,26 +490,26 @@ export default function LabRunner({ drill = false }: { drill?: boolean }) {
 
       {confirmSubmit && session && (
         <ConfirmModal
-          title={t('lab.submitTitle')}
-          confirmLabel={submit.isPending ? t('lab.submitting') : t('lab.submit')}
+          title="Hand in?"
+          confirmLabel={submit.isPending ? 'Handing in…' : 'Hand in'}
           busy={submit.isPending}
           onClose={() => setConfirmSubmit(false)}
           onConfirm={() => submit.mutate(session.id)}
         >
           <p>
-            {t('lab.submitBodyBefore')}
-            {sim ? '' : t('lab.submitBodyContainer')}
-            {t('lab.submitBodyAfter')}
+            Your result is finalised
+            {sim ? '' : ' and the container is deleted'}
+            . This session cannot be continued.
           </p>
           {/* The number that decides whether they press it, said before they do
               rather than on the screen afterwards. */}
           <p className="text-fg">
-            {t('lab.doneCountBefore')}{' '}
+            You have passed{' '}
             <strong className="text-fg-strong">{done}</strong>/{tasks.length}{' '}
-            {t('lab.doneCountAfter')}
+            tasks.
           </p>
           {submit.isError && (
-            <p className="text-danger">{t('lab.submitFailed')}</p>
+            <p className="text-danger">Could not hand in, try again.</p>
           )}
         </ConfirmModal>
       )}
@@ -545,7 +543,6 @@ function TopBar({
   remaining: number
   position: string
 }) {
-  const t = useT()
   const { user } = useAuth()
   return (
     <header className="flex h-14 shrink-0 items-center gap-4 border-b border-border bg-surface px-4">
@@ -564,19 +561,19 @@ function TopBar({
         <>
           <Countdown expiresAt={session.expires_at} />
           <span className="rounded-full bg-success-soft px-2.5 py-0.5 text-xs font-medium text-success">
-            {t('lab.running')}
+            Running
           </span>
         </>
       ) : (
         <span className="rounded-full bg-muted px-2.5 py-0.5 text-xs font-medium text-fg-muted">
-          {t('lab.notStarted')}
+          Not started
         </span>
       )}
 
       <span className="truncate text-sm text-fg-muted">
         {lab
-          ? `${drill ? t('lab.drillWord') : t('lab.labWord')}: ${lab.title}`
-          : t('common.loading')}
+          ? `${drill ? 'Shift' : 'Lab'}: ${lab.title}`
+          : 'Loading…'}
         {position && (
           <span className="ml-2 font-mono text-xs text-fg-subtle">{position}</span>
         )}
@@ -588,12 +585,12 @@ function TopBar({
           disabled={!session || submitting || remaining > 0}
           title={
             remaining > 0
-              ? t('lab.remainingTitle', { n: remaining })
-              : t('lab.submitTitleOk')
+              ? `${remaining} tasks still unpassed — all of them must pass before handing in`
+              : 'Hand in and see the result'
           }
           className="rounded-md bg-accent px-4 py-1.5 text-sm font-semibold text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {submitting ? t('lab.submitting') : t('lab.submit')}
+          {submitting ? 'Handing in…' : 'Hand in'}
         </button>
 
         {session && (
@@ -602,7 +599,7 @@ function TopBar({
             disabled={stopping}
             className="rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg-muted transition hover:border-danger hover:text-danger disabled:opacity-50"
           >
-            {t('lab.stop')}
+            End
           </button>
         )}
         {user && <Avatar user={user} className="h-8 w-8 text-xs" />}
@@ -625,7 +622,6 @@ function StepNav({
   onPrev: () => void
   onNext: () => void
 }) {
-  const t = useT()
   const finished = done.filter(Boolean).length
   const pct = total > 0 ? (finished / total) * 100 : 0
 
@@ -635,7 +631,7 @@ function StepNav({
         <button
           onClick={onPrev}
           disabled={step === 0}
-          aria-label={t('lab.prevQuestion')}
+          aria-label="Previous question"
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-strong text-fg-muted transition hover:text-fg-strong disabled:opacity-40"
         >
           <ChevronLeftIcon className="h-4 w-4" />
@@ -644,11 +640,11 @@ function StepNav({
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline justify-between gap-2">
             <p className="font-mono text-sm tabular-nums text-fg-strong">
-              {total === 0 ? '—' : t('lab.questionN', { n: step + 1 })}
+              {total === 0 ? '—' : `Question ${step + 1}`}
               {total > 0 && <span className="text-fg-subtle"> / {total}</span>}
             </p>
             <p className="text-xs tabular-nums text-fg-subtle">
-              {finished}/{total} {t('lab.doneOf')}
+              {finished}/{total} done
             </p>
           </div>
           <div className="mt-1.5 h-1 overflow-hidden rounded-full bg-muted">
@@ -662,7 +658,7 @@ function StepNav({
         <button
           onClick={onNext}
           disabled={step >= total - 1}
-          aria-label={t('lab.nextQuestionLabel')}
+          aria-label="Next question"
           className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-accent text-accent-fg transition hover:bg-accent-hover disabled:opacity-40"
         >
           <ChevronRightIcon className="h-4 w-4" />
@@ -716,14 +712,13 @@ function TabBody({
   /** Questions not passed yet, so the last card can say what handing in costs. */
   remaining: number
 }) {
-  const t = useT()
   if (tab === 'assistant') return <Assistant />
 
   if (!task)
-    return <p className="text-sm text-fg-subtle">{t('lab.noTasks')}</p>
+    return <p className="text-sm text-fg-subtle">This lab has no tasks yet.</p>
 
   if (tab === 'hint')
-    return <Prose text={task.hint} empty={t('lab.noHint')} />
+    return <Prose text={task.hint} empty="No hint for this task — try it in the terminal first." />
 
   return (
     <>
@@ -733,7 +728,7 @@ function TabBody({
         // của khoá học không có đồng hồ nên vẫn gập, để chỗ cho nhiệm vụ.
         <details open={drill} className="mb-4 rounded-lg border border-border bg-surface">
           <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-fg-strong [&::-webkit-details-marker]:hidden">
-            {drill ? t('lab.drillBrief') : t('lab.labBrief')}
+            {drill ? 'Shift brief' : 'Lab instructions'}
           </summary>
           <div className="border-t border-border px-3 py-2">
             <Prose text={lab.description_md} empty="" />
@@ -765,20 +760,19 @@ function TabBody({
  *  the tab is where students will look for it, and an empty tab that says when
  *  beats a tab that appears later and nobody notices. */
 function Assistant() {
-  const t = useT()
   return (
     <div className="flex flex-col items-center py-12 text-center">
       <span className="grid h-12 w-12 place-items-center rounded-full bg-muted text-fg-subtle">
         <TerminalIcon className="h-5 w-5" />
       </span>
       <p className="mt-3 flex items-center gap-2 text-sm font-medium text-fg">
-        {t('lab.tab.assistant')}
+        Assistant
         <span className="rounded-full bg-accent/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-accent-soft">
           Beta
         </span>
       </p>
       <p className="mt-1 max-w-xs text-sm text-fg-subtle">
-        {t('lab.assistantSoon')}
+        Coming soon: ask about the question you are on, right here. In the meantime, the Hints tab is where the clues are.
       </p>
     </div>
   )
@@ -818,7 +812,6 @@ function TaskBody({
   onSubmit: () => void
   remaining: number
 }) {
-  const t = useT()
   const choice = task.kind === 'choice'
 
   // A pass recorded for this attempt counts, so a question answered a few steps
@@ -835,10 +828,10 @@ function TaskBody({
       <div className="overflow-hidden rounded-xl border border-border bg-bg">
         <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/40 px-3 py-2">
           <span className="text-xs font-medium text-fg-muted">
-            {t(KIND_LABEL[task.kind])}
+            {KIND_LABEL[task.kind]}
           </span>
           <span className="rounded bg-muted px-2 py-0.5 font-mono text-xs text-accent-soft">
-            {task.points} {t('lab.points')}
+            {task.points} points
           </span>
         </div>
         <p className="px-3 py-3 leading-relaxed font-medium text-fg-strong">
@@ -924,15 +917,15 @@ function TaskBody({
             onClick={onNext}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
           >
-            {t('lab.nextQuestion')}
+            Next question
             <ChevronRightIcon className="h-4 w-4" />
           </button>
         ) : (
           <div className="space-y-2">
             <p className="text-center text-sm text-fg-muted">
               {remaining === 0
-                ? t('lab.lastAllDone')
-                : t('lab.lastSomeLeft', { n: remaining })}
+                ? 'This is the last question, and you have finished them all.'
+                : `This is the last question. ${remaining} still unpassed.`}
             </p>
             {/* The server refuses a hand-in with anything left unpassed, so the
                 button says so here rather than letting the click come back a
@@ -942,12 +935,12 @@ function TaskBody({
               disabled={remaining > 0}
               title={
                 remaining > 0
-                  ? t('lab.remainingTitle', { n: remaining })
-                  : t('lab.submitTitleOk')
+                  ? `${remaining} tasks still unpassed — all of them must pass before handing in`
+                  : 'Hand in and see the result'
               }
               className="inline-flex w-full items-center justify-center rounded-md bg-success px-4 py-2.5 font-medium text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:brightness-100"
             >
-              {t('lab.submit')}
+              Hand in
             </button>
           </div>
         )
@@ -967,12 +960,12 @@ function TaskBody({
             />
           )}
           {checking
-            ? t('lab.checking')
+            ? 'Checking…'
             : choice
-              ? t('lab.answer')
+              ? 'Answer'
               : task.kind === 'sim'
-                ? t('lab.gradeLastRun')
-                : t('lab.markDone')}
+                ? 'Grade the latest run'
+                : 'Mark as done'}
         </button>
       )}
 
@@ -982,10 +975,10 @@ function TaskBody({
           screen answering for them. The "đã xong" badge says the rest. */}
       {result?.passed && (
         <p className="rounded-md border border-success/40 bg-success-soft px-3 py-2.5 text-sm text-success">
-          {t('lab.correct')}
+          Correct answer!
           {result.points_awarded > 0 &&
-            t('lab.plusPoints', { n: result.points_awarded })}
-          {result.lab_completed && t('lab.labCompleted')}
+            ` +${result.points_awarded} points`}
+          {result.lab_completed && ' — you have completed the whole lab.'}
         </p>
       )}
       {/* Gone while the next check runs: a red box under a spinner reads as the
@@ -993,37 +986,37 @@ function TaskBody({
       {verdict && !verdict.passed && !checking && (
         <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
           {choice
-            ? t('lab.wrongChoice')
+            ? 'Not right yet. This question may take more than one answer — check the Hints tab if you need it.'
             : task.kind === 'command'
-              ? t('lab.wrongCommand')
+              ? 'No matching command found. Run it in the terminal and press again — check the Hints tab if you need it.'
               : task.kind === 'sim'
-                ? t('lab.wrongSim')
-                : t('lab.wrongScript')}
+                ? 'The latest run does not meet the requirement. Fix the pipeline, run it again, then press grade — check the Hints tab if you need it.'
+                : 'Not there yet. Do it in the terminal and press check again — check the Hints tab if you need it.'}
         </p>
       )}
       {failed && (
         <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
           {/* Câu của server khi có: "hãy chạy pipeline một lượt trước khi nộp"
               là việc học viên làm được, còn "không chấm được" thì không. */}
-          {failMessage || t('lab.checkFailed')}
+          {failMessage || 'Cannot grade right now. Check that the lab session is still running, then try again.'}
         </p>
       )}
 
       {task.kind === 'script' && !verdict?.passed && (
         <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
-          {t('lab.hintScript')}
+          Type commands into the terminal on the right, then press the button above. Grading reads the result inside the container, not the commands you typed.
         </p>
       )}
       {task.kind === 'command' && !verdict?.passed && (
         <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
-          {t('lab.hintCommand')}
+          Run the command in the terminal on the right, then press the button above. This question is graded on the command you typed, so type it rather than only reading it.
         </p>
       )}
       {task.kind === 'sim' && !verdict?.passed && (
         <p className="rounded-md border border-dashed border-border-strong px-3 py-2.5 text-xs leading-relaxed text-fg-subtle">
-          {t('lab.hintSimBefore')}{' '}
-          <strong className="text-fg-muted">{t('lab.hintSimStrong')}</strong>
-          {t('lab.hintSimAfter')}
+          Write the pipeline on the right, then press Run pipeline. Grading reads the{' '}
+          <strong className="text-fg-muted">latest run</strong>
+          , not the text you are typing — run it again after every edit. The seconds are simulated time: what is worth learning is the ratio between arrangements, not the number.
         </p>
       )}
     </div>
@@ -1042,7 +1035,6 @@ function Prose({ text, empty }: { text?: string; empty: string }) {
 /** Counts from expires_at rather than ticking down a number handed over once, so
     a backgrounded tab wakes up showing the real remaining time. */
 function Countdown({ expiresAt }: { expiresAt: string }) {
-  const t = useT()
   const [left, setLeft] = useState(() => remaining(expiresAt))
   useEffect(() => {
     const t = setInterval(() => setLeft(remaining(expiresAt)), 1000)
@@ -1056,7 +1048,7 @@ function Countdown({ expiresAt }: { expiresAt: string }) {
         'inline-flex items-center gap-1.5 rounded-md px-2 py-0.5 font-mono text-sm ' +
         (mins < 5 ? 'bg-danger/10 text-danger' : 'bg-muted text-fg')
       }
-      title={t('lab.countdownTitle')}
+      title="The container is deleted automatically when time runs out"
     >
       <ClockIcon className="h-3.5 w-3.5" />
       {String(Math.floor(mins / 60)).padStart(2, '0')}:

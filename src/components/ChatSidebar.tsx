@@ -6,7 +6,6 @@ import { Avatar } from '@/components/Avatar'
 import { SearchIcon, UsersIcon } from '@/components/icons'
 import { timeAgo } from '@/lib/relativeTime'
 import type { ChatConversation } from '@/lib/types'
-import { useT } from '@/lib/i18n'
 
 /** null is the shared room. A number is the other person in a direct thread. */
 export type Target = number | null
@@ -27,7 +26,6 @@ export function ChatSidebar({
    *  shared room, anything else is the other person's id. */
   unread: Record<number, number>
 }) {
-  const t = useT()
   const [query, setQuery] = useState('')
   // Built in, so typing does not fire a request per keystroke.
   const q = useDeferredValue(query)
@@ -51,7 +49,7 @@ export function ChatSidebar({
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder={t('chat.searchPeople')}
+          placeholder="Find someone to message"
           className="w-full rounded-lg border border-border-strong bg-bg py-2 pr-3 pl-9 text-sm outline-none transition placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/25"
         />
       </div>
@@ -65,18 +63,18 @@ export function ChatSidebar({
               <UsersIcon className="h-4 w-4" />
             </span>
           }
-          title={t('chat.room')}
-          subtitle={t('chat.roomSubShort')}
+          title="Public room"
+          subtitle="Readable by everyone"
           unread={unread[0] ?? 0}
         />
 
         {searching ? (
           <>
-            <Label>{t('chat.searchResults')}</Label>
+            <Label>Search results</Label>
             {people.isLoading ? (
-              <Empty>{t('chat.searching')}</Empty>
+              <Empty>Searching…</Empty>
             ) : found.length === 0 ? (
-              <Empty>{t('chat.noMatch')}</Empty>
+              <Empty>Nobody matches.</Empty>
             ) : (
               found.map((p) => (
                 <Row
@@ -88,17 +86,17 @@ export function ChatSidebar({
                   }}
                   icon={<Avatar user={p} className="h-9 w-9 rounded-lg text-xs" />}
                   title={p.username}
-                  subtitle={t('chat.startConversation')}
+                  subtitle="Start a conversation"
                 />
               ))
             )}
           </>
         ) : (
           <>
-            <Label>{t('chat.directMessages')}</Label>
+            <Label>Direct messages</Label>
             {conversations.length === 0 ? (
               <Empty>
-                {t('chat.noConversations')}
+                No conversations yet. Search a name above to start one.
               </Empty>
             ) : (
               conversations.map((c) => (
@@ -114,7 +112,7 @@ export function ChatSidebar({
                   }
                   title={c.username}
                   subtitle={
-                    c.last_deleted ? t('chat.deletedShort') : c.last_body || '—'
+                    c.last_deleted ? 'Message deleted' : c.last_body || '—'
                   }
                   meta={c.last_at ? timeAgo(c.last_at) : undefined}
                   muted={c.last_deleted}

@@ -3,7 +3,6 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { terminalURL } from '@/api/labs'
-import { t } from '@/lib/i18n'
 
 type Props = {
   terminalPath: string
@@ -99,12 +98,12 @@ export function LabTerminal({ terminalPath, onReady, onClosed }: Props) {
       )
     }
     ws.onclose = (e) => {
-      const reason = e.reason || t('terminal.disconnected')
+      const reason = e.reason || 'connection lost'
       term.write('\r\n\x1b[33m— ' + reason + ' —\x1b[0m\r\n')
       closed.current(reason)
     }
     ws.onerror = () => {
-      term.write('\r\n\x1b[31m— ' + t('terminal.connError') + ' —\x1b[0m\r\n')
+      term.write('\r\n\x1b[31m— ' + 'terminal connection error' + ' —\x1b[0m\r\n')
     }
 
     const typed = term.onData((d) => {

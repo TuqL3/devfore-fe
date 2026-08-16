@@ -13,16 +13,15 @@ import { useLevels } from '@/lib/levels'
 import { LevelMeter } from '@/components/LevelMeter'
 import { ArrowLeftIcon, BookIcon, CheckIcon } from '@/components/icons'
 import { timeAgo } from '@/lib/relativeTime'
-import { locale, useT, type Key } from '@/lib/i18n'
 
 // Ids, not labels: the active tab is compared by value, and a label that
 // changes with the language would silently reset which tab is open.
 const TABS = [
-  { id: 'content', label: 'course.tab.content' },
-  { id: 'reviews', label: 'course.tab.reviews' },
-  { id: 'leaderboard', label: 'course.tab.leaderboard' },
-  { id: 'status', label: 'course.tab.status' },
-] as const satisfies readonly { id: string; label: Key }[]
+  { id: 'content', label: 'Course content' },
+  { id: 'reviews', label: 'Review' },
+  { id: 'leaderboard', label: 'Leaderboard' },
+  { id: 'status', label: 'Status' },
+] as const satisfies readonly { id: string; label: string }[]
 type Tab = (typeof TABS)[number]['id']
 
 const totalMinutes = (labs: Lab[]) =>
@@ -41,7 +40,6 @@ const TAB_QUERY: Partial<Record<Tab, (slug: string) => unknown>> = {
 }
 
 export default function CourseDetail() {
-  const t = useT()
   const { slug = '' } = useParams()
   const [tab, setTab] = useState<Tab>('content')
   const qc = useQueryClient()
@@ -65,12 +63,12 @@ export default function CourseDetail() {
   if (isError || !course)
     return (
       <div className="py-16 text-center">
-        <p className="text-danger">{t('course.notFound')}</p>
+        <p className="text-danger">Course not found.</p>
         <Link
           to="/courses"
           className="mt-3 inline-block text-sm text-accent-soft hover:underline"
         >
-          ← {t('course.backToList')}
+          ← Back to the course list
         </Link>
       </div>
     )
@@ -94,7 +92,7 @@ export default function CourseDetail() {
                     : 'border-b-2 border-transparent text-fg-muted hover:bg-muted hover:text-fg-strong')
                 }
               >
-                {t(x.label)}
+                {x.label}
                 {x.id === 'content' && course.labs.length > 0 && (
                   <span className="ml-2 font-mono text-xs text-fg-subtle">
                     {course.labs.length}
@@ -128,7 +126,6 @@ export default function CourseDetail() {
 
 /** Title block spanning the full width; the sidebar keeps the enrol action. */
 function Header({ course }: { course: Course }) {
-  const t = useT()
   const { label: levelName } = useLevels()
   const minutes = totalMinutes(course.labs)
   return (
@@ -142,7 +139,7 @@ function Header({ course }: { course: Course }) {
         className="inline-flex items-center gap-1.5 text-sm text-fg-muted transition hover:text-accent-soft"
       >
         <ArrowLeftIcon className="h-4 w-4" />
-        {t('nav.courses')}
+        Courses
       </Link>
       <h1 className="mt-3 text-3xl font-bold text-fg-strong sm:text-4xl">
         {course.title}
@@ -155,14 +152,14 @@ function Header({ course }: { course: Course }) {
           <span className="text-fg">{levelName(course.level)}</span>
         </div>
         <Stat value={course.lab_count} label="lab" />
-        {minutes > 0 && <Stat value={`~${minutes}`} label={t('course.minutes')} />}
+        {minutes > 0 && <Stat value={`~${minutes}`} label="minutes" />}
         {course.student_count > 0 && (
-          <Stat value={course.student_count} label={t('course.students')} />
+          <Stat value={course.student_count} label="students" />
         )}
         {course.enrolled && (
           <span className="flex items-center gap-1 rounded-full bg-success-soft px-2.5 py-0.5 text-xs text-success">
             <CheckIcon className="h-3 w-3" />
-            {t('course.enrolled')}
+            Enrolled
           </span>
         )}
       </dl>
@@ -181,7 +178,6 @@ function Stat({ value, label }: { value: string | number; label: string }) {
 }
 
 function Sidebar({ course }: { course: Course }) {
-  const t = useT()
   const { label: levelName } = useLevels()
   const { user } = useAuth()
   const navigate = useNavigate()
@@ -193,10 +189,10 @@ function Sidebar({ course }: { course: Course }) {
   })
 
   const tiles = [
-    { value: String(course.lab_count), label: t('course.labs') },
-    { value: `~${totalMinutes(course.labs)}`, label: t('course.minutes') },
+    { value: String(course.lab_count), label: 'labs' },
+    { value: `~${totalMinutes(course.labs)}`, label: 'minutes' },
     ...(course.student_count > 0
-      ? [{ value: String(course.student_count), label: t('course.students') }]
+      ? [{ value: String(course.student_count), label: 'students' }]
       : []),
   ]
 
@@ -234,7 +230,7 @@ function Sidebar({ course }: { course: Course }) {
       {course.enrolled && (
         <p className="flex items-center gap-2 bg-success-soft px-4 py-2.5 text-sm font-medium text-success">
           <CheckIcon className="h-4 w-4 shrink-0" />
-          {t('course.enrolledLong')}
+          You are enrolled in this course
         </p>
       )}
 
@@ -260,10 +256,10 @@ function Sidebar({ course }: { course: Course }) {
                 disabled={enroll.isPending}
                 className="w-full rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover disabled:opacity-60"
               >
-                {enroll.isPending ? t('course.enrolling') : t('course.enroll')}
+                {enroll.isPending ? 'Enrolling…' : 'Enrol'}
               </button>
               {enroll.isError && (
-                <p className="text-sm text-danger">{t('course.enrollFailed')}</p>
+                <p className="text-sm text-danger">Enrolment failed, try again.</p>
               )}
             </>
           ) : (
@@ -271,13 +267,13 @@ function Sidebar({ course }: { course: Course }) {
               onClick={() => navigate('/login')}
               className="w-full rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
             >
-              {t('course.loginToEnroll')}
+              Sign in to enrol
             </button>
           ))}
 
         <p className="text-center font-mono text-xs text-fg-subtle">
-          {t('course.updatedAt')}{' '}
-          {new Date(course.updated_at).toLocaleDateString(locale())}
+          updated{' '}
+          {new Date(course.updated_at).toLocaleDateString('en-GB')}
         </p>
       </div>
     </aside>
@@ -311,7 +307,6 @@ function ContentTab({
   slug: string
   enrolled: boolean
 }) {
-  const t = useT()
   const { user } = useAuth()
   const navigate = useNavigate()
   const qc = useQueryClient()
@@ -334,7 +329,7 @@ function ContentTab({
       navigate(`/courses/${slug}/labs/${labSlug}`)
     },
     onError: (e) => {
-      setError(e instanceof ApiError ? e.message : t('course.startFailed'))
+      setError(e instanceof ApiError ? e.message : 'could not start the lab')
       // A 409 means the server knows about a session this page does not — one
       // started in another tab. Refetch it, or the dialog reports the block with
       // nothing to end and no route to follow.
@@ -358,7 +353,7 @@ function ContentTab({
       start.reset()
     },
     onError: (e) =>
-      setError(e instanceof ApiError ? e.message : t('course.stopFailed')),
+      setError(e instanceof ApiError ? e.message : 'could not close the previous session'),
   })
 
   const open = (l: Lab) => {
@@ -386,7 +381,7 @@ function ContentTab({
     return (
       <Empty>
         <BookIcon className="mx-auto mb-2 h-6 w-6" />
-        {t('course.noLabs')}
+        This course has no labs yet.
       </Empty>
     )
 
@@ -411,11 +406,11 @@ function ContentTab({
           a fault rather than as a step that was skipped. */}
       {!enrolled && (
         <p className="mb-4 rounded-md border border-border bg-muted px-4 py-2.5 text-sm text-fg-muted">
-          {t('course.enrolFirstBefore')}{' '}
+          You need to{' '}
           <span className="font-medium text-fg-strong">
-            {t('course.enrolFirstStrong')}
+            enrol
           </span>{' '}
-          {t('course.enrolFirstAfter')}
+          before starting a lab. The enrol button is in the panel on the right.
         </p>
       )}
 
@@ -443,19 +438,19 @@ function ContentTab({
                 {l.title}
                 {running?.lab_id === l.id && (
                   <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-normal text-success">
-                    {t('course.running')}
+                    running
                   </span>
                 )}
               </h4>
               <div className="mt-2 flex flex-wrap gap-2 font-mono text-xs text-fg-muted">
                 <span className="rounded bg-muted px-2 py-0.5">
-                  {l.duration_minutes} {t('course.minutes')}
+                  {l.duration_minutes} minutes
                 </span>
                 <span className="rounded bg-muted px-2 py-0.5">
-                  {l.task_count} {t('course.tasks')}
+                  {l.task_count} tasks
                 </span>
                 <span className="rounded bg-muted px-2 py-0.5 text-accent-soft">
-                  {l.points} {t('course.points')}
+                  {l.points} points
                 </span>
               </div>
             </button>
@@ -491,7 +486,6 @@ function ContentTab({
 }
 
 function ReviewsTab({ slug, courseID }: { slug: string; courseID: number }) {
-  const t = useT()
   const { isAdmin } = useAuth()
   const { data, isLoading } = useQuery({
     queryKey: ['course', slug, 'reviews'],
@@ -505,7 +499,7 @@ function ReviewsTab({ slug, courseID }: { slug: string; courseID: number }) {
       to={`/admin/courses/${courseID}?tab=on-tap`}
       className="inline-block text-sm text-accent-soft hover:underline"
     >
-      {t('course.manageReviews')} →
+      Manage review notes →
     </Link>
   )
 
@@ -513,7 +507,7 @@ function ReviewsTab({ slug, courseID }: { slug: string; courseID: number }) {
   if (!data || data.length === 0)
     return (
       <div className="space-y-3">
-        <Empty>{t('course.noReviews')}</Empty>
+        <Empty>No review content yet.</Empty>
         {editLink && <div className="text-center">{editLink}</div>}
       </div>
     )
@@ -535,7 +529,6 @@ function ReviewsTab({ slug, courseID }: { slug: string; courseID: number }) {
 const MEDAL = ['🥇', '🥈', '🥉']
 
 function LeaderboardTab({ slug }: { slug: string }) {
-  const t = useT()
   const { user } = useAuth()
   const { data, isLoading } = useQuery({
     queryKey: ['course', slug, 'leaderboard'],
@@ -545,7 +538,7 @@ function LeaderboardTab({ slug }: { slug: string }) {
   if (isLoading) return <BlockSkeleton />
   if (!data || data.length === 0)
     return (
-      <Empty>{t('course.noScores')}</Empty>
+      <Empty>Nobody has scored on this course yet — finish the first lab to open the leaderboard.</Empty>
     )
 
   const top = data[0].score || 1
@@ -554,9 +547,9 @@ function LeaderboardTab({ slug }: { slug: string }) {
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-px overflow-hidden rounded-xl border border-border bg-border">
-        <Tile value={data.length} label={t('course.scoredStudents')} />
-        <Tile value={data[0].score} label={t('course.topScore')} />
-        <Tile value={Math.round(total / data.length)} label={t('course.avgScore')} />
+        <Tile value={data.length} label="students with a score" />
+        <Tile value={data[0].score} label="top score" />
+        <Tile value={Math.round(total / data.length)} label="average score" />
       </div>
 
       {/* Table scrolls inside its own box; the page never scrolls sideways. */}
@@ -564,12 +557,12 @@ function LeaderboardTab({ slug }: { slug: string }) {
         <table className="w-full min-w-160 text-sm">
           <thead>
             <tr className="border-b border-border bg-muted text-left font-mono text-xs uppercase tracking-wide text-fg-subtle">
-              <th className="px-4 py-3 font-medium">{t('course.rank')}</th>
-              <th className="px-4 py-3 font-medium">{t('course.member')}</th>
-              <th className="px-4 py-3 text-center font-medium">{t('course.score')}</th>
-              <th className="px-4 py-3 text-center font-medium">{t('course.lab')}</th>
-              <th className="px-4 py-3 text-center font-medium">{t('course.attempts')}</th>
-              <th className="px-4 py-3 text-right font-medium">{t('course.lastActivity')}</th>
+              <th className="px-4 py-3 font-medium">Rank</th>
+              <th className="px-4 py-3 font-medium">Member</th>
+              <th className="px-4 py-3 text-center font-medium">Score</th>
+              <th className="px-4 py-3 text-center font-medium">Labs</th>
+              <th className="px-4 py-3 text-center font-medium">Attempts</th>
+              <th className="px-4 py-3 text-right font-medium">Last activity</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
@@ -611,7 +604,7 @@ function LeaderboardTab({ slug }: { slug: string }) {
                           </span>
                           {me && (
                             <span className="shrink-0 rounded bg-accent px-1.5 py-0.5 font-mono text-[10px] font-semibold text-accent-fg">
-                              {t('course.you')}
+                              you
                             </span>
                           )}
                         </div>
@@ -642,7 +635,7 @@ function LeaderboardTab({ slug }: { slug: string }) {
                   </td>
                   <td
                     className="px-4 py-3 text-right font-mono text-xs text-fg-subtle"
-                    title={new Date(row.updated_at).toLocaleString(locale())}
+                    title={new Date(row.updated_at).toLocaleString('en-GB')}
                   >
                     {timeAgo(row.updated_at)}
                   </td>
@@ -654,7 +647,7 @@ function LeaderboardTab({ slug }: { slug: string }) {
       </div>
 
       <p className="font-mono text-xs text-fg-subtle">
-        # {t('course.top50')}
+        # showing the top 50 ranks
       </p>
     </div>
   )
@@ -671,18 +664,17 @@ function Tile({ value, label }: { value: number; label: string }) {
 
 
 function StatusTab({ course }: { course: Course }) {
-  const t = useT()
   return (
     <dl className="space-y-2 rounded-xl border border-border bg-surface p-5 text-sm">
       <Row
-        label={t('course.enrolStatus')}
-        value={course.enrolled ? t('course.enrolled') : t('course.notEnrolled')}
+        label="Enrolment status"
+        value={course.enrolled ? 'Enrolled' : 'Not enrolled'}
       />
-      <Row label={t('course.labCount')} value={String(course.lab_count)} />
-      <Row label={t('course.studentsLabel')} value={String(course.student_count)} />
+      <Row label="Labs" value={String(course.lab_count)} />
+      <Row label="Students" value={String(course.student_count)} />
       <Row
-        label={t('course.updated')}
-        value={new Date(course.updated_at).toLocaleDateString(locale())}
+        label="Updated"
+        value={new Date(course.updated_at).toLocaleDateString('en-GB')}
       />
     </dl>
   )

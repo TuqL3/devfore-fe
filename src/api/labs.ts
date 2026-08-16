@@ -1,5 +1,4 @@
 import { request } from "@/lib/api";
-import { getLang } from "@/lib/i18n";
 import type {
   CheckResult,
   DailyDrill,
@@ -115,6 +114,6 @@ export function terminalURL(path: string): string {
   // A WebSocket opened from JavaScript cannot set request headers, so the
   // language rides in the query string instead. Without it the server would
   // answer close frames in the browser's language rather than the chosen one.
-  url.searchParams.set("lang", getLang());
+  url.searchParams.set("lang", "en");
   return url.toString().replace(/^http/, "ws");
 }

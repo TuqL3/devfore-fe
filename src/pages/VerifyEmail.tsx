@@ -3,7 +3,6 @@ import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { authApi } from '@/api/auth'
-import { useT } from '@/lib/i18n'
 import { ApiError } from '@/lib/api'
 import { Input } from '@/components/ui'
 import {
@@ -17,7 +16,6 @@ const RESEND_SECONDS = 60
 
 export default function VerifyEmail() {
   const { verifyEmail } = useAuth()
-  const t = useT()
   const nav = useNavigate()
   const [params] = useSearchParams()
   const email = params.get('email') ?? ''
@@ -59,18 +57,18 @@ export default function VerifyEmail() {
   const error = mut.isError
     ? mut.error instanceof ApiError
       ? mut.error.message
-      : t('auth.verifyFailed')
+      : 'verification failed'
     : ''
 
   return (
     <AuthShell cmd="verify-email">
       <p className="font-mono text-sm text-fg-muted">
-        # {t('auth.codeSentTo')}{' '}
+        # a 6-digit code was sent to{' '}
         <span className="text-fg-strong">{email}</span>
       </p>
 
       <form onSubmit={onSubmit} className="space-y-4">
-        <TermField flag="code" hint={t('auth.sixDigits')}>
+        <TermField flag="code" hint="6 digits">
           <Input
             variant="terminal"
             value={code}
@@ -92,10 +90,10 @@ export default function VerifyEmail() {
       </form>
 
       <div className="space-y-1 font-mono text-sm text-fg-subtle">
-        <p># {t('auth.noMailCheckSpam')}</p>
+        <p># no email? check your spam folder too.</p>
         <p>
           {cooldown > 0 ? (
-            <span># {t('auth.resendIn', { s: cooldown })}</span>
+            <span># {`resend in ${cooldown}s`}</span>
           ) : (
             <button
               onClick={() => resend.mutate()}
@@ -106,11 +104,11 @@ export default function VerifyEmail() {
             </button>
           )}
           {resend.isSuccess && cooldown > 0 && (
-            <span className="ml-2 text-success">✓ {t('auth.resent')}</span>
+            <span className="ml-2 text-success">✓ sent again</span>
           )}
         </p>
         <p>
-          # {t('auth.wrongAddress')}{' '}
+          # wrong address?{' '}
           <Link to="/register" className="text-accent-soft hover:underline">
             ./register
           </Link>

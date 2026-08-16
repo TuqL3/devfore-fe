@@ -1,16 +1,15 @@
 import { useEffect, useState, type ComponentType } from 'react'
 import { applyTheme, getTheme, setTheme, watchSystem, type Theme } from '@/lib/theme'
-import { useT } from '@/lib/i18n'
 import { MonitorIcon, MoonIcon, SunIcon } from '@/components/icons'
 
 const MODES: {
   value: Theme
   Icon: ComponentType<{ className?: string }>
-  labelKey: 'theme.light' | 'theme.dark' | 'theme.system'
+  labelKey: 'Light theme' | 'Dark theme' | 'Match system'
 }[] = [
-  { value: 'light', Icon: SunIcon, labelKey: 'theme.light' },
-  { value: 'dark', Icon: MoonIcon, labelKey: 'theme.dark' },
-  { value: 'system', Icon: MonitorIcon, labelKey: 'theme.system' },
+  { value: 'light', Icon: SunIcon, labelKey: 'Light theme' },
+  { value: 'dark', Icon: MoonIcon, labelKey: 'Dark theme' },
+  { value: 'system', Icon: MonitorIcon, labelKey: 'Match system' },
 ]
 
 /** Ba icon sát nhau, cho thanh trên cùng và màn đăng nhập — nơi khách chưa đăng
@@ -22,7 +21,6 @@ const MODES: {
  *  như nút chưa làm xong. */
 export function ThemeToggle() {
   const [theme, set] = useState<Theme>(getTheme)
-  const t = useT()
 
   useEffect(() => watchSystem(() => applyTheme(getTheme())), [])
 
@@ -32,13 +30,13 @@ export function ThemeToggle() {
   }
 
   return (
-    <div role="group" aria-label={t('theme.group')} className="flex rounded-lg border border-border bg-surface p-0.5">
+    <div role="group" aria-label="Theme" className="flex rounded-lg border border-border bg-surface p-0.5">
       {MODES.map(({ value, Icon, labelKey }) => (
         <button
           key={value}
           onClick={() => pick(value)}
-          title={t(labelKey)}
-          aria-label={t(labelKey)}
+          title={labelKey}
+          aria-label={labelKey}
           aria-pressed={theme === value}
           className={
             'rounded-md p-1.5 transition ' +

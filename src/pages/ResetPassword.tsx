@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react'
 import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '@/api/auth'
-import { useT } from '@/lib/i18n'
 import { ApiError } from '@/lib/api'
 import { PasswordInput } from '@/components/ui'
 import {
@@ -13,7 +12,6 @@ import {
 } from '@/components/AuthShell'
 
 export default function ResetPassword() {
-  const t = useT()
   const nav = useNavigate()
   const [params] = useSearchParams()
   const token = params.get('token') ?? ''
@@ -39,21 +37,21 @@ export default function ResetPassword() {
   }
 
   const error = mismatch
-    ? t('auth.passwordMismatch')
+    ? 'the two passwords do not match'
     : mut.isError
       ? mut.error instanceof ApiError
         ? mut.error.message
-        : t('auth.resetFailed')
+        : 'could not reset the password'
       : ''
 
   return (
     <AuthShell cmd="reset-password">
       <p className="font-mono text-sm text-fg-muted">
-        # {t('auth.resetIntro')}
+        # set a new password. Every signed-in device will be logged out.
       </p>
 
       <form onSubmit={onSubmit} className="space-y-4">
-        <TermField flag="new-password" hint={t('auth.min8')}>
+        <TermField flag="new-password" hint="at least 8 characters">
           <PasswordInput
             variant="terminal"
             value={form.password}
@@ -83,7 +81,7 @@ export default function ResetPassword() {
       </form>
 
       <p className="font-mono text-sm text-fg-subtle">
-        # {t('auth.linkExpired')}{' '}
+        # link expired?{' '}
         <Link to="/forgot-password" className="text-accent-soft hover:underline">
           ./forgot-password
         </Link>

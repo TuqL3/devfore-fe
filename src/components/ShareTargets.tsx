@@ -1,4 +1,3 @@
-import { useT } from '@/lib/i18n'
 
 /** Hai nút mở đúng hộp soạn bài của X và Facebook, kèm sẵn câu chữ.
  *
@@ -10,7 +9,6 @@ import { useT } from '@/lib/i18n'
  *  câu chữ ở đó đến từ thẻ `og:title` của trang. Đó chính là lý do endpoint
  *  preview bên server tồn tại — không có nó thì nút này mở ra một ô trắng. */
 export function ShareTargets({ url, text }: { url: string; text: string }) {
-  const t = useT()
   const enc = encodeURIComponent
   const targets = [
     { id: 'x', label: 'X', href: `https://twitter.com/intent/tweet?text=${enc(text)}&url=${enc(url)}` },
@@ -18,7 +16,7 @@ export function ShareTargets({ url, text }: { url: string; text: string }) {
   ]
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="text-xs text-fg-subtle">{t('share.shareOn')}</span>
+      <span className="text-xs text-fg-subtle">Post to</span>
       {targets.map((s) => (
         <a
           key={s.id}

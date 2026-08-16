@@ -12,7 +12,6 @@ import {
 import type { Algo, Frame } from '@/sims/sort/algos'
 import type { SimEntrySort } from '@/lib/types'
 import { Prose } from '@/components/MarkdownEditor'
-import { useT } from '@/lib/i18n'
 import { ChartIcon, ChevronRightIcon } from '@/components/icons'
 
 /** Bàn xem bốn thuật toán sắp xếp.
@@ -27,7 +26,6 @@ import { ChartIcon, ChevronRightIcon } from '@/components/icons'
  *  thứ ba rồi, nhưng ba cái sân khấu khác nhau ở gần hết mọi thứ bên trong, phần
  *  chung còn lại đúng hai dòng class. Tách khi phần chung nhiều hơn phần riêng. */
 export function SortBench({ sim }: { sim: SimEntrySort }) {
-  const t = useT()
   const [layoutId, setLayoutId] = useState(DEFAULT_LAYOUT)
   const [sel, setSel] = useState(ALGOS[0].no)
   // Lượt thứ mấy của từng thuật toán. Dùng làm `key` cho phần chiếu lại, nên bấm
@@ -66,7 +64,7 @@ export function SortBench({ sim }: { sim: SimEntrySort }) {
       {sim.guide.trim() && (
         <details className="mt-8 rounded-xl border border-border bg-surface p-4">
           <summary className="cursor-pointer text-sm font-semibold text-fg-strong">
-            {t('bench.rules')}
+            Rules and limits of this simulator
           </summary>
           <div className="mt-3">
             <Prose>{sim.guide}</Prose>
@@ -78,7 +76,7 @@ export function SortBench({ sim }: { sim: SimEntrySort }) {
         to="/sim"
         className="mt-4 inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
       >
-        {t('search.otherSims')}
+        See the other simulators
         <ChevronRightIcon className="h-3.5 w-3.5" />
       </Link>
     </div>
@@ -106,7 +104,6 @@ function AlgoRail({
   ran: Record<string, number>
   board: ReturnType<typeof scoreboard>
 }) {
-  const t = useT()
   return (
     <nav className={'shrink-0 lg:w-56 ' + STICK}>
       <ul className="flex gap-1 overflow-x-auto pb-1 lg:block lg:space-y-1 lg:overflow-visible lg:pb-0">
@@ -143,7 +140,7 @@ function AlgoRail({
                 <span className="mt-0.5 hidden flex-wrap items-baseline gap-x-2 lg:flex">
                   <span className="font-mono text-[11px] opacity-70">{headline(a.big_o)}</span>
                   <span className="ml-auto font-mono text-xs">
-                    {t('sort.pair', { c: board[i].comparisons, w: board[i].writes })}
+                    {`${board[i].comparisons} cmp · ${board[i].writes} writes`}
                   </span>
                 </span>
               </button>
@@ -183,7 +180,6 @@ function Stage({
   runNo: number
   onRun: () => void
 }) {
-  const t = useT()
   const trace = useMemo(() => algo.run(data), [algo, data])
   const total = trace.frames.length
   // Khung đang chiếu. `-1` là chưa bấm Chạy: mảng hiện nguyên thế mở đầu, chưa ô
@@ -218,11 +214,11 @@ function Stage({
         </span>
         {algo.stable ? (
           <span className="rounded bg-success/15 px-1.5 py-0.5 text-[10px] text-success">
-            {t('sort.stable')}
+            stable
           </span>
         ) : (
           <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] text-fg-muted">
-            {t('sort.unstable')}
+            not stable
           </span>
         )}
       </div>
@@ -237,13 +233,13 @@ function Stage({
             Đếm tới ĐÚNG khung đang chiếu, không phải tổng của cả vết — tổng thì
             nó đứng yên và không nói gì. */}
         <span className="ml-auto flex items-baseline gap-2 rounded-md border border-border px-3 py-1.5">
-          <span className="text-[11px] text-fg-subtle">{t('search.comparisons')}</span>
+          <span className="text-[11px] text-fg-subtle">comparisons</span>
           <span className="font-mono text-lg font-semibold tabular-nums text-accent-soft">
             {frame?.cmpSoFar ?? 0}
           </span>
         </span>
         <span className="flex items-baseline gap-2 rounded-md border border-border px-3 py-1.5">
-          <span className="text-[11px] text-fg-subtle">{t('sort.writes')}</span>
+          <span className="text-[11px] text-fg-subtle">writes</span>
           <span className="font-mono text-lg font-semibold tabular-nums text-danger">
             {frame?.writeSoFar ?? 0}
           </span>
@@ -252,7 +248,7 @@ function Stage({
           onClick={onRun}
           className="shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:bg-accent-hover"
         >
-          {runNo === 0 ? t('bench.run') : t('bench.rerun')}
+          {runNo === 0 ? 'Run ▶' : 'Run again ↻'}
         </button>
       </div>
 
@@ -261,7 +257,7 @@ function Stage({
       <div className="mt-3 min-h-12 rounded-lg border border-border bg-muted px-3 py-2">
         {runNo === 0 ? (
           <p className="font-mono text-xs text-fg-subtle">
-            {t('sort.pressRun')}
+            press Run to watch the bars move
             <span className="term-caret ml-0.5" />
           </p>
         ) : (
@@ -290,11 +286,10 @@ function Stage({
  *  đoạn. Chốt xanh đứng đầu vì nó là kết luận cuối cùng về ô đó; một ô đã chốt
  *  thì không bao giờ vừa-ghi hay đang-so nữa, nên thứ tự này không giấu gì. */
 function Bars({ data, frame }: { data: number[]; frame: Frame | null }) {
-  const t = useT()
   const a = frame?.a ?? data
   return (
     <div className="mt-4">
-      <div className="flex h-48 items-end gap-[3px]" role="img" aria-label={t('sort.barsAlt')}>
+      <div className="flex h-48 items-end gap-[3px]" role="img" aria-label="24 bars, height by value">
         {a.map((v, i) => {
           const off = frame !== null && (i < frame.lo || i > frame.hi)
           const skin = frame?.done.includes(i)
@@ -311,14 +306,14 @@ function Bars({ data, frame }: { data: number[]; frame: Frame | null }) {
           return (
             <div
               key={i}
-              title={t('sort.barTitle', { i, v })}
+              title={`index ${i} · value ${v}`}
               style={{ height: `${(v / N) * 100}%` }}
               className={'min-w-0 flex-1 rounded-t-sm transition-[background-color] ' + skin}
             />
           )
         })}
       </div>
-      <p className="mt-2 text-[11px] text-fg-subtle">{t('sort.barsHint')}</p>
+      <p className="mt-2 text-[11px] text-fg-subtle">Pale bars are outside the range under consideration. Amber is the pair being compared, red is a cell just written, green is a cell already in its final place.</p>
     </div>
   )
 }
@@ -341,18 +336,17 @@ function Readout({
   done: boolean
   trace: { comparisons: number; writes: number }
 }) {
-  const t = useT()
   return (
     <div className="space-y-0.5">
       <p className="font-mono text-xs text-fg-muted">
         <span className="text-accent-soft">
-          {t('search.stepOf', { at: Math.min(at + 1, total), total })}
+          {`step ${Math.min(at + 1, total)}/${total}`}
         </span>
         {frame && <> · {frame.note}</>}
       </p>
       {done && (
         <p className="line-in font-mono text-sm text-success">
-          {t('sort.finished', { c: trace.comparisons, w: trace.writes })}
+          {`done — ${trace.comparisons} comparisons, ${trace.writes} writes`}
         </p>
       )}
     </div>
@@ -368,7 +362,6 @@ function Readout({
  *  thể lệch nhau, nên `sort.check.ts` canh bằng cách bắt **mọi dòng phải có lúc
  *  được chiếu sáng**. */
 function CodePanel({ algo, frame }: { algo: Algo; frame: Frame | null }) {
-  const t = useT()
   return (
     <div className="mt-4 overflow-hidden rounded-lg border border-border bg-bg">
       <div className="flex items-baseline gap-2 border-b border-border px-3 py-1.5">
@@ -424,7 +417,7 @@ function CodePanel({ algo, frame }: { algo: Algo; frame: Frame | null }) {
             </span>
           ))
         ) : (
-          <span className="font-mono text-[11px] text-fg-subtle">{t('search.noVars')}</span>
+          <span className="font-mono text-[11px] text-fg-subtle">no variables yet</span>
         )}
       </div>
     </div>
@@ -451,7 +444,6 @@ function Board({
   layoutId: string
   onPick: (id: string) => void
 }) {
-  const t = useT()
   const maxCmp = Math.max(...board.map((r) => r.comparisons), 1)
   const maxWrite = Math.max(...board.map((r) => r.writes), 1)
   const bestCmp = Math.min(...board.map((r) => r.comparisons))
@@ -462,7 +454,7 @@ function Board({
       <div className="rounded-xl border border-border bg-surface p-3">
         <div className="flex items-center gap-2 border-b border-border pb-2">
           <ChartIcon className="h-4 w-4 shrink-0 text-accent-soft" />
-          <span className="text-xs text-fg-subtle">{t('sort.startFrom')}</span>
+          <span className="text-xs text-fg-subtle">starting order</span>
         </div>
 
         <ul className="mt-2 grid grid-cols-2 gap-1">
@@ -525,7 +517,7 @@ function Board({
         </ul>
 
         <p className="mt-3 border-t border-border pt-2 text-[11px] text-fg-subtle">
-          {t('sort.legend')}
+          Each row: comparisons / writes. Top bar is comparisons, bottom bar is writes.
         </p>
       </div>
     </aside>

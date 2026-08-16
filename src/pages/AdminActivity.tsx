@@ -7,7 +7,6 @@ import { Card, ErrorBox } from '@/components/ui'
 import { ArrowLeftIcon } from '@/components/icons'
 import { formatWhen, timeAgo } from '@/lib/relativeTime'
 import type { UserSimRun, UserSessionRow } from '@/lib/types'
-import { useT } from '@/lib/i18n'
 
 /** Hoạt động của một người: họ đã làm gì, và đã **gõ gì**.
  *
@@ -23,7 +22,6 @@ import { useT } from '@/lib/i18n'
  *  Cả trang này cũng được ghi audit khi mở, vì đây là đọc việc của người khác
  *  chứ không phải đọc một con số của hệ thống. */
 export default function AdminActivity() {
-  const t = useT()
   const { id = '' } = useParams()
   const q = useQuery({
     queryKey: ['user-activity', id],
@@ -33,9 +31,9 @@ export default function AdminActivity() {
   })
 
   if (q.isLoading) {
-    return <p className="py-12 text-center text-sm text-fg-subtle">{t('common.loading')}</p>
+    return <p className="py-12 text-center text-sm text-fg-subtle">Loading…</p>
   }
-  if (q.isError || !q.data) return <ErrorBox>{t('activity.notFound')}</ErrorBox>
+  if (q.isError || !q.data) return <ErrorBox>No such account.</ErrorBox>
 
   const { summary: s, sessions, sim_runs: runs } = q.data
 
@@ -46,28 +44,28 @@ export default function AdminActivity() {
         className="inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
       >
         <ArrowLeftIcon className="h-3.5 w-3.5" />
-        {t('activity.backUsers')}
+        Account list
       </Link>
 
       <div className="flex flex-wrap items-baseline gap-3">
         <h1 className="text-2xl font-bold text-fg-strong">{s.username}</h1>
         {s.status === 'banned' && (
           <span className="rounded-full bg-danger/10 px-2.5 py-0.5 text-xs font-medium text-danger">
-            {t('activity.banned')}
+            banned
           </span>
         )}
         <span className="text-sm text-fg-muted">{s.email}</span>
         <span className="text-xs text-fg-subtle">
-          {t('activity.joined', { when: formatWhen(s.created_at) })}
+          {`joined ${formatWhen(s.created_at)}`}
         </span>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Num label={t('activity.sessions')} value={s.sessions} />
-        <Num label={t('activity.submitted')} value={s.submitted} />
-        <Num label={t('activity.simRuns')} value={s.sim_runs} />
-        <Num label={t('activity.chat')} value={s.chat_messages} />
-        <Num label={t('activity.enrolments')} value={s.enrolments} />
+        <Num label="lab starts" value={s.sessions} />
+        <Num label="handed in" value={s.submitted} />
+        <Num label="simulator runs" value={s.sim_runs} />
+        <Num label="messages" value={s.chat_messages} />
+        <Num label="courses enrolled" value={s.enrolments} />
       </div>
 
       <Sessions rows={sessions} />
@@ -77,12 +75,11 @@ export default function AdminActivity() {
 }
 
 function Sessions({ rows }: { rows: UserSessionRow[] }) {
-  const t = useT()
   return (
     <Card className="p-5">
-      <h2 className="font-semibold text-fg-strong">{t('activity.attempts')}</h2>
+      <h2 className="font-semibold text-fg-strong">Attempts</h2>
       {rows.length === 0 ? (
-        <p className="mt-2 text-sm text-fg-subtle">{t('activity.attemptsNone')}</p>
+        <p className="mt-2 text-sm text-fg-subtle">Has not opened a lab yet.</p>
       ) : (
         <ul className="mt-3 divide-y divide-border">
           {rows.map((r) => (
@@ -95,7 +92,6 @@ function Sessions({ rows }: { rows: UserSessionRow[] }) {
 }
 
 function SessionRow({ r }: { r: UserSessionRow }) {
-  const t = useT()
   const [openLog, setOpenLog] = useState(false)
   // `enabled` chứ không phải gọi sẵn: mỗi lần gọi là một dòng audit, nên nó chỉ
   // được xảy ra khi có người thật sự bấm mở.
@@ -134,7 +130,7 @@ function SessionRow({ r }: { r: UserSessionRow }) {
             onClick={() => setOpenLog((v) => !v)}
             className="rounded-md border border-border-strong px-2 py-0.5 text-xs text-fg-muted transition hover:border-accent hover:text-fg"
           >
-            {openLog ? t('activity.hideCommands') : t('activity.showCommands')}
+            {openLog ? 'Hide' : 'Show what they typed'}
           </button>
         )}
       </div>
@@ -143,12 +139,12 @@ function SessionRow({ r }: { r: UserSessionRow }) {
         <div className="mt-2">
           {/* Cảnh báo đứng TRÊN nội dung, không phải dưới: người đọc cần biết
               mình sắp đọc gì trước khi mắt chạm vào nó. */}
-          <p className="text-[11px] text-fg-subtle">{t('activity.commandsWarning')}</p>
-          {log.isLoading && <p className="mt-1 text-xs text-fg-subtle">{t('common.loading')}</p>}
-          {log.isError && <p className="mt-1 text-xs text-danger">{t('dash.loadError')}</p>}
+          <p className="text-[11px] text-fg-subtle">This is a verbatim record of what this person typed into a shell — a mistyped password can be in it. Every time it is opened, your name goes in the audit log.</p>
+          {log.isLoading && <p className="mt-1 text-xs text-fg-subtle">Loading…</p>}
+          {log.isError && <p className="mt-1 text-xs text-danger">Could not read the numbers. Try reloading the page.</p>}
           {log.data !== undefined && (
             <pre className="mt-1 max-h-64 overflow-auto rounded-md border border-border bg-bg p-3 font-mono text-xs text-fg">
-              {log.data.trim() || t('activity.commandsEmpty')}
+              {log.data.trim() || '(no commands recorded)'}
             </pre>
           )}
         </div>
@@ -162,15 +158,14 @@ function SessionRow({ r }: { r: UserSessionRow }) {
  *  Cắt ở server ở mức 4000 ký tự; nếu bản gốc dài hơn thì nói ra chứ không im
  *  lặng để người đọc tưởng nó kết thúc ở đó. */
 function SimRuns({ rows }: { rows: UserSimRun[] }) {
-  const t = useT()
   const [open, setOpen] = useState<number | null>(null)
 
   return (
     <Card className="p-5">
-      <h2 className="font-semibold text-fg-strong">{t('activity.simRunsTitle')}</h2>
-      <p className="mt-1 text-sm text-fg-muted">{t('activity.simRunsHint')}</p>
+      <h2 className="font-semibold text-fg-strong">Pipelines written</h2>
+      <p className="mt-1 text-sm text-fg-muted">Verbatim, as typed into the simulator. A wrong pipeline says exactly which part of the model has not landed — a score never can.</p>
       {rows.length === 0 ? (
-        <p className="mt-2 text-sm text-fg-subtle">{t('activity.simRunsNone')}</p>
+        <p className="mt-2 text-sm text-fg-subtle">Has not run the simulator.</p>
       ) : (
         <ul className="mt-3 divide-y divide-border">
           {rows.map((r) => (
@@ -178,7 +173,7 @@ function SimRuns({ rows }: { rows: UserSimRun[] }) {
               <div className="flex flex-wrap items-center gap-3">
                 <span className="font-mono text-xs text-fg-subtle">#{r.run_index}</span>
                 <span className="min-w-0 flex-1 truncate text-fg-muted">
-                  {r.lab_title || t('activity.playground')}
+                  {r.lab_title || 'playground'}
                 </span>
                 {r.total_seconds > 0 && (
                   <span className="font-mono text-xs tabular-nums text-fg-muted">
@@ -190,7 +185,7 @@ function SimRuns({ rows }: { rows: UserSimRun[] }) {
                   onClick={() => setOpen(open === r.id ? null : r.id)}
                   className="rounded-md border border-border-strong px-2 py-0.5 text-xs text-fg-muted transition hover:border-accent hover:text-fg"
                 >
-                  {open === r.id ? t('activity.hidePipeline') : t('activity.showPipeline')}
+                  {open === r.id ? 'Hide' : 'Show pipeline'}
                 </button>
               </div>
               {open === r.id && (
@@ -200,7 +195,7 @@ function SimRuns({ rows }: { rows: UserSimRun[] }) {
                   </pre>
                   {r.pipeline_length > r.pipeline.length && (
                     <p className="mt-1 text-[11px] text-fg-subtle">
-                      {t('activity.pipelineTruncated', { n: r.pipeline_length })}
+                      {`The original is ${r.pipeline_length} characters; this is truncated.`}
                     </p>
                   )}
                 </>

@@ -1,22 +1,24 @@
-// Chạy: npm run check
+// Run: npm run check
 //
-// Bốn thuật toán phải cho **cùng một mảng đã sắp**, từ cả bốn thế mở đầu. Cả mô
-// phỏng này dựa vào đúng chỗ đó: nếu chúng ra kết quả khác nhau thì bảng điểm hai
-// cột kia đang so hai việc khác nhau chứ không phải một việc làm theo bốn cách.
-// Lệch một chỉ số ở thuật toán nhanh là kiểu sai nhìn không ra — vẫn trả về một
-// mảng, vẫn vẽ ra một hình đẹp, chỉ có hai ô đứng nhầm chỗ.
+// All four algorithms must produce **the same sorted array**, from all four
+// starting arrangements. The whole simulation rests on exactly that: if they
+// returned different results, the two-column scoreboard would be comparing two
+// different jobs rather than one job done four ways. An off-by-one in quicksort
+// is the kind of bug you cannot see — it still returns an array, it still draws
+// a pretty picture, only two slots sit in the wrong place.
 //
-// Nhóm bất biến thứ hai là của phần vẽ: khung nào khai "đang so hai ô này" thì
-// hai ô đó phải nằm trong đoạn đang xét, và ô nào khai "đã chốt" thì phải đang
-// giữ đúng giá trị cuối cùng của nó. Sai chỗ đó là mô phỏng tô xanh một ô sẽ còn
-// bị đẩy đi chỗ khác — vẫn chạy, vẫn đẹp, dạy sai.
+// The second group of invariants belongs to the renderer: a frame that declares
+// "these two slots are being compared" must have both inside the active range,
+// and a slot declared "settled" must already hold its final value. Getting that
+// wrong means the simulation paints a slot green that will still be moved —
+// still runs, still pretty, teaches the wrong thing.
 //
-// ponytail: assert của node, không framework — cùng lý do với search.check.ts.
+// ponytail: node asserts, no framework — same reason as search.check.ts.
 import assert from 'node:assert/strict'
 
 import { ALGOS, DEFAULT_LAYOUT, LAYOUTS, N, layoutOf, scoreboard } from './algos.ts'
 
-// ── Bốn thế mở đầu ─────────────────────────────────────────────────────────
+// ── The four starting arrangements ─────────────────────────────────────────
 
 const inversions = (a: number[]) => {
   let k = 0
@@ -27,114 +29,115 @@ const MAX_INV = (N * (N - 1)) / 2
 
 for (const l of LAYOUTS) {
   const a = l.make()
-  assert.equal(a.length, N, `${l.id}: phải có ${N} ô`)
+  assert.equal(a.length, N, `${l.id}: must have ${N} slots`)
   assert.deepEqual(
     [...a].sort((x, y) => x - y),
     Array.from({ length: N }, (_, i) => i + 1),
-    `${l.id}: phải là hoán vị của 1..${N} — cột cao bằng nhau thì không nhìn ra ô nào đi đâu`,
+    `${l.id}: must be a permutation of 1..${N} — equal-height bars make it impossible to see which slot went where`,
   )
-  // Hai lần gọi phải ra cùng một mảng. `Math.random` lọt vào đây là bảng điểm
-  // trong phần hướng dẫn sai ngay lần tải trang sau.
-  assert.deepEqual(l.make(), a, `${l.id}: không tất định`)
+  // Two calls must return the same array. Let `Math.random` in here and the
+  // scoreboard printed in the guide is wrong on the very next page load.
+  assert.deepEqual(l.make(), a, `${l.id}: not deterministic`)
 }
 
-assert.equal(inversions(layoutOf('da-sap').make()), 0)
-assert.equal(inversions(layoutOf('dao-nguoc').make()), MAX_INV)
+assert.equal(inversions(layoutOf('sorted').make()), 0)
+assert.equal(inversions(layoutOf('reversed').make()), MAX_INV)
 assert.equal(
-  inversions(layoutOf('gan-sap').make()),
+  inversions(layoutOf('nearly-sorted').make()),
   3,
-  'gần sắp phải đúng ba chỗ hỏng — nhiều hơn thì chèn hết "gần như chạy không"',
+  'nearly sorted must have exactly three broken spots — more than that and insertion stops "barely working"',
 )
 {
-  // Thế ngẫu nhiên phải thật sự lộn xộn. Trộn ra một mảng gần sắp là mất luôn
-  // trường hợp trung bình, và bốn dòng bảng điểm xích lại gần nhau hết.
-  const inv = inversions(layoutOf('ngau-nhien').make())
+  // The random arrangement has to be genuinely shuffled. A shuffle that lands
+  // near-sorted loses the average case, and all four scoreboard rows converge.
+  const inv = inversions(layoutOf('random').make())
   assert.ok(
     inv > MAX_INV * 0.3 && inv < MAX_INV * 0.7,
-    `thế ngẫu nhiên có ${inv}/${MAX_INV} cặp nghịch — quá gần một đầu, trộn lại đi`,
+    `the random arrangement has ${inv}/${MAX_INV} inversions — too close to one end, shuffle again`,
   )
 }
 
 assert.ok(LAYOUTS.some((l) => l.id === DEFAULT_LAYOUT))
 
-// ── Cả bốn phải sắp đúng, từ cả bốn thế ────────────────────────────────────
+// ── All four must sort correctly, from all four arrangements ───────────────
 
 const want = Array.from({ length: N }, (_, i) => i + 1)
 
 for (const layout of LAYOUTS) {
   const input = layout.make()
   for (const a of ALGOS) {
-    const where = `${a.cmd} từ thế "${layout.name}"`
+    const where = `${a.cmd} from the "${layout.name}" arrangement`
     const t = a.run(input)
     const last = t.frames[t.frames.length - 1]
 
-    assert.ok(t.frames.length > 0, `${where}: không có khung nào`)
-    assert.deepEqual(last.a, want, `${where}: mảng cuối chưa sắp xong`)
-    assert.deepEqual(input, layout.make(), `${where}: đã sửa vào mảng gốc của người gọi`)
-    assert.equal(last.done.length, N, `${where}: kết thúc mà còn ô chưa chốt`)
+    assert.ok(t.frames.length > 0, `${where}: no frames at all`)
+    assert.deepEqual(last.a, want, `${where}: the final array is not sorted`)
+    assert.deepEqual(input, layout.make(), `${where}: mutated the caller's original array`)
+    assert.equal(last.done.length, N, `${where}: finished with slots still unsettled`)
 
-    // Trần chống vòng lặp vô hạn: O(n²) phép so là chặn trên thật của cả bốn,
-    // và mỗi phép so kéo theo nhiều nhất vài dòng code.
-    assert.ok(t.comparisons <= N * N, `${where}: ${t.comparisons} phép so, quá nhiều`)
-    assert.ok(t.frames.length <= N * N * 6, `${where}: ${t.frames.length} khung, quá nhiều`)
-    assert.equal(t.comparisons, last.cmpSoFar, `${where}: bộ đếm phép so lệch với khung cuối`)
-    assert.equal(t.writes, last.writeSoFar, `${where}: bộ đếm lần ghi lệch với khung cuối`)
+    // Infinite-loop ceiling: O(n²) comparisons is the real upper bound for all
+    // four, and each comparison drags along at most a few lines of code.
+    assert.ok(t.comparisons <= N * N, `${where}: ${t.comparisons} comparisons, far too many`)
+    assert.ok(t.frames.length <= N * N * 6, `${where}: ${t.frames.length} frames, far too many`)
+    assert.equal(t.comparisons, last.cmpSoFar, `${where}: comparison counter disagrees with the last frame`)
+    assert.equal(t.writes, last.writeSoFar, `${where}: write counter disagrees with the last frame`)
 
     let cmpSeen = 0
     let writeSeen = 0
     for (const f of t.frames) {
       cmpSeen += f.cmp ? 1 : 0
       writeSeen += f.wrote.length
-      const at = `${where}, khung dòng ${f.line}`
+      const at = `${where}, frame on line ${f.line}`
 
       assert.ok(
         f.line >= 1 && f.line <= a.code.length,
-        `${at}: không có dòng đó trong ${a.file} (${a.code.length} dòng)`,
+        `${at}: no such line in ${a.file} (${a.code.length} lines)`,
       )
-      assert.equal(f.a.length, N, `${at}: ảnh chụp mảng sai kích thước`)
-      assert.equal(f.cmpSoFar, cmpSeen, `${at}: số phép so cộng dồn lệch`)
-      assert.equal(f.writeSoFar, writeSeen, `${at}: số lần ghi cộng dồn lệch`)
+      assert.equal(f.a.length, N, `${at}: array snapshot has the wrong size`)
+      assert.equal(f.cmpSoFar, cmpSeen, `${at}: running comparison count is off`)
+      assert.equal(f.writeSoFar, writeSeen, `${at}: running write count is off`)
 
-      // Đoạn RỖNG được phép — `lo = hi + 1` là trạng thái thật khi không còn gì
-      // để xét. Rỗng quá một ô thì là lỗi tính, không phải trạng thái.
-      assert.ok(f.lo <= f.hi + 1, `${at}: đoạn [${f.lo}..${f.hi}] rỗng quá một ô`)
+      // An EMPTY range is allowed — `lo = hi + 1` is a real state when there is
+      // nothing left to examine. Emptier than one slot is an arithmetic bug,
+      // not a state.
+      assert.ok(f.lo <= f.hi + 1, `${at}: range [${f.lo}..${f.hi}] is more than one slot empty`)
       assert.ok(
         f.lo >= 0 && f.lo <= N && f.hi >= -1 && f.hi < N,
-        `${at}: đoạn [${f.lo}..${f.hi}] ra ngoài mảng`,
+        `${at}: range [${f.lo}..${f.hi}] runs outside the array`,
       )
 
       for (const i of f.cmp ?? []) {
         assert.ok(
           i >= f.lo && i <= f.hi,
-          `${at}: ô đang so (${i}) nằm ngoài đoạn [${f.lo}..${f.hi}] — chỗ vẽ sẽ tô ` +
-            'sáng một ô ở trong vùng đã mờ, nhìn ra ngay là lỗi',
+          `${at}: compared slot (${i}) sits outside the range [${f.lo}..${f.hi}] — the renderer ` +
+            'would light up a slot inside the dimmed region, an instantly visible bug',
         )
       }
       for (const i of f.wrote) {
-        assert.ok(i >= f.lo && i <= f.hi, `${at}: ghi vào ô ${i} ngoài đoạn đang xét`)
+        assert.ok(i >= f.lo && i <= f.hi, `${at}: wrote to slot ${i} outside the active range`)
       }
       if (f.pivot !== null) {
-        assert.ok(f.pivot >= f.lo && f.pivot <= f.hi, `${at}: chốt ${f.pivot} ngoài đoạn`)
+        assert.ok(f.pivot >= f.lo && f.pivot <= f.hi, `${at}: pivot ${f.pivot} outside the range`)
       }
 
-      // Ô đã chốt phải đang giữ đúng giá trị cuối cùng của nó. Đây là chỗ canh
-      // nghiêm nhất của cả file: `done` là thứ được tô xanh, và tô xanh một ô còn
-      // bị đẩy đi nữa là dạy sai — mà mắt thường không bắt được, vì mảng vẫn sắp
-      // xong đúng ở khung cuối.
+      // A settled slot must already hold its final value. This is the strictest
+      // guard in the file: `done` is what gets painted green, and painting a
+      // slot green that will still be moved teaches the wrong thing — and the
+      // eye cannot catch it, because the array still ends up correctly sorted.
       for (const i of f.done) {
-        assert.equal(f.a[i], want[i], `${at}: ô ${i} khai đã chốt nhưng giá trị còn sai`)
+        assert.equal(f.a[i], want[i], `${at}: slot ${i} claims to be settled but holds the wrong value`)
       }
-      // Và đã chốt thì không được ghi đè nữa.
+      // And a settled slot must never be written again.
       for (const i of f.wrote) {
-        assert.ok(!f.done.includes(i), `${at}: ghi vào ô ${i} đã khai là chốt`)
+        assert.ok(!f.done.includes(i), `${at}: wrote to slot ${i}, which was declared settled`)
       }
     }
   }
 }
 
-// ── Mỗi thuật toán phải giữ đúng lời hứa của nó ────────────────────────────
+// ── Each algorithm must keep its own promise ───────────────────────────────
 //
-// Mấy con số trong phần bài học phải đúng, không phải nói cho hay.
+// The numbers quoted in the lesson text have to be true, not just well phrased.
 
 const runOn = (layoutId: string) => {
   const data = layoutOf(layoutId).make()
@@ -146,89 +149,94 @@ const runOn = (layoutId: string) => {
 const ALL_PAIRS = (N * (N - 1)) / 2
 
 {
-  // Chọn: số phép so là hằng số, ở MỌI thế mở đầu. Đó là cả bài học của nó, và
-  // là thứ duy nhất trong bảng điểm không nhúc nhích.
+  // Selection: the comparison count is constant, on EVERY arrangement. That is
+  // its entire lesson, and the one scoreboard row that never moves.
   const counts = new Set(LAYOUTS.map((l) => runOn(l.id).select.comparisons))
-  assert.equal(counts.size, 1, `chọn phải luôn tốn như nhau, đang có ${[...counts]}`)
-  assert.equal([...counts][0], ALL_PAIRS, `chọn phải so đúng ${ALL_PAIRS} cặp`)
-  // ...và ghi ít nhất, ở mọi thế. Con số này là lý do nó còn được dùng.
+  assert.equal(counts.size, 1, `selection must always cost the same, currently ${[...counts]}`)
+  assert.equal([...counts][0], ALL_PAIRS, `selection must compare exactly ${ALL_PAIRS} pairs`)
+  // ...and write the least, on every arrangement. That number is why it is
+  // still used.
   for (const l of LAYOUTS) {
     const r = runOn(l.id)
     assert.ok(
       r.select.writes <= Math.min(r.bubble.writes, r.insert.writes, r.quick.writes),
-      `thế "${l.name}": chọn ghi ${r.select.writes}, không còn là ít nhất`,
+      `"${l.name}" arrangement: selection writes ${r.select.writes}, no longer the fewest`,
     )
-    assert.ok(r.select.writes <= 2 * (N - 1), `thế "${l.name}": chọn ghi quá ${2 * (N - 1)}`)
+    assert.ok(r.select.writes <= 2 * (N - 1), `"${l.name}" arrangement: selection writes more than ${2 * (N - 1)}`)
   }
 }
 
 {
-  // Nổi bọt trên mảng đã sắp: dừng sau đúng một lượt, không ghi lần nào. Không có
-  // cờ `swapped` thì nó vẫn quét đủ 276 cặp — và dòng `return` không bao giờ sáng.
-  const r = runOn('da-sap')
-  assert.equal(r.bubble.comparisons, N - 1, 'nổi bọt phải dừng sau một lượt quét')
-  assert.equal(r.bubble.writes, 0, 'nổi bọt không được ghi gì trên mảng đã sắp')
+  // Bubble on a sorted array: stops after exactly one pass, writes nothing.
+  // Without the `swapped` flag it would still sweep all 276 pairs — and the
+  // `return` line would never light up.
+  const r = runOn('sorted')
+  assert.equal(r.bubble.comparisons, N - 1, 'bubble must stop after a single pass')
+  assert.equal(r.bubble.writes, 0, 'bubble must not write anything on a sorted array')
 }
 
 {
-  // Chèn trên mảng gần sắp: gần như tuyến tính. Nếu con số này trôi lên gần n²
-  // thì thế "gần sắp" đã bị làm hỏng quá nhiều chỗ và bài học biến mất.
-  const r = runOn('gan-sap')
+  // Insertion on a nearly-sorted array: close to linear. If this number drifts
+  // up toward n², the "nearly sorted" arrangement has been broken in too many
+  // places and the lesson disappears.
+  const r = runOn('nearly-sorted')
   assert.ok(
     r.insert.comparisons < N * 2,
-    `chèn trên mảng gần sắp tốn ${r.insert.comparisons} phép so, phải dưới ${N * 2}`,
+    `insertion on a nearly-sorted array costs ${r.insert.comparisons} comparisons, must stay under ${N * 2}`,
   )
   assert.ok(
     r.insert.comparisons * 5 < r.select.comparisons,
-    'chèn phải bỏ xa chọn trên mảng gần sắp, không thì thế này không dạy gì',
+    'insertion must leave selection far behind on a nearly-sorted array, otherwise this arrangement teaches nothing',
   )
 }
 
 {
-  // Đảo ngược là trường hợp tệ nhất của cả chèn lẫn nổi bọt: mọi cặp đều nghịch.
-  const r = runOn('dao-nguoc')
-  assert.equal(r.insert.comparisons, ALL_PAIRS, 'chèn phải so hết mọi cặp')
-  assert.equal(r.insert.writes, 2 * ALL_PAIRS, 'mỗi cặp nghịch là một lần đổi chỗ')
+  // Reversed is the worst case for both insertion and bubble: every pair is an
+  // inversion.
+  const r = runOn('reversed')
+  assert.equal(r.insert.comparisons, ALL_PAIRS, 'insertion must compare every pair')
+  assert.equal(r.insert.writes, 2 * ALL_PAIRS, 'every inversion is one swap')
 }
 
 {
-  // Thuật toán nhanh: thắng đậm ở thế ngẫu nhiên...
-  const rand = runOn('ngau-nhien')
+  // Quicksort: wins decisively on the random arrangement...
+  const rand = runOn('random')
   assert.ok(
     rand.quick.comparisons * 2 < rand.select.comparisons,
-    `ngẫu nhiên: nhanh ${rand.quick.comparisons} vs chọn ${rand.select.comparisons}, ` +
-      'chênh chưa đủ để lượt chạy đầu tiên tự nói ra bài học',
+    `random: quick ${rand.quick.comparisons} vs selection ${rand.select.comparisons}, ` +
+      'the gap is too small for the first run to state the lesson by itself',
   )
-  // ...và tệ nhất bảng ở thế đã sắp sẵn, vì chốt lấy ô cuối. Đây là cái bẫy đáng
-  // giá nhất của cả mô phỏng: dạng dữ liệu đời thường nhất lại là trường hợp xấu
-  // nhất. Mất tính chất này (đổi sang chốt trung vị) là mất luôn bài học.
-  const sorted = runOn('da-sap')
-  assert.equal(sorted.quick.comparisons, ALL_PAIRS, 'nhanh phải suy biến về O(n²)')
+  // ...and is the worst on the board for the already-sorted arrangement, because
+  // the pivot is the last slot. This is the most valuable trap in the whole
+  // simulation: the most everyday shape of data is the worst case. Lose this
+  // property (by switching to a median pivot) and the lesson goes with it.
+  const sorted = runOn('sorted')
+  assert.equal(sorted.quick.comparisons, ALL_PAIRS, 'quick must degrade to O(n²)')
   assert.ok(
     sorted.quick.comparisons > sorted.bubble.comparisons * 5,
-    'trên mảng đã sắp, nhanh phải thua nổi bọt thật đậm',
+    'on a sorted array, quick must lose to bubble by a wide margin',
   )
 }
 
-// ── Bảng code ──────────────────────────────────────────────────────────────
+// ── The code panel ─────────────────────────────────────────────────────────
 //
-// Mỗi dòng phải có lúc được chiếu sáng. Một dòng không khung nào trỏ tới là một
-// dòng người học nhìn thấy mà không bao giờ biết nó chạy khi nào — hoặc tệ hơn,
-// là dấu hiệu đoạn chữ trên màn hình đã lệch khỏi cái hàm đang chạy thật.
+// Every line must be highlighted at some point. A line no frame ever points at
+// is a line the learner sees without ever finding out when it runs — or worse,
+// a sign that the text on screen has drifted from the function actually running.
 
 for (const a of ALGOS) {
-  assert.ok(a.code.length > 0, `${a.file}: rỗng`)
-  assert.ok(a.code[0].startsWith('def '), `${a.file}: dòng 1 phải là chữ ký hàm`)
+  assert.ok(a.code.length > 0, `${a.file}: empty`)
+  assert.ok(a.code[0].startsWith('def '), `${a.file}: line 1 must be the function signature`)
 
   const seen = new Set<number>()
   for (const l of LAYOUTS) for (const f of a.run(l.make()).frames) seen.add(f.line)
 
   for (let ln = 1; ln <= a.code.length; ln++) {
     const src = a.code[ln - 1].trim()
-    // Dòng trắng và dòng `def` không phải lệnh chạy được — thuật toán nhanh có
-    // hai hàm trong một bảng code.
+    // Blank lines and `def` lines are not executable statements — quicksort has
+    // two functions in one code panel.
     if (src === '' || src.startsWith('def ')) continue
-    assert.ok(seen.has(ln), `${a.file} dòng ${ln} (${src}) không bao giờ được chiếu sáng`)
+    assert.ok(seen.has(ln), `${a.file} line ${ln} (${src}) is never highlighted`)
   }
 }
 

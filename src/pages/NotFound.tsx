@@ -2,7 +2,6 @@ import { Link, useLocation } from 'react-router-dom'
 
 import { Card } from '@/components/ui'
 import { SearchIcon } from '@/components/icons'
-import { useT } from '@/lib/i18n'
 
 /** Đường dẫn không khớp route nào.
  *
@@ -17,20 +16,19 @@ import { useT } from '@/lib/i18n'
  *  được mời về trang chủ.
  */
 export function NotFound({ variant = 'site' }: { variant?: 'site' | 'admin' }) {
-  const t = useT()
   const { pathname } = useLocation()
 
   const links =
     variant === 'admin'
       ? [
-          { to: '/admin/dashboard', label: t('notFound.overview') },
-          { to: '/admin/courses', label: t('nav.courses') },
-          { to: '/admin/users', label: t('notFound.users') },
+          { to: '/admin/dashboard', label: 'Overview' },
+          { to: '/admin/courses', label: 'Courses' },
+          { to: '/admin/users', label: 'Users' },
         ]
       : [
-          { to: '/', label: t('footer.home') },
-          { to: '/courses', label: t('nav.courses') },
-          { to: '/sim', label: t('nav.sim') },
+          { to: '/', label: 'Home' },
+          { to: '/courses', label: 'Courses' },
+          { to: '/sim', label: 'Simulator' },
         ]
 
   return (
@@ -40,13 +38,13 @@ export function NotFound({ variant = 'site' }: { variant?: 'site' | 'admin' }) {
       </span>
       <p className="mt-4 font-mono text-sm text-fg-subtle">404</p>
       <h1 className="mt-1 text-lg font-bold text-fg-strong">
-        {t('notFound.title')}
+        This page does not exist
       </h1>
       {/* In lại đúng đường dẫn: phần lớn lỗi loại này là gõ nhầm hoặc link cũ,
           và nhìn thấy nó là biết ngay sai ở đâu. */}
       <p className="mt-2 break-all font-mono text-xs text-fg-muted">{pathname}</p>
       <p className="mt-3 text-sm text-fg-muted">
-        {t('notFound.body')}
+        The address may be mistyped, or the page was taken down.
       </p>
 
       <div className="mt-5 flex flex-wrap justify-center gap-2">

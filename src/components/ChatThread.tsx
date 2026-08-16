@@ -2,7 +2,6 @@ import { useLayoutEffect, useRef, useState } from 'react'
 
 import { Avatar } from '@/components/Avatar'
 import type { ChatMessage } from '@/lib/types'
-import { locale, useT } from '@/lib/i18n'
 
 /** Consecutive messages from the same person inside this window are drawn as one
  *  block, with the name and time only on the first. Five minutes is where a run
@@ -40,7 +39,6 @@ export function ChatThread({
   onEdit: (id: number, body: string) => void
   onDelete: (id: number) => void
 }) {
-  const t = useT()
   const [draft, setDraft] = useState('')
   const [editing, setEditing] = useState<number | null>(null)
   const scroller = useRef<HTMLDivElement>(null)
@@ -87,10 +85,10 @@ export function ChatThread({
         className="min-h-0 flex-1 overflow-y-auto px-4 py-4"
       >
         {loading ? (
-          <p className="py-10 text-center text-sm text-fg-subtle">{t('common.loading')}</p>
+          <p className="py-10 text-center text-sm text-fg-subtle">Loading…</p>
         ) : messages.length === 0 ? (
           <p className="py-10 text-center text-sm text-fg-subtle">
-            {t('chat.empty')}
+            No messages yet. Go first.
           </p>
         ) : (
           <>
@@ -104,7 +102,7 @@ export function ChatThread({
                 disabled={loadingOlder}
                 className="mx-auto mb-2 block rounded-full px-3 py-1 text-xs text-fg-subtle transition hover:bg-muted disabled:opacity-60"
               >
-                {loadingOlder ? t('common.loading') : t('chat.loadOlder')}
+                {loadingOlder ? 'Loading…' : 'Load older messages'}
               </button>
             )}
             {messages.map((m, i) => {
@@ -172,7 +170,7 @@ export function ChatThread({
           disabled={!canSend || draft.trim() === ''}
           className="shrink-0 rounded-lg bg-accent px-4 py-2.5 text-sm font-medium text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
         >
-          {t('chat.send')}
+          Send
         </button>
       </form>
     </div>
@@ -185,16 +183,15 @@ function sameDay(a: string | undefined, b: string) {
 }
 
 function DayDivider({ iso }: { iso: string }) {
-  const t = useT()
   const d = new Date(iso)
   const today = new Date().toDateString()
   const yesterday = new Date(Date.now() - 86_400_000).toDateString()
   const label =
     d.toDateString() === today
-      ? t('chat.today')
+      ? 'Today'
       : d.toDateString() === yesterday
-        ? t('chat.yesterday')
-        : d.toLocaleDateString(locale())
+        ? 'Yesterday'
+        : d.toLocaleDateString('en-GB')
 
   return (
     <div className="flex items-center gap-3 py-3">
@@ -224,7 +221,6 @@ function Bubble({
   onSubmitEdit: (body: string) => void
   onDelete: () => void
 }) {
-  const t = useT()
   const deleted = msg.deleted_at != null
 
   return (
@@ -279,7 +275,7 @@ function Bubble({
             >
               {/* Rendered as text, never as markup: this is the one place on the
                   site where one user's input reaches another user's screen. */}
-              {deleted ? t('chat.deleted') : msg.body}
+              {deleted ? 'This message was deleted' : msg.body}
               {msg.edited_at && !deleted && (
                 <span
                   className={
@@ -287,7 +283,7 @@ function Bubble({
                     (mine ? 'text-accent-fg/70' : 'text-fg-subtle')
                   }
                 >
-                  {t('chat.edited')}
+                  edited
                 </span>
               )}
             </p>
@@ -296,10 +292,10 @@ function Bubble({
                 back. Hidden until hover so the thread stays quiet. */}
             {mine && !deleted && (
               <span className="flex gap-0.5 opacity-0 transition group-hover:opacity-100 focus-within:opacity-100">
-                <Action label={t('chat.edit')} onClick={onStartEdit}>
+                <Action label="Edit" onClick={onStartEdit}>
                   ✎
                 </Action>
-                <Action label={t('chat.delete')} danger onClick={onDelete}>
+                <Action label="Delete" danger onClick={onDelete}>
                   ✕
                 </Action>
               </span>
@@ -349,7 +345,6 @@ function EditBox({
   onCancel: () => void
   onSubmit: (body: string) => void
 }) {
-  const t = useT()
   const [value, setValue] = useState(initial)
 
   return (
@@ -370,14 +365,14 @@ function EditBox({
         className="w-full resize-none rounded-lg border border-accent bg-bg px-3 py-2 text-sm outline-none"
       />
       <p className="text-[11px] text-fg-subtle">
-        {t('chat.editHint')}
+        Enter to save · Esc to cancel
       </p>
     </div>
   )
 }
 
 function clock(iso: string) {
-  return new Date(iso).toLocaleTimeString(locale(), {
+  return new Date(iso).toLocaleTimeString('en-GB', {
     hour: '2-digit',
     minute: '2-digit',
   })

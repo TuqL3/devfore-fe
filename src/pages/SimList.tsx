@@ -9,13 +9,11 @@ import { ALGOS as SORT_ALGOS, N as SORT_N } from '@/sims/sort/algos'
 import type { SimEntry } from '@/lib/types'
 import { Prose } from '@/components/MarkdownEditor'
 import { ChevronRightIcon, LayersIcon } from '@/components/icons'
-import { useT } from '@/lib/i18n'
 
 /** Danh sách các mô phỏng. Một trang riêng chứ không phải mấy cái nút đổi qua
  *  lại tại chỗ: sắp có nhiều mô phỏng, và một hàng nút dài dần là thứ hỏng lặng
  *  lẽ ở cái thứ tám. Mỗi mục có URL của riêng nó, gửi link được. */
 export default function SimList() {
-  const t = useT()
   // Dựng mỗi lần vẽ, không phải hằng số lúc nạp module: mô phỏng tự dựng lấy kịch
   // bản từ localStorage, nên quay lại đây sau khi sửa nó phải thấy số mới.
   const own = customEntry()
@@ -25,7 +23,7 @@ export default function SimList() {
     // đây là kẹp hai lần và trang hẹp hơn header.
     <div>
       <header className="mb-6">
-        <h1 className="text-2xl font-bold text-fg-strong">{t('simList.title')}</h1>
+        <h1 className="text-2xl font-bold text-fg-strong">Simulators</h1>
         {/* Chữ do quản trị viết, không nhét cứng ở đây: mô phỏng thứ hai không
             nhất thiết là CI/CD, và sửa một câu không đáng một lần deploy. */}
         {/* Không bó bề ngang: bó lại thành một cột hẹp bên trái thì để trống
@@ -42,7 +40,7 @@ export default function SimList() {
           to="/courses/ci-cd-co-ban"
           className="mt-3 inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
         >
-          {t('simList.learnCicd')}
+          New to CI/CD? Start from scratch in the CI/CD Basics course
           <ChevronRightIcon className="h-3.5 w-3.5" />
         </Link>
       </header>
@@ -56,15 +54,15 @@ export default function SimList() {
           vế cuối của `note`. Thẻ thì không cần nới: mỗi thẻ vẫn thuộc đúng một
           engine. */}
       <Section
-        title={t('simList.own')}
-        note={t('simList.ownNote')}
+        title="Your own"
+        note="Describe it in a sentence and let AI write the scenario, or edit it by hand. Only CI/CD takes a custom scenario for now — the other engines teach through their own fixed content."
         sims={[own]}
       />
 
       {SIMS.length > 0 && (
         <Section
-          title={t('simList.builtin')}
-          note={t('simList.builtinNote')}
+          title="Built-in simulators"
+          note="The steps and the seconds are written by the author and cannot be edited. Each one teaches something different."
           sims={SIMS}
         />
       )}
@@ -100,7 +98,6 @@ function Section({
 }
 
 function SimCard({ sim }: { sim: SimEntry }) {
-  const t = useT()
   // Viền đứt cho cái tự dựng: nó là chỗ trống bạn tự lấp, không phải bài học thứ
   // ba do tác giả viết, và hai loại đó không nên trông giống nhau.
   const own = sim.slug === CUSTOM_SLUG
@@ -142,7 +139,7 @@ function SimCard({ sim }: { sim: SimEntry }) {
             này thì hai trạng thái rất khác nhau trông y hệt trên thẻ. */}
         {own && (
           <Chip tone="accent">
-            {isCustomised() ? t('play.yoursBuilt') : t('play.starterSet')}
+            {isCustomised() ? 'built by you' : 'starter set'}
           </Chip>
         )}
       </div>
@@ -154,30 +151,29 @@ function SimCard({ sim }: { sim: SimEntry }) {
  *  nào, chạy được mấy job cùng lúc, có bước nào hỏng ngẫu nhiên không; với Linux
  *  thì mấy câu đó vô nghĩa và câu đúng là có bao nhiêu lệnh. */
 function Stats({ sim }: { sim: SimEntry }) {
-  const t = useT()
   if (sim.engine === 'linux') {
     return (
       <>
-        <Chip>{t('simList.commands', { n: ALL_CMDS.length })}</Chip>
-        <Chip>{t('simList.inBrowser')}</Chip>
+        <Chip>{`${ALL_CMDS.length} commands`}</Chip>
+        <Chip>runs in the browser</Chip>
       </>
     )
   }
   if (sim.engine === 'search') {
     return (
       <>
-        <Chip>{t('simList.algorithms', { n: ALGOS.length })}</Chip>
-        <Chip>{t('simList.arrayItems', { n: 64 })}</Chip>
-        <Chip>{t('simList.inBrowser')}</Chip>
+        <Chip>{`${ALGOS.length} algorithms`}</Chip>
+        <Chip>{`a ${64}-element array`}</Chip>
+        <Chip>runs in the browser</Chip>
       </>
     )
   }
   if (sim.engine === 'sort') {
     return (
       <>
-        <Chip>{t('simList.algorithms', { n: SORT_ALGOS.length })}</Chip>
-        <Chip>{t('simList.arrayItems', { n: SORT_N })}</Chip>
-        <Chip>{t('simList.inBrowser')}</Chip>
+        <Chip>{`${SORT_ALGOS.length} algorithms`}</Chip>
+        <Chip>{`a ${SORT_N}-element array`}</Chip>
+        <Chip>runs in the browser</Chip>
       </>
     )
   }
@@ -188,7 +184,7 @@ function Stats({ sim }: { sim: SimEntry }) {
     <>
       <Chip>{steps.length} step</Chip>
       <Chip>{sim.scenario.runner_count} runner</Chip>
-      {cacheable > 0 && <Chip>{t('simList.cacheableSteps', { n: cacheable })}</Chip>}
+      {cacheable > 0 && <Chip>{`${cacheable} cacheable steps`}</Chip>}
       {flaky > 0 && <Chip tone="danger">{flaky} step flaky</Chip>}
     </>
   )

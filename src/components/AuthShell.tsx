@@ -2,7 +2,6 @@ import { Link } from 'react-router-dom'
 import { Logo } from '@/components/Logo'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import { ArrowLeftIcon } from '@/components/icons'
-import { useT } from '@/lib/i18n'
 
 /**
  * Terminal chrome around a plain HTML form. The shell look is CSS only — the
@@ -17,7 +16,6 @@ export function AuthShell({
   cmd: string
   children: React.ReactNode
 }) {
-  const t = useT()
   return (
     <div className="relative flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <span
@@ -53,7 +51,7 @@ export function AuthShell({
           className="flex items-center gap-1.5 border-t border-border bg-muted px-4 py-2.5 font-mono text-xs text-fg-muted transition hover:text-accent-soft"
         >
           <ArrowLeftIcon className="h-3.5 w-3.5" />
-          cd ~ <span className="text-fg-subtle"># {t('auth.backHome')}</span>
+          cd ~ <span className="text-fg-subtle"># back to home</span>
         </Link>
       </div>
     </div>
@@ -105,10 +103,9 @@ export function TermButton({
 }
 
 export function Divider({ text }: { text?: string }) {
-  const t = useT()
   return (
     <div className="flex items-center gap-3 font-mono text-xs text-fg-subtle">
-      <span className="h-px flex-1 bg-border" /># {text ?? t('common.or')}
+      <span className="h-px flex-1 bg-border" /># {text ?? 'or'}
       <span className="h-px flex-1 bg-border" />
     </div>
   )

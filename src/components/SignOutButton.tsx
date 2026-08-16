@@ -4,7 +4,6 @@ import { useMutation } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
 import { ApiError } from '@/lib/api'
 import { ErrorBox } from '@/components/ui'
-import { useT } from '@/lib/i18n'
 import { AlertIcon, LogOutIcon } from '@/components/icons'
 
 /**
@@ -25,7 +24,6 @@ export function SignOutButton({
   children: ReactNode
 }) {
   const { logout } = useAuth()
-  const t = useT()
   const nav = useNavigate()
   const [open, setOpen] = useState(false)
   const dialog = useRef<HTMLDialogElement>(null)
@@ -77,10 +75,10 @@ export function SignOutButton({
             </span>
             <div>
               <h2 id="signout-title" className="font-semibold text-fg-strong">
-                {t('signOut.title')}
+                Sign out of this device?
               </h2>
               <p className="mt-1 text-sm text-fg-muted">
-                {t('signOut.body')}
+                The session on this machine will be revoked. Other devices stay signed in.
               </p>
             </div>
           </div>
@@ -89,7 +87,7 @@ export function SignOutButton({
             <ErrorBox>
               {mut.error instanceof ApiError
                 ? mut.error.message
-                : t('signOut.failed')}
+                : 'Could not sign out. Try again.'}
             </ErrorBox>
           )}
 
@@ -102,7 +100,7 @@ export function SignOutButton({
               disabled={mut.isPending}
               className="rounded-md border border-border-strong px-4 py-2 font-medium text-fg transition hover:border-accent hover:text-accent-soft disabled:opacity-40"
             >
-              {t('common.cancel')}
+              Cancel
             </button>
             <button
               onClick={() => mut.mutate()}
@@ -110,7 +108,7 @@ export function SignOutButton({
               className="inline-flex items-center gap-2 rounded-md bg-danger px-4 py-2 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <LogOutIcon className="h-4 w-4" />
-              {mut.isPending ? t('signOut.pending') : t('menu.signOut')}
+              {mut.isPending ? 'Signing out…' : 'Sign out'}
             </button>
           </div>
         </div>

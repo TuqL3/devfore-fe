@@ -134,7 +134,7 @@ export interface LinuxSection {
 
 const notFound = (p: string): LinuxResult => ({
   kind: 'error',
-  text: `${p}: không có file hoặc thư mục`,
+  text: `${p}: no such file or directory`,
 })
 
 const entriesOf = (node: FsNode) =>
@@ -185,8 +185,8 @@ function branch(root: FsNode, base: string, hits: Set<string>): TreeLine[] {
 const pwd: LinuxCmd = {
   no: '01',
   cmd: 'pwd',
-  blurb: 'ĐANG Ở ĐÂU',
-  teach: `Mọi đường dẫn tương đối bạn gõ đều tính từ chỗ này. Gõ \`npm test\` mà sai thư mục thì lỗi báo ra không nhắc gì tới thư mục — nó nói không tìm thấy package.json, và bạn đi tìm nhầm chỗ. \`pwd\` là câu trả lời rẻ nhất cho câu hỏi "tại sao lệnh này không thấy file của tôi".`,
+  blurb: 'WHERE AM I',
+  teach: `Every relative path you type is measured from here. Run \`npm test\` in the wrong directory and the error says nothing about directories — it says package.json was not found, and you go looking in the wrong place. \`pwd\` is the cheapest answer to "why can this command not see my file".`,
   run: (_arg, st) => {
     const node = lookup(st.root, st.cwd)
     return {
@@ -203,9 +203,9 @@ const pwd: LinuxCmd = {
 const ls: LinuxCmd = {
   no: '02',
   cmd: 'ls -la',
-  blurb: 'LIỆT KÊ TẤT CẢ',
+  blurb: 'LIST EVERYTHING',
   arg: '.',
-  teach: `\`-a\` là *all*: hiện cả file bắt đầu bằng dấu chấm. \`ls\` trần giấu \`.env\` và \`.git\` đi — hai thứ hay là nguyên nhân của việc bạn đang gỡ. \`-l\` là *long*: mỗi file một dòng, kèm quyền và cỡ. Cột quyền chính là thứ \`chmod\` ở thẻ 08 sửa.`,
+  teach: `\`-a\` is *all*: it shows files starting with a dot too. Bare \`ls\` hides \`.env\` and \`.git\` — the two things most likely to be the cause of whatever you are debugging. \`-l\` is *long*: one file per line, with permissions and size. That permission column is exactly what \`chmod\` on card 08 changes.`,
   run: (arg, st) => {
     const abs = resolve(st.cwd, arg)
     const node = lookup(st.root, abs)
@@ -235,22 +235,22 @@ const ls: LinuxCmd = {
 const cd: LinuxCmd = {
   no: '03',
   cmd: 'cd',
-  blurb: 'ĐỔI THƯ MỤC',
+  blurb: 'CHANGE DIRECTORY',
   // Tuyệt đối, không phải `src/api`. Không gõ được thì bấm hai lần là chuyện
   // thường, mà `cd src/api` lần hai đi tìm `src/api/src/api` và đỏ lên — đúng
   // như shell thật, nhưng ở đây nó đọc ra là thẻ hỏng chứ không ra bài học.
   // Chuyện "đường dẫn tương đối cộng dồn" để `mkdir -p` ở thẻ 04 dạy, chỗ đó
   // `-p` làm cho bấm lại vô hại.
   arg: '~/project/src/api',
-  teach: `Đây là lệnh duy nhất trong mười cái đổi trạng thái mà không đổi file nào — và **mọi thẻ chạy sau nó đều tính từ chỗ mới**. Chạy thẻ này rồi quay lên bấm \`ls -la\` mà xem: cùng một lệnh, cùng một tham số \`.\`, ra danh sách khác.
+  teach: `This is the only one of the ten that changes state without changing a file — and **every card run after it is measured from the new place**. Run this card, then go back up and press \`ls -la\`: same command, same \`.\` argument, a different listing.
 
-\`~\` là thư mục nhà của bạn, nên \`~/project/src/api\` chỉ đúng một chỗ dù bạn đang đứng đâu. \`cd\` còn nhận \`..\` lùi một nấc và \`/\` lên tận gốc máy.`,
+\`~\` is your home directory, so \`~/project/src/api\` names exactly one place no matter where you are standing. \`cd\` also takes \`..\` to go up one level and \`/\` to go to the root of the machine.`,
   run: (arg, st) => {
     const from = st.cwd
     const abs = resolve(st.cwd, arg)
     const node = lookup(st.root, abs)
     if (!node) return notFound(arg)
-    if (!isDir(node)) return { kind: 'error', text: `${arg}: không phải thư mục` }
+    if (!isDir(node)) return { kind: 'error', text: `${arg}: not a directory` }
     st.cwd = abs
     return { kind: 'path', from, to: abs, entries: entriesOf(node) }
   },
@@ -261,13 +261,13 @@ const cd: LinuxCmd = {
 const mkdir: LinuxCmd = {
   no: '04',
   cmd: 'mkdir -p',
-  blurb: 'TẠO CÂY THƯ MỤC',
+  blurb: 'BUILD A DIRECTORY TREE',
   arg: 'v2/handlers',
-  teach: `Không có \`-p\` thì \`mkdir v2/handlers\` báo lỗi vì \`v2\` chưa tồn tại — bạn phải tạo từng nấc một. \`-p\` tạo hết cả nhánh, **và** im lặng khi thư mục đã có sẵn. Vế thứ hai mới là lý do nó nằm trong mọi script cài đặt: chạy lại lần thứ hai không hỏng.
+  teach: `Without \`-p\`, \`mkdir v2/handlers\` fails because \`v2\` does not exist yet — you have to create each level by hand. \`-p\` creates the whole branch, **and** stays quiet when the directory is already there. That second half is why it appears in every setup script: running it a second time does not break.
 
-Tham số đây là đường dẫn **tương đối**. Chạy \`cd\` ở thẻ 03 trước rồi quay lại bấm cái này, nhánh mới mọc ở một chỗ khác hẳn.`,
+The argument here is a **relative** path. Run \`cd\` on card 03 first, then come back and press this one, and the new branch grows somewhere else entirely.`,
   run: (arg, st) => {
-    if (arg.trim() === '') return { kind: 'error', text: 'mkdir: thiếu tên thư mục' }
+    if (arg.trim() === '') return { kind: 'error', text: 'mkdir: missing directory name' }
     const abs = resolve(st.cwd, arg)
     const { created, error } = mkdirp(st.root, abs)
     if (error) return { kind: 'error', text: error }
@@ -275,11 +275,11 @@ Tham số đây là đường dẫn **tương đối**. Chạy \`cd\` ở thẻ 
     return {
       kind: 'tree',
       lines: branch(st.root, st.cwd, hits),
-      hitLabel: 'mới',
+      hitLabel: 'new',
       changed: created,
       note: created.length
-        ? `tạo ${created.length} thư mục`
-        : 'đã có sẵn — không tạo gì, cũng không báo lỗi',
+        ? `created ${created.length} directories`
+        : 'already there — nothing created, and no error either',
     }
   },
 }
@@ -289,13 +289,13 @@ Tham số đây là đường dẫn **tương đối**. Chạy \`cd\` ở thẻ 
 const grep: LinuxCmd = {
   no: '05',
   cmd: 'grep -R',
-  blurb: 'TÌM TRONG NỘI DUNG',
+  blurb: 'SEARCH FILE CONTENTS',
   arg: 'health',
-  teach: `\`-R\` là đi xuống mọi thư mục con. Kết quả là \`file:dòng: nội dung\` — dán số đó vào editor là nhảy thẳng tới nơi. Đây là cách đọc một repo lạ nhanh nhất: tìm chuỗi bạn thấy trên màn hình, ra ngay chỗ sinh ra nó.
+  teach: `\`-R\` means descend into every subdirectory. The output is \`file:line: content\` — paste that into an editor and it jumps straight there. This is the fastest way to read an unfamiliar repository: search for a string you saw on screen and land on the code that produced it.
 
-Ở đây khớp theo chuỗi con, phân biệt hoa thường. \`grep\` thật nhận cả biểu thức chính quy.`,
+Here it matches substrings, case-sensitively. Real \`grep\` takes regular expressions too.`,
   run: (arg, st) => {
-    if (arg.trim() === '') return { kind: 'error', text: 'grep: thiếu mẫu tìm' }
+    if (arg.trim() === '') return { kind: 'error', text: 'grep: missing search pattern' }
     const hits: Match[] = []
     let scanned = 0
     walk(st.root, st.cwd, (node, path) => {
@@ -322,25 +322,25 @@ const grep: LinuxCmd = {
 const find: LinuxCmd = {
   no: '06',
   cmd: 'find . -name',
-  blurb: 'TÌM THEO TÊN',
+  blurb: 'SEARCH BY NAME',
   arg: '*.ts',
-  teach: `\`grep\` tìm trong ruột file, \`find\` tìm chính cái tên file. Hai việc khác nhau và người mới hay nhầm.
+  teach: `\`grep\` searches inside files, \`find\` searches the file names themselves. Two different jobs, and a common beginner mix-up.
 
-Dấu \`*\` khớp phần bất kỳ, \`?\` khớp đúng một ký tự. Ở shell thật phải bọc mẫu trong nháy — \`find . -name "*.ts"\` — không thì shell bung dấu sao trước khi \`find\` kịp nhìn thấy nó.`,
+\`*\` matches any run of characters, \`?\` matches exactly one. In a real shell the pattern has to be quoted — \`find . -name "*.ts"\` — otherwise the shell expands the star before \`find\` ever sees it.`,
   run: (arg, st) => {
-    if (arg.trim() === '') return { kind: 'error', text: 'find: thiếu mẫu tên' }
+    if (arg.trim() === '') return { kind: 'error', text: 'find: missing name pattern' }
     const re = globToRe(arg.trim())
     const hits = new Set<string>()
     walk(st.root, st.cwd, (node, path) => {
       if (re.test(node.name)) hits.add(path)
     })
     if (hits.size === 0)
-      return { kind: 'tree', lines: [], hitLabel: 'khớp', note: `không có gì khớp ${arg}` }
+      return { kind: 'tree', lines: [], hitLabel: 'match', note: `nothing matches ${arg}` }
     return {
       kind: 'tree',
       lines: branch(st.root, st.cwd, hits),
-      hitLabel: 'khớp',
-      note: `${hits.size} kết quả`,
+      hitLabel: 'match',
+      note: `${hits.size} results`,
     }
   },
 }
@@ -364,16 +364,16 @@ export const nextLogLine = (i: number): string => FEED[i % FEED.length]
 const tail: LinuxCmd = {
   no: '07',
   cmd: 'tail -f',
-  blurb: 'THEO DÕI LOG',
+  blurb: 'FOLLOW A LOG',
   arg: '~/project/logs/api.log',
-  teach: `\`tail\` in mấy dòng cuối rồi thoát. \`-f\` là *follow*: nó **không** thoát, cứ nằm đó và in tiếp mỗi khi file dài thêm. Đây là cửa sổ bạn để mở bên cạnh trong lúc bấm thử — lỗi hiện ra ngay giây nó xảy ra, không phải sau khi bạn đi tìm.
+  teach: `\`tail\` prints the last few lines and exits. \`-f\` is *follow*: it does **not** exit, it sits there and keeps printing every time the file grows. This is the window you leave open beside you while clicking through — the error shows up the second it happens, not after you go looking for it.
 
-Thoát bằng \`Ctrl-C\`.`,
+Quit with \`Ctrl-C\`.`,
   run: (arg, st) => {
     const abs = resolve(st.cwd, arg)
     const node = lookup(st.root, abs)
     if (!node) return notFound(arg)
-    if (isDir(node)) return { kind: 'error', text: `${arg}: là thư mục` }
+    if (isDir(node)) return { kind: 'error', text: `${arg}: is a directory` }
     const lines = node.content!.split('\n').filter((l) => l !== '')
     return { kind: 'stream', file: relative(st.cwd, abs), lines: lines.slice(-6) }
   },
@@ -384,17 +384,17 @@ Thoát bằng \`Ctrl-C\`.`,
 const chmod: LinuxCmd = {
   no: '08',
   cmd: 'chmod',
-  blurb: 'ĐỔI QUYỀN',
+  blurb: 'CHANGE PERMISSIONS',
   arg: '640 ~/project/.env',
-  teach: `Ba chữ số là ba nhóm: **chủ sở hữu**, **nhóm**, **mọi người**. Mỗi chữ số cộng từ \`4\` đọc, \`2\` ghi, \`1\` chạy. Nên \`7 = 4+2+1\` là đủ cả ba, còn \`5 = 4+1\` là đọc và chạy nhưng không sửa được.
+  teach: `The three digits are three groups: **owner**, **group**, **everyone**. Each digit adds up from \`4\` read, \`2\` write, \`1\` execute. So \`7 = 4+2+1\` is all three, while \`5 = 4+1\` is read and execute but no writing.
 
-\`.env\` đang là \`600\` — chỉ mình chủ sở hữu đọc. Thẻ này đẩy nó lên \`640\`, tức là mở thêm cho **cả nhóm**. Nghe nhỏ, nhưng thứ nằm trong file đó là mật khẩu database. Hàng cuối vẫn tắt: \`0\` cho mọi người, nên nó chưa thành thứ cả máy đọc được — \`644\` mới là chỗ đó.`,
+\`.env\` is currently \`600\` — owner-only read. This card pushes it to \`640\`, which opens it to **the whole group** as well. That sounds small, but what is inside that file is the database password. The last slot is still off: \`0\` for everyone, so it has not yet become machine-wide readable — \`644\` is where that happens.`,
   run: (arg, st) => {
     const [mode, target, ...rest] = arg.trim().split(/\s+/)
     if (!mode || !target || rest.length)
-      return { kind: 'error', text: 'chmod: cần đúng hai phần, ví dụ `644 README.md`' }
+      return { kind: 'error', text: 'chmod: needs exactly two parts, e.g. `644 README.md`' }
     if (!/^[0-7]{3}$/.test(mode))
-      return { kind: 'error', text: `${mode}: quyền phải là ba chữ số từ 0 tới 7` }
+      return { kind: 'error', text: `${mode}: mode must be three digits from 0 to 7` }
     const abs = resolve(st.cwd, target)
     const node = lookup(st.root, abs)
     if (!node) return notFound(target)
@@ -421,19 +421,19 @@ const ROUTES: Record<string, { status: number; body: string[] }> = {
 const curl: LinuxCmd = {
   no: '09',
   cmd: 'curl',
-  blurb: 'GỌI THỬ MỘT API',
+  blurb: 'CALL AN API',
   arg: 'http://localhost:3000/health',
-  teach: `Trước khi đổ lỗi cho frontend, gọi thẳng API bằng \`curl\`. Nó bỏ qua trình duyệt, bỏ qua CORS, bỏ qua cache — cái nó trả về là cái server thật sự nói.
+  teach: `Before blaming the frontend, call the API directly with \`curl\`. It skips the browser, skips CORS, skips the cache — what comes back is what the server actually says.
 
-Ba chặng sáng lần lượt là ba chỗ có thể hỏng, và mã trả về nói hỏng ở chặng nào: **404** là server sống nhưng không có đường đó — bạn gõ sai URL. **500** là server nhận được rồi mới chết — lỗi nằm trong code của họ. Còn *không có mã nào cả* thì chặng thứ hai còn chưa tới: sai tên máy, hoặc chưa ai chạy server.`,
+The three hops lighting up in turn are three places it can break, and the status code says which one: **404** means the server is alive but has no such route — you typed the URL wrong. **500** means the server received it and then died — the bug is in their code. And *no status code at all* means the second hop was never reached: wrong hostname, or nobody is running the server.`,
   run: (arg) => {
     const url = arg.trim()
-    if (url === '') return { kind: 'error', text: 'curl: thiếu URL' }
+    if (url === '') return { kind: 'error', text: 'curl: missing URL' }
     const bare = url.replace(/^https?:\/\//, '')
     const slash = bare.indexOf('/')
     const host = slash === -1 ? bare : bare.slice(0, slash)
     const path = slash === -1 ? '/' : bare.slice(slash)
-    if (host === '') return { kind: 'error', text: `${url}: URL không có tên máy` }
+    if (host === '') return { kind: 'error', text: `${url}: URL has no host` }
 
     const route = ROUTES[path]
     const status = route?.status ?? 404
@@ -447,7 +447,7 @@ Ba chặng sáng lần lượt là ba chỗ có thể hỏng, và mã trả về
       ],
       note: route
         ? `HTTP ${status} · content-type: application/json`
-        : `HTTP 404 · không có đường ${path}`,
+        : `HTTP 404 · no route ${path}`,
       body: route?.body ?? ['{', '  "error": "not found"', '}'],
     }
   },
@@ -458,16 +458,16 @@ Ba chặng sáng lần lượt là ba chỗ có thể hỏng, và mã trả về
 const ssh: LinuxCmd = {
   no: '10',
   cmd: 'ssh',
-  blurb: 'MỞ SHELL TỪ XA',
+  blurb: 'OPEN A REMOTE SHELL',
   arg: 'dev@server',
-  teach: `Dạng là \`người-dùng@máy\`. Đăng nhập bằng **cặp khoá**, không phải mật khẩu: khoá riêng nằm ở máy bạn và không đi đâu cả, khoá công khai nằm ở máy chủ trong \`~/.ssh/authorized_keys\`.
+  teach: `The form is \`user@host\`. You sign in with a **key pair**, not a password: the private key stays on your machine and goes nowhere, the public key sits on the server in \`~/.ssh/authorized_keys\`.
 
-Đây là thẻ duy nhất không mở được shell thật — mô phỏng dừng ở lúc bắt tay xong. Muốn gõ thật thì lab container có terminal thật.`,
+This is the one card that cannot open a real shell — the simulation stops once the handshake completes. To type for real, the container lab has an actual terminal.`,
   run: (arg) => {
     const at = arg.trim()
     const m = at.match(/^([\w.-]+)@([\w.-]+)$/)
     if (!m)
-      return { kind: 'error', text: `${at || '(trống)'}: cần dạng người-dùng@máy` }
+      return { kind: 'error', text: `${at || '(empty)'}: expected the form user@host` }
     const [, user, host] = m
     return {
       kind: 'hops',
@@ -476,10 +476,10 @@ const ssh: LinuxCmd = {
         { title: host, sub: '22/tcp', state: 'ok' },
         { title: 'shell', sub: `${user}@${host}`, state: 'ok' },
       ],
-      note: 'khoá công khai khớp · phiên đã mở',
+      note: 'public key accepted · session open',
       body: [
         `Linux ${host} 6.6.0 x86_64`,
-        'Lan dang nhap gan nhat: hom qua 21:04',
+        'Last login: yesterday at 21:04',
         '',
         `${user}@${host}:~$ `,
       ],
@@ -492,11 +492,11 @@ const ssh: LinuxCmd = {
 /** Chia nhóm theo *việc bạn đang làm*, không theo bảng chữ cái hay theo độ khó.
  *  Người mới không tra lệnh theo tên — họ tra theo "tôi đang muốn tìm một file". */
 export const SECTIONS: LinuxSection[] = [
-  { no: '01', title: 'ĐI LẠI', cmds: [pwd, ls] },
-  { no: '02', title: 'CẤU TRÚC', cmds: [cd, mkdir] },
-  { no: '03', title: 'TÌM KIẾM', cmds: [grep, find] },
-  { no: '04', title: 'ĐIỀU KHIỂN', cmds: [tail, chmod] },
-  { no: '05', title: 'KẾT NỐI', cmds: [curl, ssh] },
+  { no: '01', title: 'GETTING AROUND', cmds: [pwd, ls] },
+  { no: '02', title: 'STRUCTURE', cmds: [cd, mkdir] },
+  { no: '03', title: 'SEARCHING', cmds: [grep, find] },
+  { no: '04', title: 'CONTROL', cmds: [tail, chmod] },
+  { no: '05', title: 'CONNECTING', cmds: [curl, ssh] },
 ]
 
 export const ALL_CMDS: LinuxCmd[] = SECTIONS.flatMap((s) => s.cmds)

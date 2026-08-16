@@ -1,5 +1,4 @@
 import { useRef, useState } from 'react'
-import { useT, type Key } from '@/lib/i18n'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 
@@ -29,22 +28,22 @@ export function Prose({ children }: { children: string }) {
 type Tool =
   | {
       label: string
-      title: Key
+      title: string
       wrap: [string, string]
       mono?: boolean
       /** Selection spanning lines gets a fenced block instead — backticks around
        *  several lines are not code in markdown, they are stray backticks. */
       fence?: true
     }
-  | { label: string; title: Key; prefix: string }
+  | { label: string; title: string; prefix: string }
 
 const TOOLS: Tool[] = [
-  { label: 'B', title: 'md.bold', wrap: ['**', '**'] },
-  { label: 'I', title: 'md.italic', wrap: ['*', '*'] },
-  { label: '</>', title: 'md.code', wrap: ['`', '`'], mono: true, fence: true },
-  { label: '•', title: 'md.list', prefix: '- ' },
-  { label: '1.', title: 'md.numberedList', prefix: '1. ' },
-  { label: '🔗', title: 'md.link', wrap: ['[', '](url)'] },
+  { label: 'B', title: 'Bold', wrap: ['**', '**'] },
+  { label: 'I', title: 'Italic', wrap: ['*', '*'] },
+  { label: '</>', title: 'Code', wrap: ['`', '`'], mono: true, fence: true },
+  { label: '•', title: 'List', prefix: '- ' },
+  { label: '1.', title: 'Numbered list', prefix: '1. ' },
+  { label: '🔗', title: 'Link', wrap: ['[', '](url)'] },
 ]
 
 /** A selection that is nothing but one marked-up run. The inner part may not
@@ -70,7 +69,6 @@ export function MarkdownEditor({
   rows?: number
   placeholder?: string
 }) {
-  const t = useT()
   const ref = useRef<HTMLTextAreaElement>(null)
   const [preview, setPreview] = useState(false)
 
@@ -127,8 +125,8 @@ export function MarkdownEditor({
           <button
             key={tool.label}
             type="button"
-            title={t(tool.title)}
-            aria-label={t(tool.title)}
+            title={tool.title}
+            aria-label={tool.title}
             disabled={preview}
             // Keeps the caret and the selection in the textarea — without this
             // the button takes focus first and the toolbar acts on nothing.
@@ -145,8 +143,8 @@ export function MarkdownEditor({
 
         <span className="ml-auto flex gap-1">
           {[
-            { on: false, label: t('md.write') },
-            { on: true, label: t('md.preview') },
+            { on: false, label: 'Write' },
+            { on: true, label: 'Preview' },
           ].map((mode) => (
             <button
               key={mode.label}
@@ -173,7 +171,7 @@ export function MarkdownEditor({
           {value.trim() ? (
             <Prose>{value}</Prose>
           ) : (
-            <p className="text-sm text-fg-subtle">{t('md.emptyPreview')}</p>
+            <p className="text-sm text-fg-subtle">Nothing written yet.</p>
           )}
         </div>
       ) : (

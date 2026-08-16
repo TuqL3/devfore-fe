@@ -1,4 +1,3 @@
-import { getLang } from "@/lib/i18n";
 
 const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
 
@@ -41,7 +40,7 @@ function send(path: string, opts: Options): Promise<Response> {
   // The server answers errors in this language. Read per request, not captured
   // once: switching language mid-session must change the very next reply, and
   // this module is imported long before anyone picks one.
-  headers["Accept-Language"] = getLang();
+  headers["Accept-Language"] = "en";
   if (opts.body !== undefined && !isForm(opts.body))
     headers["Content-Type"] = "application/json";
   return fetch(BASE + path, {

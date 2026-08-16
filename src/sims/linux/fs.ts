@@ -175,7 +175,7 @@ export function mkdirp(
     walked += '/' + seg
     const found = node.children?.find((c) => c.name === seg)
     if (found) {
-      if (!isDir(found)) return { created, error: `${walked}: đã có file trùng tên` }
+      if (!isDir(found)) return { created, error: `${walked}: a file with that name already exists` }
       node = found
       continue
     }

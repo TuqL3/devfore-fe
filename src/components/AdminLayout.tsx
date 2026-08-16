@@ -9,12 +9,11 @@ import {
   TerminalIcon,
   UsersIcon,
 } from '@/components/icons'
-import { useT, type Key } from '@/lib/i18n'
 
 type Section = {
   to: string
-  label: Key
-  hint: Key
+  label: string
+  hint: string
   icon: (p: { className?: string }) => React.ReactElement
 }
 
@@ -23,44 +22,44 @@ type Section = {
 const SECTIONS: Section[] = [
   {
     to: '/admin/dashboard',
-    label: 'adminNav.live',
-    hint: 'adminNav.liveHint',
+    label: 'Happening now',
+    hint: 'live containers, system failures',
     icon: ChartIcon,
   },
   {
     to: '/admin/analysis',
-    label: 'adminNav.analysis',
-    hint: 'adminNav.analysisHint',
+    label: 'Analysis',
+    hint: 'broken tasks, abandoned labs',
     icon: LayersIcon,
   },
   {
     to: '/admin/moderation',
-    label: 'adminNav.moderation',
-    hint: 'adminNav.moderationHint',
+    label: 'Moderation',
+    hint: 'chat, public reports',
     icon: AlertIcon,
   },
   {
     to: '/admin/courses',
-    label: 'adminNav.courses',
-    hint: 'adminNav.coursesHint',
+    label: 'Courses',
+    hint: 'courses, labs and tasks',
     icon: BookIcon,
   },
   {
     to: '/admin/war-room',
-    label: 'adminNav.warRoom',
-    hint: 'adminNav.warRoomHint',
+    label: 'War Room',
+    hint: 'drills and incident scenarios',
     icon: TerminalIcon,
   },
   {
     to: '/admin/users',
-    label: 'adminNav.users',
-    hint: 'adminNav.usersHint',
+    label: 'Users',
+    hint: 'accounts and roles',
     icon: UsersIcon,
   },
   {
     to: '/admin/audit',
-    label: 'adminNav.audit',
-    hint: 'adminNav.auditHint',
+    label: 'Audit log',
+    hint: 'who did what, and when',
     icon: ClockIcon,
   },
 ]
@@ -69,7 +68,6 @@ const SECTIONS: Section[] = [
  *  right. One layout rather than a header repeated per page, so adding the next
  *  section is a route plus one entry above. */
 export default function AdminLayout() {
-  const t = useT()
   return (
     <div className="mx-auto flex max-w-7xl gap-6 px-4 py-8">
       {/* The nav is a card like every other block, and it sticks: the course
@@ -78,7 +76,7 @@ export default function AdminLayout() {
       <aside className="hidden w-56 shrink-0 lg:block">
         <div className="sticky top-8 rounded-xl border border-border bg-surface p-2 shadow-sm">
           <p className="px-3 pt-1 pb-2 font-mono text-xs uppercase tracking-wide text-fg-subtle">
-            {t('adminNav.section')}
+            Admin
           </p>
           <nav className="space-y-1">
             {SECTIONS.map((s) => (
@@ -108,7 +106,6 @@ function SectionLink({
   section: Section
   compact?: boolean
 }) {
-  const t = useT()
   const { icon: Icon, label, hint, to } = section
 
   return (
@@ -126,7 +123,7 @@ function SectionLink({
         <>
           <Icon className="h-4 w-4 shrink-0" />
           <span className="min-w-0">
-            <span className="block truncate">{t(label)}</span>
+            <span className="block truncate">{label}</span>
             {!compact && (
               <span
                 className={
@@ -134,7 +131,7 @@ function SectionLink({
                   (isActive ? 'text-accent-fg/75' : 'text-fg-subtle')
                 }
               >
-                {t(hint)}
+                {hint}
               </span>
             )}
           </span>

@@ -24,7 +24,6 @@ import { Card } from '@/components/ui'
 import { ConfirmModal, PromptModal } from '@/components/ConfirmModal'
 import { Prose } from '@/components/MarkdownEditor'
 import { ArrowLeftIcon } from '@/components/icons'
-import { useT } from '@/lib/i18n'
 
 /** Một mô phỏng: viết pipeline bên trái, xem lịch chạy bên phải.
  *
@@ -39,7 +38,6 @@ import { useT } from '@/lib/i18n'
  *
  *  Không phiên, không container, không chấm điểm, không lưu lượt chạy nào. */
 export default function SimPlayground() {
-  const t = useT()
   const { slug = '' } = useParams()
   // Tra trong registry, không gọi server: nội dung mô phỏng nằm trong bundle
   // này. Không có trạng thái tải, không có lỗi mạng, không có màn chờ.
@@ -48,9 +46,9 @@ export default function SimPlayground() {
   if (!sim) {
     return (
       <Card className="mx-auto max-w-lg px-6 py-12 text-center">
-        <p className="text-sm font-medium text-fg">{t('play.notFound')}</p>
+        <p className="text-sm font-medium text-fg">No such simulator</p>
         <Link to="/sim" className="mt-2 inline-block text-sm text-accent-soft hover:underline">
-          ← {t('play.backList')}
+          ← Back to the list
         </Link>
       </Card>
     )
@@ -63,7 +61,7 @@ export default function SimPlayground() {
         className="inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
       >
         <ArrowLeftIcon className="h-3.5 w-3.5" />
-        {t('play.simList')}
+        Simulator list
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-fg-strong">{sim.title}</h1>
       {/* Rẽ theo engine, một lần, ngay đây. Sau dòng này TypeScript biết `sim`
@@ -111,7 +109,6 @@ function loadMine(slug: string): SimExample[] {
 }
 
 function Bench({ sim }: { sim: SimEntryCicd }) {
-  const t = useT()
   // Kịch bản đang chạy. Với mô phỏng tác giả viết thì đây là hằng số — bộ step
   // và số giây của nó chính là bài học, và không có gì trên màn hình sửa được
   // nó. Chỉ mô phỏng tự dựng mới đổi được, và `sim.scenario` của nó đã là bản
@@ -149,7 +146,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
         warm,
       }),
     onSuccess: (res) => {
-      const label = picked ?? t('play.ownDraft')
+      const label = picked ?? 'Your own'
       const key = `${label}#${res.run_index}#${history.length}`
       setHistory((h) => [...h, { key, label, result: res }].slice(-MAX_COMPARE))
       setShown(key)
@@ -235,7 +232,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
             <Prose>{sim.description}</Prose>
             {examples.length > 0 && (
               <p className="mt-3 text-sm text-fg-subtle">
-                {t('play.tryHint')}
+                Nothing to type yet: press one of the examples below → Run the pipeline → look at the total time. Then press another and compare the two numbers.
               </p>
             )}
             <p className="mt-2 text-sm">
@@ -243,7 +240,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
                 to="/courses/ci-cd-co-ban"
                 className="text-accent-soft hover:underline"
               >
-                {t('play.toCourse')}
+                Want the structured, graded version? → the CI/CD Basics course
               </Link>
             </p>
           </Card>
@@ -258,7 +255,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
 
         {examples.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-sm font-medium text-fg">{t('play.builtinExamples')}</p>
+            <p className="text-sm font-medium text-fg">Built-in examples</p>
             <div className="grid gap-1.5 sm:grid-cols-2">
               {examples.map((ex) => (
                 <ExampleButton
@@ -274,18 +271,18 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
 
         <div className="space-y-1.5">
           <div className="flex items-baseline gap-2">
-            <p className="text-sm font-medium text-fg">{t('play.yourExamples')}</p>
+            <p className="text-sm font-medium text-fg">Your examples</p>
             <button
               onClick={() => setNaming(true)}
               disabled={!text.trim()}
               className="ml-auto rounded-md border border-border-strong px-2 py-0.5 text-xs text-fg-muted transition hover:text-fg-strong disabled:opacity-40"
             >
-              {t('play.savePipeline')}
+              Save the current pipeline
             </button>
           </div>
           {mine.length === 0 ? (
             <p className="text-xs text-fg-subtle">
-              {t('play.noSaved')}
+              No saved examples yet. Write a pipeline and press the button above to keep it — it stays in this browser and is not sent anywhere.
             </p>
           ) : (
             <div className="grid gap-1.5 sm:grid-cols-2">
@@ -307,8 +304,8 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
             <span className="font-mono text-xs text-fg-muted">pipeline.yml</span>
             <span className="ml-auto font-mono text-[11px] text-fg-subtle">
               {runIndex === 0
-                ? t('play.notRun')
-                : t('play.ranTimes', { n: runIndex })}
+                ? 'not run yet'
+                : `ran ${runIndex} times`}
             </span>
           </div>
           <PipelineEditor
@@ -334,7 +331,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
                   className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent"
                 />
               )}
-              {run.isPending ? t('play.running') : t('play.run')}
+              {run.isPending ? 'Running…' : 'Run the pipeline'}
             </button>
             <span className="font-mono text-[11px] text-fg-subtle">Ctrl+Enter</span>
             {/* Cache ấm là trạng thái duy nhất trang này mang giữa các lượt, nên
@@ -346,10 +343,10 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
                   setWarm([])
                   setRunIndex(0)
                 }}
-                title={t('play.clearCacheTitle', { list: warm.join(', ') })}
+                title={`Forget the warm caches (${warm.join(', ')}) and count from run 1 again`}
                 className="ml-auto rounded-md border border-border-strong px-2 py-1 text-xs text-fg-muted transition hover:text-fg-strong"
               >
-                {t('play.clearCache')}
+                Clear the cache
               </button>
             )}
           </div>
@@ -372,7 +369,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
         {sim.guide.trim() && (
           <details className="rounded-xl border border-border bg-bg">
             <summary className="cursor-pointer list-none px-3 py-2 text-sm font-medium text-fg-strong [&::-webkit-details-marker]:hidden">
-              {t('play.syntaxRules')}
+              Syntax and rules
             </summary>
             <div className="border-t border-border px-3 py-3">
               {/* Phần hướng dẫn gọi tên step cụ thể và nói thẳng có mấy runner.
@@ -381,7 +378,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
                   cả khối đi: nửa nói về cú pháp YAML thì vẫn đúng. */}
               {custom && (
                 <p className="mb-3 text-xs text-fg-muted">
-                  {t('play.customCatalogNote')}
+                  Running the catalog you built. What follows was written for the starter set — the syntax rules still hold, but read the step names and runner count from the “Available steps” panel.
                 </p>
               )}
               <Prose>{sim.guide}</Prose>
@@ -398,7 +395,7 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
           <p className="rounded-md border border-danger/40 bg-danger/10 px-3 py-2.5 text-sm text-danger">
             {run.error instanceof ApiError
               ? run.error.message
-              : t('play.runFailed')}
+              : 'Cannot run right now, try again.'}
           </p>
         )}
 
@@ -422,11 +419,11 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
         ) : (
           !run.isError && (
             <div className="rounded-xl border border-dashed border-border-strong px-4 py-14 text-center">
-              <p className="text-sm text-fg-muted">{t('play.resultHere')}</p>
+              <p className="text-sm text-fg-muted">The schedule will appear here.</p>
               <p className="mx-auto mt-1 max-w-xs text-xs text-fg-subtle">
                 {examples.length > 0
-                  ? t('play.pickExample')
-                  : t('play.writePipeline')}
+                  ? 'Press an example on the left, then Run the pipeline.'
+                  : 'Write a pipeline on the left, then Run the pipeline.'}
               </p>
             </div>
           )
@@ -435,12 +432,12 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
 
       {naming && (
         <PromptModal
-          title={t('play.saveExample')}
-          label={t('play.nameExample')}
+          title="Save the example"
+          label="Name this example"
           placeholder="Song song + cache"
           initialValue={picked ?? ''}
           hint={(v) =>
-            mine.some((m) => m.title === v) ? t('play.nameTaken') : ''
+            mine.some((m) => m.title === v) ? 'An example with this name exists — saving overwrites it.' : ''
           }
           onClose={() => setNaming(false)}
           onConfirm={(name) => {
@@ -455,8 +452,8 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
 
       {deleting && (
         <ConfirmModal
-          title={t('play.deleteExample')}
-          confirmLabel={t('play.delete')}
+          title="Delete this example?"
+          confirmLabel="Delete"
           tone="danger"
           onClose={() => setDeleting(null)}
           onConfirm={() => {
@@ -466,9 +463,9 @@ function Bench({ sim }: { sim: SimEntryCicd }) {
           }}
         >
           <p>
-            {t('play.deleteBodyBefore')}{' '}
+            The example{' '}
             <strong className="text-fg-strong">{deleting.title}</strong>{' '}
-            {t('play.deleteBodyAfter')}
+            will be gone. Nobody loses progress — the playground is not graded.
           </p>
         </ConfirmModal>
       )}
@@ -495,7 +492,6 @@ function Compare({
   onPick: (key: string) => void
   onClear: () => void
 }) {
-  const t = useT()
   const max = Math.max(...runs.map((r) => r.result.total_seconds), 1)
   const best = Math.min(...runs.map((r) => r.result.total_seconds))
 
@@ -503,13 +499,13 @@ function Compare({
     <div className="rounded-xl border border-border bg-bg">
       <div className="flex items-center gap-2 border-b border-border px-3 py-2">
         <span className="text-sm font-medium text-fg-strong">
-          {t('play.compareRuns', { n: runs.length })}
+          {`Compare ${runs.length} runs`}
         </span>
         <button
           onClick={onClear}
           className="ml-auto rounded px-2 py-0.5 text-xs text-fg-subtle transition hover:text-fg-strong"
         >
-          Xoá
+          Clear
         </button>
       </div>
 
@@ -572,7 +568,6 @@ function ExampleButton({
   onPick: () => void
   onDelete?: () => void
 }) {
-  const t = useT()
   return (
     // Hai nút nằm cạnh nhau trong luồng bình thường. Bản trước cho nút xoá
     // `absolute` ở góc phải, và nó đè thẳng lên chữ "bấm lại để bỏ" — không có
@@ -589,8 +584,8 @@ function ExampleButton({
         onClick={onPick}
         title={
           active
-            ? t('play.unpick')
-            : t('play.loadExample')
+            ? 'Press again to drop this example and go back to the starter pipeline'
+            : 'Load this example into the editor'
         }
         className="min-w-0 flex-1 px-3 py-2 text-left"
       >
@@ -612,8 +607,8 @@ function ExampleButton({
       {onDelete && (
         <button
           onClick={onDelete}
-          title={t('play.deleteThis')}
-          aria-label={t('play.deleteExampleLabel', { name: example.title })}
+          title="Delete this example"
+          aria-label={`Delete the example ${example.title}`}
           className="shrink-0 rounded-r-lg px-2.5 text-sm text-fg-subtle transition hover:bg-danger/10 hover:text-danger"
         >
           ✕
@@ -645,7 +640,6 @@ function CatalogEditor({
   custom: boolean
   onApply: (next: SimScenario | null) => void
 }) {
-  const t = useT()
   const [draft, setDraft] = useState(() => JSON.stringify(scenario, null, 2))
   const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
@@ -663,22 +657,22 @@ function CatalogEditor({
     try {
       parsed = JSON.parse(draft) as SimScenario
     } catch (e) {
-      setError(e instanceof Error ? e.message : t('play.badJson'))
+      setError(e instanceof Error ? e.message : 'the JSON cannot be parsed')
       return
     }
     // Ba thứ trang này sẽ nổ nếu thiếu. Trần runner, độ dài step, khoảng flaky —
     // để server từ chối, nó đã có sẵn câu tiếng Việt cho từng cái và chép luật
     // sang đây là dựng chỗ thứ hai để hai bên lệch nhau.
     if (!parsed?.catalog || typeof parsed.catalog !== 'object') {
-      setError(t('play.missingCatalog'))
+      setError('the "catalog" key is missing')
       return
     }
     if (Object.keys(parsed.catalog).length === 0) {
-      setError(t('play.emptyCatalog'))
+      setError('"catalog" has no steps yet')
       return
     }
     if (typeof parsed.runner_count !== 'number' || parsed.runner_count < 1) {
-      setError(t('play.badRunnerCount'))
+      setError('"runner_count" must be a number of at least 1')
       return
     }
     setError('')
@@ -688,12 +682,12 @@ function CatalogEditor({
   return (
     <details className="rounded-xl border border-border bg-bg">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm font-medium text-fg-strong [&::-webkit-details-marker]:hidden">
-        {t('play.editCatalogJson')}
+        Edit the catalog as JSON
         <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-fg-subtle">
-          {t('play.advanced')}
+          advanced
         </span>
         <span className="ml-auto rounded bg-accent/10 px-1.5 py-0.5 text-[10px] font-normal text-accent-soft">
-          {custom ? t('play.yoursBuilt') : t('play.starterSet')}
+          {custom ? 'built by you' : 'starter set'}
         </span>
       </summary>
       <div className="border-t border-border px-3 py-3">
@@ -713,7 +707,7 @@ function CatalogEditor({
               onClick={apply}
               className="rounded-md bg-accent px-3 py-1.5 text-xs font-semibold text-accent-fg transition hover:bg-accent-hover"
             >
-              {t('play.apply')}
+              Apply
             </button>
             <button
               onClick={() => {
@@ -723,7 +717,7 @@ function CatalogEditor({
               }}
               className="rounded-md border border-border-strong px-2.5 py-1.5 text-xs text-fg-muted transition hover:text-fg-strong"
             >
-              {copied ? t('play.copied') : t('play.copyJson')}
+              {copied ? 'Copied' : 'Copy the JSON'}
             </button>
             {/* ponytail: không còn nút "chép từ mô phỏng có sẵn" — mô phỏng
                 CI/CD cố định đã gỡ, và ô soạn vốn đã mở sẵn kịch bản đang chạy
@@ -733,12 +727,12 @@ function CatalogEditor({
                 onClick={() => onApply(null)}
                 className="ml-auto rounded-md border border-border-strong px-2.5 py-1.5 text-xs text-fg-muted transition hover:text-fg-strong"
               >
-                {t('play.backToStarter')}
+                Back to the starter set
               </button>
             )}
           </div>
           <p className="text-xs text-fg-subtle">
-            {t('play.applyClearsHistory')}
+            Applying clears the comparison history — older runs were priced differently.
           </p>
         </div>
       </div>
@@ -758,7 +752,6 @@ function CatalogEditor({
  *  giây là ước lượng. Với sân chơi thì không sao — bài học ở đây là hình dạng
  *  pipeline, không phải con số — nên câu đó nằm ngay dưới ô nhập, không giấu. */
 function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
-  const t = useT()
   const [prompt, setPrompt] = useState('')
   // Lịch sử để câu sau sửa được câu trước ("đổi runner thành 4") thay vì dựng
   // lại từ đầu. Server tự cắt bớt phần đầu nếu dài, nên chỗ này không cần cắt.
@@ -793,9 +786,9 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
     // thứ mắt chạm vào trước khi xuống ô soạn.
     <div className="space-y-2 rounded-xl border border-accent/30 bg-accent/5 p-4">
       <div className="flex flex-wrap items-baseline gap-x-2">
-        <p className="text-sm font-medium text-fg-strong">{t('play.aiTitle')}</p>
+        <p className="text-sm font-medium text-fg-strong">Build a step set with AI</p>
         <p className="text-sm text-fg-subtle">
-          {t('play.describeSystem')}
+          Describe your system in one sentence.
         </p>
       </div>
       <textarea
@@ -812,8 +805,8 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
         rows={3}
         placeholder={
           started
-            ? t('play.aiFollowUp')
-            : t('play.aiFirst')
+            ? 'Keep editing: "add a migration step", "make it 4 runners"…'
+            : 'Design a CI/CD pipeline for a Node.js + MySQL + Redis project serving millions of users'
         }
         className="w-full resize-y rounded-md border border-border bg-bg px-3 py-2.5 text-sm text-fg outline-none placeholder:text-fg-subtle focus:border-accent"
       />
@@ -830,10 +823,10 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
             />
           )}
           {gen.isPending
-            ? t('play.aiBuilding')
+            ? 'Building…'
             : started
-              ? t('play.aiSend')
-              : t('play.aiBuild')}
+              ? 'Send'
+              : 'Build the step set'}
         </button>
         <span className="font-mono text-[11px] text-fg-subtle">Ctrl+Enter</span>
         {started && (
@@ -845,7 +838,7 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
             }}
             className="ml-auto rounded-md border border-border-strong px-2 py-1 text-[11px] text-fg-muted transition hover:text-fg-strong"
           >
-            {t('play.startOver')}
+            Start over
           </button>
         )}
       </div>
@@ -854,7 +847,7 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
         <p className="text-sm text-danger">
           {gen.error instanceof ApiError
             ? gen.error.message
-            : t('play.aiFailed')}
+            : 'Cannot build right now, try again.'}
         </p>
       )}
 
@@ -866,16 +859,16 @@ function ScenarioChat({ onApply }: { onApply: (next: SimScenario) => void }) {
           {notes.text}{' '}
           <span className="text-fg-subtle">
             {notes.attempts > 1
-              ? t('play.aiRepaired')
-              : t('play.aiVerified')}
+              ? 'The first draft did not run on the engine and was repaired until it did.'
+              : 'The engine ran every example before returning it.'}
           </span>
         </p>
       )}
 
       <p className="text-xs text-fg-subtle">
-        {t('play.aiSecondsNote')}
-        <span className="text-fg-muted">{t('play.editJsonNote')}</span>{' '}
-        {t('play.belowEditor')}
+        The seconds are an AI estimate, not measured from a real CI. You can edit them by hand under
+        <span className="text-fg-muted"> Edit the catalog as JSON</span>{' '}
+        below the editor.
       </p>
     </div>
   )

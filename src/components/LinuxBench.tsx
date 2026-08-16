@@ -7,7 +7,6 @@ import { isDir, modeString, short, walk } from '@/sims/linux/fs'
 import type { SimEntryLinux } from '@/lib/types'
 import { Prose } from '@/components/MarkdownEditor'
 import { ChevronRightIcon, TerminalIcon } from '@/components/icons'
-import { useT } from '@/lib/i18n'
 
 /** Bàn xem mười lệnh Linux: danh sách lệnh bên trái, sân khấu ở giữa, cây thư
  *  mục sống bên phải.
@@ -25,7 +24,6 @@ import { useT } from '@/lib/i18n'
  *  hộp tối vĩnh viễn. Chất terminal ở đây đến từ chữ mono, nhịp hiện dần và bố
  *  cục. */
 export function LinuxBench({ sim }: { sim: SimEntryLinux }) {
-  const t = useT()
   // Cây bị **sửa tại chỗ** — `mkdir` đẩy node mới vào, `chmod` gán lại `mode`.
   // Không sao: mọi lượt chạy đều ghi vào `runs`, và lần vẽ lại vì `runs` đọc
   // luôn cây mới. Đổi sang cây bất biến thì mỗi lệnh phải dựng lại đường dẫn tới
@@ -72,7 +70,7 @@ export function LinuxBench({ sim }: { sim: SimEntryLinux }) {
       {sim.guide.trim() && (
         <details className="mt-8 rounded-xl border border-border bg-surface p-4">
           <summary className="cursor-pointer text-sm font-semibold text-fg-strong">
-            {t('bench.rules')}
+            Rules and limits of this simulator
           </summary>
           <div className="mt-3">
             <Prose>{sim.guide}</Prose>
@@ -87,7 +85,7 @@ export function LinuxBench({ sim }: { sim: SimEntryLinux }) {
         to="/courses"
         className="mt-4 inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
       >
-        {t('bench.toRealLinux')}
+        Want to type in real Linux? The labs give you a container with a real terminal
         <ChevronRightIcon className="h-3.5 w-3.5" />
       </Link>
     </div>
@@ -112,7 +110,6 @@ function CmdRail({
   ran: Record<string, unknown>
   onReset: () => void
 }) {
-  const t = useT()
   return (
     <nav className={'shrink-0 lg:w-52 ' + STICK}>
       {/* Cuộn ngang ở màn hình hẹp, xếp dọc từ `lg`. Cùng một danh sách, không
@@ -157,7 +154,7 @@ function CmdRail({
         onClick={onReset}
         className="mt-2 w-full rounded-md border border-border-strong px-2 py-1.5 text-xs text-fg-muted transition hover:border-accent/60 hover:text-fg"
       >
-        {t('bench.reset')}
+        Reset
       </button>
     </nav>
   )
@@ -176,7 +173,6 @@ function Stage({
   runNo: number
   onRun: () => void
 }) {
-  const t = useT()
   return (
     <section className="min-w-0 flex-1 rounded-xl border border-border bg-surface p-5">
       <div className="flex items-baseline gap-3">
@@ -200,7 +196,7 @@ function Stage({
           onClick={onRun}
           className="ml-auto shrink-0 rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:bg-accent-hover"
         >
-          {runNo === 0 ? t('bench.run') : t('bench.rerun')}
+          {runNo === 0 ? 'Run ▶' : 'Run again ↻'}
         </button>
       </div>
 
@@ -209,7 +205,7 @@ function Stage({
           <ResultView key={runNo} res={res} />
         ) : (
           <p className="font-mono text-xs text-fg-subtle">
-            {t('bench.pressRun')}
+            press Run to watch
             <span className="term-caret ml-0.5" />
           </p>
         )}
@@ -236,7 +232,6 @@ function Stage({
  *  Gốc là `/` chứ không phải `~/project`: `cd` đi ra ngoài được, và một cái cây
  *  giấu mất chỗ người dùng đang đứng thì tệ hơn ba dòng thừa. */
 function FsTree({ st, touched }: { st: LinuxState; touched: string[] }) {
-  const t = useT()
   const hot = new Set(touched)
   const rows: { path: string; name: string; depth: number; dir: boolean; mode: string }[] =
     [{ path: '/', name: '/', depth: 0, dir: true, mode: '' }]
@@ -255,7 +250,7 @@ function FsTree({ st, touched }: { st: LinuxState; touched: string[] }) {
       <div className="rounded-xl border border-border bg-surface p-3">
         <div className="flex items-center gap-2 border-b border-border pb-2">
           <TerminalIcon className="h-4 w-4 shrink-0 text-accent-soft" />
-          <span className="text-xs text-fg-subtle">{t('bench.here')}</span>
+          <span className="text-xs text-fg-subtle">at</span>
           <code className="min-w-0 flex-1 truncate text-right font-mono text-xs text-fg-strong">
             {short(st.cwd)}
           </code>
@@ -286,7 +281,7 @@ function FsTree({ st, touched }: { st: LinuxState; touched: string[] }) {
                   {r.dir && r.name !== '/' && '/'}
                   {here && (
                     <span className="ml-1 text-[10px]">
-                      {t('bench.youAreHere')}
+                      ← you are here
                     </span>
                   )}
                   {/* Quyền chỉ hiện ở node vừa đổi. Hiện cho mọi dòng thì cột
@@ -402,7 +397,6 @@ function PathView({ res }: { res: Of<'path'> }) {
 }
 
 function ListView({ res }: { res: Of<'list'> }) {
-  const t = useT()
   return (
     <div>
       <p className="line-in mb-2 font-mono text-xs text-fg-subtle">{res.at}</p>
@@ -431,7 +425,7 @@ function ListView({ res }: { res: Of<'list'> }) {
       </Scroll>
       {res.rows.length === 0 && (
         <p className="line-in font-mono text-sm text-fg-subtle">
-          {t('bench.emptyDir')}
+          empty directory
         </p>
       )}
     </div>
@@ -475,11 +469,10 @@ function TreeView({ res }: { res: Of<'tree'> }) {
 }
 
 function MatchesView({ res }: { res: Of<'matches'> }) {
-  const t = useT()
   return (
     <div>
       <p className="line-in mb-2 text-xs text-fg-subtle">
-        {t('bench.hitsIn', { hits: res.hits.length, files: res.scanned })}
+        {`${res.hits.length} matches in ${res.scanned} files`}
       </p>
       <Scroll>
         <div className="w-max space-y-1">
@@ -505,7 +498,7 @@ function MatchesView({ res }: { res: Of<'matches'> }) {
       </Scroll>
       {res.hits.length === 0 && (
         <p className="line-in font-mono text-sm text-fg-subtle">
-          {t('bench.noMatch')}
+          no line matched
         </p>
       )}
     </div>
@@ -519,7 +512,6 @@ function MatchesView({ res }: { res: Of<'matches'> }) {
  *  Đây là chỗ duy nhất còn một bộ đếm giờ trong JS: mấy chỗ kia chỉ xếp nhịp cho
  *  một danh sách đã biết trước, còn chỗ này sinh ra dòng mới thật. */
 function StreamView({ res }: { res: Of<'stream'> }) {
-  const t = useT()
   const [extra, setExtra] = useState<string[]>([])
   const [live, setLive] = useState(true)
 
@@ -546,7 +538,7 @@ function StreamView({ res }: { res: Of<'stream'> }) {
           onClick={() => setLive((v) => !v)}
           className="ml-auto rounded border border-border-strong px-2 py-0.5 font-mono text-[11px] text-fg-muted transition hover:text-fg"
         >
-          {live ? 'Ctrl-C' : t('bench.watchAgain')}
+          {live ? 'Ctrl-C' : 'watch again'}
         </button>
       </div>
       <Scroll>
@@ -581,7 +573,7 @@ function StreamView({ res }: { res: Of<'stream'> }) {
   )
 }
 
-const GROUPS = ['bench.owner', 'bench.group', 'bench.others'] as const
+const GROUPS = ['owner', 'group', 'others'] as const
 const BITS: { ch: string; v: number }[] = [
   { ch: 'r', v: 4 },
   { ch: 'w', v: 2 },
@@ -592,7 +584,6 @@ const BITS: { ch: string; v: number }[] = [
  *  `7 = 4+2+1`, và không có cách nào nói câu đó bằng chữ nhanh bằng chỉ vào chín
  *  cái ô — nhất là khi chúng sáng lên lần lượt theo từng nhóm. */
 function PermsView({ res }: { res: Of<'perms'> }) {
-  const t = useT()
   const oct = (m: number) => m.toString(8).padStart(3, '0')
   const opened = (res.after & ~res.before & 0o777) !== 0
   return (
@@ -612,7 +603,7 @@ function PermsView({ res }: { res: Of<'perms'> }) {
               className="line-in flex items-center gap-3"
               style={at(i + 1, STEP.perm)}
             >
-              <span className="w-24 shrink-0 text-xs text-fg-subtle">{t(g)}</span>
+              <span className="w-24 shrink-0 text-xs text-fg-subtle">{g}</span>
               <span className="font-mono text-sm text-fg-subtle">{d}</span>
               <div className="flex gap-1.5">
                 {BITS.map((b) => (
@@ -637,7 +628,7 @@ function PermsView({ res }: { res: Of<'perms'> }) {
         className="line-in mt-3 text-xs text-fg-subtle"
         style={at(GROUPS.length + 1, STEP.perm)}
       >
-        {opened ? t('bench.opened') : t('bench.tightened')}
+        {opened ? '🔓 just opened up to others' : '🔒 just tightened'}
       </p>
     </div>
   )

@@ -15,21 +15,19 @@ import {
   UsersIcon,
 } from '@/components/icons'
 import type { CourseSummary } from '@/lib/types'
-import { useT, type Key } from '@/lib/i18n'
 
 type Filter = 'all' | 'published' | 'draft'
 
-const FILTERS: { key: Filter; label: Key }[] = [
-  { key: 'all', label: 'admin.filter.all' },
-  { key: 'published', label: 'admin.filter.published' },
-  { key: 'draft', label: 'admin.filter.draft' },
+const FILTERS: { key: Filter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'published', label: 'Published' },
+  { key: 'draft', label: 'Draft' },
 ]
 
 /** The course list. Adding and editing live at their own URLs, so this screen
  *  only ever shows the totals and the table — and Back from a form lands here
  *  rather than leaving the admin area. */
 export default function Admin() {
-  const t = useT()
   const qc = useQueryClient()
   const [error, setError] = useState('')
   const [query, setQuery] = useState('')
@@ -45,7 +43,7 @@ export default function Admin() {
       setError('')
     },
     onError: (e) =>
-      setError(e instanceof ApiError ? e.message : t('admin.deleteFailed')),
+      setError(e instanceof ApiError ? e.message : 'could not delete, try again'),
   })
 
   // The totals are a fold over the rows already on screen — a dashboard
@@ -83,15 +81,15 @@ export default function Admin() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-fg-strong">{t('admin.title')}</h1>
+          <h1 className="text-2xl font-bold text-fg-strong">Course administration</h1>
           <p className="mt-1 text-sm text-fg-muted">
-            {t('admin.subtitle')}
+            Add, edit and delete courses. A draft course does not appear in the public list.
           </p>
         </div>
         <Link to="/admin/courses/new">
           <Button>
             <PlusIcon className="h-4 w-4" />
-            {t('admin.addCourse')}
+            Add a course
           </Button>
         </Link>
       </div>
@@ -104,29 +102,29 @@ export default function Admin() {
 
       <section>
         <h2 className="mb-3 text-sm font-semibold text-fg-strong">
-          {t('admin.overview')}
+          Overview
         </h2>
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
           <StatCard
-            label={t('admin.statCourses')}
+            label="Courses"
             value={totals.courses}
             icon={BookIcon}
             tint="amber"
           />
           <StatCard
-            label={t('admin.statPublished')}
+            label="Published"
             value={totals.published}
             icon={CheckIcon}
             tint="emerald"
           />
           <StatCard
-            label={t('admin.statLabs')}
+            label="Labs"
             value={totals.labs}
             icon={LayersIcon}
             tint="sky"
           />
           <StatCard
-            label={t('admin.statStudents')}
+            label="Students"
             value={totals.students}
             icon={UsersIcon}
             tint="violet"
@@ -137,7 +135,7 @@ export default function Admin() {
       <section>
         <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-sm font-semibold text-fg-strong">
-            {t('admin.courseList')}
+            Course list
             {!empty && (
               <span className="ml-2 font-normal text-fg-subtle">
                 {shown.length}/{all.length}
@@ -152,15 +150,15 @@ export default function Admin() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 type="search"
-                placeholder={t('admin.searchPlaceholder')}
-                aria-label={t('admin.searchLabel')}
+                placeholder="Search by title or slug…"
+                aria-label="Search courses"
                 className="w-56 rounded-lg border border-border-strong bg-bg py-2 pr-3 pl-9 text-sm text-fg outline-none transition placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/25"
               />
             </div>
 
             <div
               role="group"
-              aria-label={t('admin.filterGroup')}
+              aria-label="Filter by status"
               className="flex gap-1 rounded-lg border border-border bg-surface p-1"
             >
               {FILTERS.map((f) => (
@@ -175,7 +173,7 @@ export default function Admin() {
                       : 'text-fg-muted hover:text-fg-strong')
                   }
                 >
-                  {t(f.label)}
+                  {f.label}
                 </button>
               ))}
             </div>
@@ -185,17 +183,17 @@ export default function Admin() {
         <Card className="overflow-hidden">
           {courses.isLoading && (
             <p className="px-4 py-10 text-center text-sm text-fg-subtle">
-              {t('common.loading')}
+              Loading…
             </p>
           )}
 
           {!courses.isLoading && empty && (
             <div className="px-4 py-12 text-center">
-              <p className="text-sm text-fg-muted">{t('admin.empty')}</p>
+              <p className="text-sm text-fg-muted">No courses yet.</p>
               <Link to="/admin/courses/new" className="mt-3 inline-block">
                 <Button>
                   <PlusIcon className="h-4 w-4" />
-                  {t('admin.createFirst')}
+                  Create the first course
                 </Button>
               </Link>
             </div>
@@ -203,7 +201,7 @@ export default function Admin() {
 
           {!courses.isLoading && !empty && shown.length === 0 && (
             <p className="px-4 py-12 text-center text-sm text-fg-subtle">
-              {t('admin.noMatch')}
+              No course matches the filter.
             </p>
           )}
 
@@ -215,11 +213,11 @@ export default function Admin() {
               <table className="hidden w-full text-left text-sm md:table">
                 <thead className="border-b border-border bg-muted/50 text-xs uppercase tracking-wide text-fg-subtle">
                   <tr>
-                    <th className="px-4 py-3 font-medium">{t('admin.colCourse')}</th>
-                    <th className="px-4 py-3 font-medium">{t('admin.colLevel')}</th>
-                    <th className="px-4 py-3 font-medium">{t('admin.colStatus')}</th>
-                    <th className="px-4 py-3 text-right font-medium">{t('admin.colLabs')}</th>
-                    <th className="px-4 py-3 text-right font-medium">{t('admin.colStudents')}</th>
+                    <th className="px-4 py-3 font-medium">Course</th>
+                    <th className="px-4 py-3 font-medium">Level</th>
+                    <th className="px-4 py-3 font-medium">Status</th>
+                    <th className="px-4 py-3 text-right font-medium">Labs</th>
+                    <th className="px-4 py-3 text-right font-medium">Students</th>
                     <th className="px-4 py-3" />
                   </tr>
                 </thead>
@@ -272,10 +270,10 @@ export default function Admin() {
                     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-fg-muted">
                       <span>{c.level}</span>
                       <span>
-                        {c.lab_count} {t('admin.labsWord')}
+                        {c.lab_count} labs
                       </span>
                       <span>
-                        {c.student_count} {t('admin.studentsWord')}
+                        {c.student_count} students
                       </span>
                     </div>
                     <div className="mt-3 flex flex-wrap gap-1">
@@ -297,9 +295,9 @@ export default function Admin() {
           mất theo mới là khác biệt giữa một lời xác nhận và một thủ tục. */}
       {deleting && (
         <ConfirmModal
-          title={t('admin.deleteTitle', { name: deleting.title })}
+          title={`Delete "${deleting.title}"?`}
           confirmLabel={
-            remove.isPending ? t('admin.deleting') : t('admin.deleteCourse')
+            remove.isPending ? 'Deleting…' : 'Delete the course'
           }
           tone="danger"
           busy={remove.isPending}
@@ -309,19 +307,19 @@ export default function Admin() {
             setDeleting(null)
           }}
         >
-          <p>{t('admin.lostWith')}</p>
+          <p>This also removes:</p>
           <ul className="ml-4 list-disc space-y-1">
             <li>
               <strong className="text-fg-strong">{deleting.lab_count}</strong>{' '}
-              {t('admin.lostLabs')}
+              labs, along with every task in them
             </li>
             <li>
               <strong className="text-fg-strong">{deleting.student_count}</strong>{' '}
-              {t('admin.lostEnrolments')}
+              enrolments
             </li>
-            <li>{t('admin.lostScores')}</li>
+            <li>every point students earned on this course</li>
           </ul>
-          <p className="text-danger">{t('admin.notRecoverable')}</p>
+          <p className="text-danger">This cannot be undone.</p>
         </ConfirmModal>
       )}
     </div>
@@ -329,7 +327,6 @@ export default function Admin() {
 }
 
 function StatusPill({ status }: { status: CourseSummary['status'] }) {
-  const t = useT()
   return (
     <span
       className={
@@ -346,7 +343,7 @@ function StatusPill({ status }: { status: CourseSummary['status'] }) {
         }
         aria-hidden="true"
       />
-      {status === 'published' ? t('admin.published') : t('admin.draft')}
+      {status === 'published' ? 'published' : 'draft'}
     </span>
   )
 }
@@ -360,7 +357,6 @@ function RowActions({
   onDelete: (c: CourseSummary) => void
   disabled: boolean
 }) {
-  const t = useT()
   return (
     <>
       {/* "Nội dung" rather than "Lab & nhiệm vụ": the page behind it also holds
@@ -370,20 +366,20 @@ function RowActions({
         to={`/admin/courses/${course.id}`}
         className="rounded px-2 py-1 text-sm text-accent-soft transition hover:bg-muted"
       >
-        {t('admin.rowContent')}
+        Content
       </Link>
       <Link
         to={`/admin/courses/${course.id}/edit`}
         className="rounded px-2 py-1 text-sm text-accent-soft transition hover:bg-muted"
       >
-        {t('admin.rowEdit')}
+        Edit
       </Link>
       <button
         onClick={() => onDelete(course)}
         disabled={disabled}
         className="rounded px-2 py-1 text-sm text-danger transition hover:bg-danger/10 disabled:opacity-50"
       >
-        {t('admin.rowDelete')}
+        Delete
       </button>
     </>
   )

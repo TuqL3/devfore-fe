@@ -25,12 +25,11 @@ import {
 } from '@/components/ui'
 import { BookIcon, CheckIcon, LogOutIcon, MonitorIcon } from '@/components/icons'
 // `t` as well as `useT`: deviceLabel is a plain function, not a component.
-import { locale, t, useT, type Key } from '@/lib/i18n'
 
-const statusLabel: Record<string, Key> = {
-  active: 'profile.status.active',
-  pending: 'profile.status.pending',
-  banned: 'profile.status.banned',
+const statusLabel: Record<string, string> = {
+  active: 'active',
+  pending: 'pending activation',
+  banned: 'banned',
 }
 
 const statusDot: Record<string, string> = {
@@ -41,17 +40,16 @@ const statusDot: Record<string, string> = {
 
 // Ids, not labels — the active tab is compared by value.
 const TABS = [
-  { id: 'info', label: 'profile.tab.info' },
-  { id: 'appearance', label: 'profile.tab.appearance' },
-  { id: 'courses', label: 'profile.tab.courses' },
-  { id: 'password', label: 'profile.tab.password' },
-  { id: 'devices', label: 'profile.tab.devices' },
-  { id: 'danger', label: 'profile.tab.danger' },
-] as const satisfies readonly { id: string; label: Key }[]
+  { id: 'info', label: 'Details' },
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'courses', label: 'Courses' },
+  { id: 'password', label: 'Password' },
+  { id: 'devices', label: 'Devices' },
+  { id: 'danger', label: 'Danger' },
+] as const satisfies readonly { id: string; label: string }[]
 type Tab = (typeof TABS)[number]['id']
 
 export default function Profile() {
-  const t = useT()
   const { user, isAdmin } = useAuth()
   const [tab, setTab] = useState<Tab>('info')
   // Signing out — here or on another device — empties the user. Rendering
@@ -89,10 +87,10 @@ export default function Profile() {
                     'term-dot ' + (statusDot[user.status] ?? 'bg-zinc-500')
                   }
                 />
-                {statusLabel[user.status] ? t(statusLabel[user.status]) : user.status}
+                {statusLabel[user.status] ? statusLabel[user.status] : user.status}
               </span>
               <span className="rounded-full bg-muted px-2.5 py-0.5 font-mono text-xs text-fg-muted">
-                {t('profile.joined', { date: joined.toLocaleDateString(locale()) })}
+                {`joined ${joined.toLocaleDateString('en-GB')}`}
               </span>
             </div>
           </div>
@@ -146,7 +144,7 @@ export default function Profile() {
                   : 'border-b-2 border-transparent text-fg-muted hover:bg-muted hover:text-fg-strong')
               }
             >
-              {t(x.label)}
+              {x.label}
             </button>
           ))}
         </div>
@@ -173,11 +171,11 @@ export default function Profile() {
           className="inline-flex items-center gap-2 rounded-md bg-accent px-5 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover"
         >
           <BookIcon className="h-4 w-4" />
-          {t('profile.exploreCourses')}
+          Browse courses
         </Link>
         <SignOutButton className="inline-flex items-center gap-2 rounded-md border border-border-strong px-5 py-2.5 font-medium text-fg transition hover:border-danger hover:text-danger">
           <LogOutIcon className="h-4 w-4" />
-          {t('menu.signOut')}
+          Sign out
         </SignOutButton>
       </div>
     </div>
@@ -190,7 +188,6 @@ function errText(mut: { isError: boolean; error: unknown }, fallback: string) {
 }
 
 function AvatarUpload() {
-  const t = useT()
   const { user, uploadAvatar } = useAuth()
   const mut = useMutation({ mutationFn: uploadAvatar })
 
@@ -205,18 +202,18 @@ function AvatarUpload() {
     <div className="flex flex-wrap items-center gap-4 rounded-xl border border-border bg-bg p-4">
       {user && <Avatar user={user} className="h-16 w-16 rounded-xl text-xl" />}
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-fg">{t('profile.avatar')}</p>
+        <p className="text-sm font-medium text-fg">Avatar</p>
         <p className="mt-0.5 text-xs text-fg-subtle">
-          {t('profile.avatarHint')}
+          png, jpg, gif or webp — 2MB max
         </p>
         {mut.isError && (
           <p className="mt-2 text-sm text-danger">
-            {errText(mut, t('profile.avatarFailed'))}
+            {errText(mut, 'Upload failed')}
           </p>
         )}
       </div>
       <label className="shrink-0 cursor-pointer rounded-md border border-border-strong px-4 py-2 text-sm font-medium text-fg transition hover:border-accent hover:text-accent-soft">
-        {mut.isPending ? t('profile.uploading') : t('profile.pickImage')}
+        {mut.isPending ? 'Uploading…' : 'Choose an image'}
         <input
           type="file"
           accept="image/png,image/jpeg,image/gif,image/webp"
@@ -233,7 +230,6 @@ function AvatarUpload() {
  *  got. Progress comes from the server rather than being counted here, so this
  *  and the leaderboard can never disagree. */
 function MyCourses() {
-  const t = useT()
   const { data, isLoading, isError } = useQuery({
     queryKey: ['my-courses'],
     queryFn: coursesApi.mine,
@@ -242,26 +238,26 @@ function MyCourses() {
   if (isLoading)
     return (
       <p className="py-10 text-center text-sm text-fg-subtle">
-        {t('common.loading')}
+        Loading…
       </p>
     )
 
   if (isError)
-    return <ErrorBox>{t('profile.coursesLoadError')}</ErrorBox>
+    return <ErrorBox>Could not load your courses, try again.</ErrorBox>
 
   if (!data || data.length === 0)
     return (
       <div className="rounded-lg border border-border bg-surface px-6 py-12 text-center">
         <BookIcon className="mx-auto h-6 w-6 text-fg-subtle" />
-        <p className="mt-3 text-sm font-medium text-fg">{t('profile.noCourses')}</p>
+        <p className="mt-3 text-sm font-medium text-fg">You are not enrolled in any course</p>
         <p className="mt-1 text-sm text-fg-subtle">
-          {t('profile.noCoursesHint')}
+          Enrolling in a course is what lets you start its labs.
         </p>
         <Link
           to="/courses"
           className="mt-4 inline-block rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:bg-accent-hover"
         >
-          {t('profile.viewCourseList')}
+          Browse the course list
         </Link>
       </div>
     )
@@ -295,18 +291,18 @@ function MyCourses() {
                 </span>
                 <span>·</span>
                 <span>
-                  {c.score} {t('profile.pointsWord')}
+                  {c.score} points
                 </span>
                 <span>·</span>
                 <span>
-                  {t('profile.enrolledAt', { date: c.enrolled_at.slice(0, 10) })}
+                  {`enrolled ${c.enrolled_at.slice(0, 10)}`}
                 </span>
                 {/* A course pulled back to draft stays on the shelf of somebody
                     who already started it, so it has to say what happened. */}
                 {c.status === 'draft' && (
                   <>
                     <span>·</span>
-                    <span className="text-amber-500">{t('profile.hidden')}</span>
+                    <span className="text-amber-500">hidden</span>
                   </>
                 )}
               </p>
@@ -335,7 +331,6 @@ function MyCourses() {
 }
 
 function ProfileForm() {
-  const t = useT()
   const { user, updateProfile } = useAuth()
   const [form, setForm] = useState({
     username: user?.username ?? '',
@@ -353,7 +348,7 @@ function ProfileForm() {
     <form onSubmit={onSubmit} className="space-y-5">
       <AvatarUpload />
 
-      <Field label="Username" hint={t('profile.usernameHint')}>
+      <Field label="Username" hint="3-32 characters, letters and digits">
         <Input
           value={form.username}
           onChange={(e) => setForm({ ...form, username: e.target.value })}
@@ -373,12 +368,12 @@ function ProfileForm() {
         />
       </Field>
 
-      {mut.isError && <ErrorBox>{errText(mut, t('profile.updateFailed'))}</ErrorBox>}
+      {mut.isError && <ErrorBox>{errText(mut, 'Update failed')}</ErrorBox>}
       {mut.isSuccess && (
-        <p className="text-sm text-success">{t('profile.saved')}</p>
+        <p className="text-sm text-success">Changes saved.</p>
       )}
       <Button type="submit" disabled={mut.isPending}>
-        {mut.isPending ? t('profile.saving') : t('profile.save')}
+        {mut.isPending ? 'Saving…' : 'Save changes'}
       </Button>
     </form>
   )
@@ -393,7 +388,6 @@ function ProfileForm() {
  *  Cũng vì thế nó không dùng lại `ThemeToggle` — thứ ở thanh trên là ba cái nút
  *  cho khách chưa đăng nhập, còn đây là một màn cài đặt. Hai chỗ, hai việc. */
 function Appearance() {
-  const t = useT()
   const [theme, set] = useState<Theme>(getTheme)
   useEffect(() => watchSystem(() => applyTheme(getTheme())), [])
 
@@ -406,16 +400,16 @@ function Appearance() {
     <section className="space-y-6">
       <div>
         <h2 className="text-lg font-semibold text-fg-strong">
-          {t('profile.appearanceTitle')}
+          Appearance
         </h2>
         <p className="mt-1 max-w-2xl text-sm text-fg-muted">
-          {t('profile.appearanceHint')}
+          The page background. It applies instantly, nothing to save.
         </p>
       </div>
 
       <div
         role="radiogroup"
-        aria-label={t('theme.group')}
+        aria-label="Theme"
         className="grid gap-4 sm:grid-cols-3"
       >
         {THEME_CHOICES.map((c) => (
@@ -431,11 +425,11 @@ function Appearance() {
       <p className="flex items-start gap-2 rounded-lg border border-border bg-bg p-3 text-xs text-fg-subtle">
         <MonitorIcon className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
-          {t('profile.appearanceNoteBefore')}{' '}
+          This choice is stored in{' '}
           <strong className="font-medium">
-            {t('profile.appearanceNoteStrong')}
+            this browser
           </strong>
-          {t('profile.appearanceNoteAfter')}
+          , not on your account — open the site on another machine or browser and you pick again.
         </span>
       </p>
     </section>
@@ -444,27 +438,27 @@ function Appearance() {
 
 const THEME_CHOICES: {
   value: Theme
-  label: Key
-  note: Key
+  label: string
+  note: string
   /** `null` = nửa sáng nửa tối, cho lựa chọn "Theo hệ thống". */
   dark: boolean | null
 }[] = [
   {
     value: 'light',
-    label: 'profile.themeLight',
-    note: 'profile.themeLightNote',
+    label: 'Light',
+    note: 'White background, good for a bright room.',
     dark: false,
   },
   {
     value: 'dark',
-    label: 'profile.themeDark',
-    note: 'profile.themeDarkNote',
+    label: 'Dark',
+    note: "DevForge's default.",
     dark: true,
   },
   {
     value: 'system',
-    label: 'profile.themeSystem',
-    note: 'profile.themeSystemNote',
+    label: 'Match system',
+    note: "Follows your machine's light/dark setting.",
     dark: null,
   },
 ]
@@ -478,7 +472,6 @@ function ThemeCard({
   selected: boolean
   onSelect: () => void
 }) {
-  const t = useT()
   return (
     <button
       type="button"
@@ -505,10 +498,10 @@ function ThemeCard({
         </span>
         <span className="min-w-0">
           <span className="block text-sm font-medium text-fg-strong">
-            {t(choice.label)}
+            {choice.label}
           </span>
           <span className="mt-0.5 block text-xs text-fg-subtle">
-            {t(choice.note)}
+            {choice.note}
           </span>
         </span>
       </div>
@@ -570,7 +563,6 @@ function Mock({ dark }: { dark: boolean }) {
 }
 
 function PasswordForm() {
-  const t = useT()
   const { changePassword } = useAuth()
   const [form, setForm] = useState({ current: '', next: '', confirm: '' })
   const [mismatch, setMismatch] = useState(false)
@@ -592,8 +584,8 @@ function PasswordForm() {
   return (
     <form onSubmit={onSubmit} className="space-y-5">
       <Field
-        label={t('profile.currentPassword')}
-        hint={t('profile.googleHint')}
+        label="Current password"
+        hint="leave empty if you sign in with Google"
       >
         <PasswordInput
           value={form.current}
@@ -601,7 +593,7 @@ function PasswordForm() {
           autoComplete="current-password"
         />
       </Field>
-      <Field label={t('profile.newPassword')} hint={t('auth.min8')}>
+      <Field label="New password" hint="at least 8 characters">
         <PasswordInput
           value={form.next}
           onChange={(e) => setForm({ ...form, next: e.target.value })}
@@ -610,7 +602,7 @@ function PasswordForm() {
           required
         />
       </Field>
-      <Field label={t('profile.repeatPassword')}>
+      <Field label="Repeat the new password">
         <PasswordInput
           value={form.confirm}
           onChange={(e) => setForm({ ...form, confirm: e.target.value })}
@@ -620,17 +612,17 @@ function PasswordForm() {
         />
       </Field>
 
-      {mismatch && <ErrorBox>{t('profile.passwordMismatch')}</ErrorBox>}
+      {mismatch && <ErrorBox>The two passwords do not match.</ErrorBox>}
       {mut.isError && (
-        <ErrorBox>{errText(mut, t('profile.changePasswordFailed'))}</ErrorBox>
+        <ErrorBox>{errText(mut, 'Could not change the password')}</ErrorBox>
       )}
       {mut.isSuccess && (
         <p className="text-sm text-success">
-          {t('profile.passwordChanged')}
+          Password changed. Other devices were signed out; this one stays signed in.
         </p>
       )}
       <Button type="submit" disabled={mut.isPending}>
-        {mut.isPending ? t('profile.changing') : t('profile.changePassword')}
+        {mut.isPending ? 'Changing…' : 'Change password'}
       </Button>
     </form>
   )
@@ -639,7 +631,6 @@ function PasswordForm() {
 const SESSIONS = ['sessions'] as const
 
 function DeviceList() {
-  const t = useT()
   const { logout } = useAuth()
   const nav = useNavigate()
   const qc = useQueryClient()
@@ -666,13 +657,13 @@ function DeviceList() {
   })
 
   if (isLoading)
-    return <p className="text-sm text-fg-subtle">{t('common.loading')}</p>
-  if (isError) return <ErrorBox>{t('profile.devicesLoadError')}</ErrorBox>
+    return <p className="text-sm text-fg-subtle">Loading…</p>
+  if (isError) return <ErrorBox>Could not load the device list.</ErrorBox>
 
   return (
     <div className="space-y-4">
       <p className="text-sm text-fg-muted">
-        {t('profile.devicesIntro')}
+        Every session still valid on your account. If you do not recognise a device, sign it out and then change your password.
       </p>
 
       <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
@@ -683,7 +674,7 @@ function DeviceList() {
                 {deviceLabel(s.user_agent)}
                 {s.current && (
                   <span className="rounded-full bg-success-soft px-2 py-0.5 font-mono text-[10px] uppercase text-success">
-                    {t('profile.thisDevice')}
+                    this device
                   </span>
                 )}
               </p>
@@ -694,12 +685,10 @@ function DeviceList() {
                 title={s.user_agent}
               >
                 {s.ip} ·{' '}
-                {t('profile.signedInAt', {
-                  when: new Date(s.created_at).toLocaleString(locale()),
-                })}
+                {`signed in ${new Date(s.created_at).toLocaleString('en-GB')}`}
               </p>
               <p className="mt-0.5 font-mono text-xs text-fg-subtle">
-                {t('profile.lastSeen', { when: timeAgo(s.last_seen) })}
+                {`active ${timeAgo(s.last_seen)}`}
               </p>
             </div>
             <button
@@ -707,13 +696,13 @@ function DeviceList() {
               disabled={mut.isPending}
               className="rounded-md border border-border-strong px-3 py-1.5 text-sm font-medium text-fg transition hover:border-danger hover:text-danger disabled:opacity-40"
             >
-              {s.current ? t('profile.signOutThis') : t('profile.signOutOne')}
+              {s.current ? 'Sign out this device' : 'Sign out'}
             </button>
           </li>
         ))}
       </ul>
 
-      {mut.isError && <ErrorBox>{errText(mut, t('profile.signOutFailed'))}</ErrorBox>}
+      {mut.isError && <ErrorBox>{errText(mut, 'Sign-out failed')}</ErrorBox>}
     </div>
   )
 }
@@ -747,8 +736,8 @@ function deviceLabel(ua: string) {
           : /Linux/.test(ua)
             ? 'Linux'
             : ''
-  if (browser && os) return t('profile.deviceOn', { browser, os })
-  return browser || os || t('profile.unknownDevice')
+  if (browser && os) return `${browser} on ${os}`
+  return browser || os || 'Unknown device'
 }
 
 const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
@@ -760,7 +749,7 @@ const UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
 
 // ponytail: Intl.RelativeTimeFormat is built in — no date library for this.
 function timeAgo(iso: string) {
-  const rtf = new Intl.RelativeTimeFormat(locale(), { numeric: 'auto' })
+  const rtf = new Intl.RelativeTimeFormat('en-GB', { numeric: 'auto' })
   let diff = (Date.parse(iso) - Date.now()) / 1000
   for (const [unit, size] of UNITS) {
     if (Math.abs(diff) < size) return rtf.format(Math.round(diff), unit)
@@ -773,7 +762,6 @@ function timeAgo(iso: string) {
 // where there is nothing to change — a session left open on a machine that is
 // no longer yours.
 function SignOutEverywhere() {
-  const t = useT()
   const { logoutEverywhere } = useAuth()
   const nav = useNavigate()
   const [armed, setArmed] = useState(false)
@@ -789,15 +777,15 @@ function SignOutEverywhere() {
     <div className="space-y-4 rounded-xl border border-border bg-surface p-5">
       <div>
         <h3 className="font-semibold text-fg-strong">
-          {t('profile.signOutAllTitle')}
+          Sign out everywhere
         </h3>
         <p className="mt-1 text-sm text-fg-muted">
-          {t('profile.signOutAllBody')}
+          Revokes every session on the account, including this one. Use it when you left yourself signed in somewhere else. The password does not change — sign back in as usual.
         </p>
       </div>
 
       {mut.isError && (
-        <ErrorBox>{errText(mut, t('profile.signOutAllFailed'))}</ErrorBox>
+        <ErrorBox>{errText(mut, 'Could not sign out')}</ErrorBox>
       )}
 
       {armed ? (
@@ -809,15 +797,15 @@ function SignOutEverywhere() {
           >
             <LogOutIcon className="h-4 w-4" />
             {mut.isPending
-              ? t('profile.signingOutAll')
-              : t('profile.signOutAllConfirm')}
+              ? 'Signing out…'
+              : 'Yes, sign out everywhere'}
           </button>
           <button
             onClick={() => setArmed(false)}
             disabled={mut.isPending}
             className="rounded-md border border-border-strong px-4 py-2.5 font-medium text-fg transition hover:border-accent hover:text-accent-soft"
           >
-            {t('common.cancel')}
+            Cancel
           </button>
         </div>
       ) : (
@@ -826,7 +814,7 @@ function SignOutEverywhere() {
           className="inline-flex items-center gap-2 rounded-md border border-border-strong px-4 py-2.5 font-medium text-fg transition hover:border-danger hover:text-danger"
         >
           <LogOutIcon className="h-4 w-4" />
-          {t('profile.signOutAllTitle')}
+          Sign out everywhere
         </button>
       )}
     </div>
@@ -849,7 +837,6 @@ function useNoAutofill() {
 }
 
 function DangerZone() {
-  const t = useT()
   const { user, deleteAccount } = useAuth()
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -864,13 +851,13 @@ function DangerZone() {
   return (
     <div className="space-y-4 rounded-xl border border-danger/40 bg-danger/5 p-5">
       <div>
-        <h3 className="font-semibold text-danger">{t('profile.deleteTitle')}</h3>
+        <h3 className="font-semibold text-danger">Delete the account permanently</h3>
         <p className="mt-1 text-sm text-fg-muted">
-          {t('profile.deleteBody')}
+          The account, every course you enrolled in and all your progress are removed from the system. This cannot be undone.
         </p>
       </div>
 
-      <Field label={t('profile.deleteConfirmLabel', { name: user?.username ?? '' })}>
+      <Field label={`Type "${user?.username ?? ''}" to confirm`}>
         <Input
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
@@ -879,22 +866,22 @@ function DangerZone() {
           {...noFillName}
         />
       </Field>
-      <Field label={t('profile.passwordLabel')} hint={t('profile.googleHint')}>
+      <Field label="Password" hint="leave empty if you sign in with Google">
         <PasswordInput
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder={t('profile.currentPasswordPlaceholder')}
+          placeholder="current password"
           {...noFillPass}
         />
       </Field>
 
-      {mut.isError && <ErrorBox>{errText(mut, t('profile.deleteFailed'))}</ErrorBox>}
+      {mut.isError && <ErrorBox>{errText(mut, 'Deletion failed')}</ErrorBox>}
       <button
         onClick={() => mut.mutate()}
         disabled={!armed || mut.isPending}
         className="w-full rounded-md bg-danger px-4 py-2.5 font-medium text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
       >
-        {mut.isPending ? t('profile.deleting') : t('profile.deleteAccount')}
+        {mut.isPending ? 'Deleting…' : 'Delete my account'}
       </button>
     </div>
   )
