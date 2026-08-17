@@ -1,4 +1,4 @@
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { labsApi } from '@/api/labs'
@@ -7,7 +7,6 @@ import { ApiError } from '@/lib/api'
 import { mdSummary } from '@/lib/mdSummary'
 import { Card, ErrorBox } from '@/components/ui'
 import { ChevronRightIcon, ClockIcon, TerminalIcon } from '@/components/icons'
-import { useState } from 'react'
 import { clockLabel } from '@/lib/clock'
 import type { Lab, LabSession } from '@/lib/types'
 
@@ -105,11 +104,13 @@ function RunningNow({ session }: { session: LabSession }) {
 function DailyCard({ blocked }: { blocked: boolean }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
-  // Lùi bao nhiêu ngày so với hôm nay. Giữ số ngày chứ không giữ chuỗi ngày:
-  // trang mở lúc 23:59 rồi bấm "hôm qua" lúc 00:01 vẫn ra đúng một ngày trước
-  // cái ngày đang xem, không phải trước cái ngày lúc mở trang.
-  const [back, setBack] = useState(0)
-  const day = back === 0 ? undefined : dayString(back)
+  // Ngày đang xem nằm trong URL, không nằm trong state. Trước đây nó là một
+  // `useState`, nghĩa là ca hôm qua không có đường dẫn nào để dán cho người
+  // khác và không có gì cho trình thu thập đọc — cái nút lùi ngày chỉ đổi được
+  // màn hình của chính mình. `undefined` = hôm nay, và hôm nay ở `/war-room`
+  // trần chứ không phải `/war-room/day/<hôm nay>`: một ngày có hai URL là một
+  // ngày bị chia đôi điểm SEO.
+  const { day } = useParams<{ day?: string }>()
   const daily = useQuery({
     queryKey: ['daily-drill', day ?? 'today'],
     queryFn: () => labsApi.daily(day),
@@ -126,6 +127,18 @@ function DailyCard({ blocked }: { blocked: boolean }) {
 
   if (daily.isLoading || daily.isError || !daily.data) return null
   const d = daily.data
+
+  // Bước từ `d.day` — ngày server vừa xác nhận — chứ không từ đồng hồ máy khách.
+  // Đây cũng là thứ giải quyết luôn bài toán cũ của biến `back`: trang mở lúc
+  // 23:59 rồi bấm lúc 00:01 vẫn lùi đúng một ngày so với ngày đang hiển thị.
+  const today = new Date().toISOString().slice(0, 10)
+  const backDays = Math.round((Date.parse(today) - Date.parse(d.day)) / 86_400_000)
+  const step = (delta: number) => {
+    const t = new Date(d.day + 'T00:00:00Z')
+    t.setUTCDate(t.getUTCDate() + delta)
+    const iso = t.toISOString().slice(0, 10)
+    navigate(iso >= today ? '/war-room' : `/war-room/day/${iso}`)
+  }
   const busy = start.error instanceof ApiError && start.error.status === 409
 
   return (
@@ -134,7 +147,7 @@ function DailyCard({ blocked }: { blocked: boolean }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent-soft">
-              {"Today's shift"}
+              {day ? 'Archived shift' : "Today's shift"}
             </span>
             <span className="font-mono text-xs text-fg-subtle">{d.day}</span>
             {/* Đi lùi từng ngày một. Ca cũ vẫn chơi được — nó chỉ là một kịch
@@ -143,16 +156,16 @@ function DailyCard({ blocked }: { blocked: boolean }) {
                 nút mời bấm vào đó là mời bấm vào lỗi. */}
             <span className="flex items-center gap-1">
               <button
-                onClick={() => setBack((n) => Math.min(n + 1, ARCHIVE_DAYS))}
-                disabled={back >= ARCHIVE_DAYS}
+                onClick={() => step(-1)}
+                disabled={backDays >= ARCHIVE_DAYS}
                 className="rounded border border-border-strong px-1.5 text-xs text-fg-muted transition hover:border-accent hover:text-fg disabled:opacity-30"
                 aria-label="Previous day"
               >
                 ←
               </button>
               <button
-                onClick={() => setBack((n) => Math.max(n - 1, 0))}
-                disabled={back === 0}
+                onClick={() => step(1)}
+                disabled={!day}
                 className="rounded border border-border-strong px-1.5 text-xs text-fg-muted transition hover:border-accent hover:text-fg disabled:opacity-30"
                 aria-label="Next day"
               >
@@ -162,7 +175,7 @@ function DailyCard({ blocked }: { blocked: boolean }) {
           </div>
           <h2 className="mt-2 font-semibold text-fg-strong">{d.lab_title}</h2>
           <p className="mt-1 text-sm text-fg-muted">
-            {back === 0 ? 'The same fault for everybody, rolling over at midnight UTC. That is what makes the times below comparable.' : 'A past day. Still playable — it is just another scenario.'}
+            {!day ? 'The same fault for everybody, rolling over at midnight UTC. That is what makes the times below comparable.' : 'A past day. Still playable — it is just another scenario.'}
           </p>
         </div>
 
@@ -362,17 +375,6 @@ function Chip({ children }: { children: React.ReactNode }) {
       {children}
     </li>
   )
-}
-
-/** Số ngày lùi → chuỗi `YYYY-MM-DD` theo UTC.
- *
- *  UTC vì mốc đổi ca của server là nửa đêm UTC. Lấy ngày theo giờ máy người xem
- *  thì ở Hà Nội, cả buổi sáng sẽ hỏi một ngày mà server coi là "ngày mai" và
- *  nhận về 404. */
-function dayString(back: number): string {
-  const d = new Date()
-  d.setUTCDate(d.getUTCDate() - back)
-  return d.toISOString().slice(0, 10)
 }
 
 /** Khớp với `usecase.ArchiveDays` bên server. Lệch thì nút lùi vẫn bấm được vào

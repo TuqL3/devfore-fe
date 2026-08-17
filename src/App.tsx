@@ -79,6 +79,11 @@ export default function App() {
           {/* Danh sách thử thách. Màn làm bài của nó nằm ngoài Layout, cùng chỗ
               với màn làm lab — nó cũng chiếm trọn màn hình. */}
           <Route path="/war-room" element={<WarRoom />} />
+          {/* Một ngày đã đóng trong kho ca cũ. Cùng màn hình, chỉ khác là ngày
+              nằm trong URL thay vì trong state — nếu không thì ca hôm qua không
+              có đường dẫn nào để dán cho người khác, và trình thu thập không có
+              gì để đọc. Ba đoạn nên không đụng `/war-room/:labSlug` bên dưới. */}
+          <Route path="/war-room/day/:day" element={<WarRoom />} />
           {/* One screen for both ways in: opened from the list, or landed on
               straight after handing a lab in, which adds ?done=1. */}
           <Route path="/history/:id" element={<LabReport />} />
