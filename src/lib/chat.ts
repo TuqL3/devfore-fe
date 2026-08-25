@@ -13,7 +13,7 @@ export function notify(m: ChatMessage) {
   if (Notification.permission !== 'granted') return
   if (!document.hidden) return
   try {
-    new Notification(`Tin nhắn từ ${m.username}`, {
+    new Notification(`Message from ${m.username}`, {
       body: m.body.slice(0, 120),
       // Same tag per sender, so five messages replace one another instead of
       // stacking five notifications.

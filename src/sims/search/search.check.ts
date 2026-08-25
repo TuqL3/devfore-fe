@@ -1,16 +1,18 @@
-// Chạy: npm run check
+// Run: npm run check
 //
-// Bốn thuật toán phải cho **cùng một đáp án** — cả mô phỏng này dựa trên đúng
-// chỗ đó: nếu chúng khác nhau ở kết quả thì bảng so số phép so sánh vô nghĩa,
-// vì lúc đó chúng đang làm hai việc khác nhau chứ không phải cùng một việc theo
-// hai cách. Lệch một chỉ số ở nhị phân hay nội suy là kiểu sai nhìn không ra:
-// vẫn trả về một con số, vẫn vẽ ra một hình đẹp.
+// All four algorithms must produce **the same answer** — the whole simulation
+// rests on exactly that: if their results differed, the comparison-count table
+// would be meaningless, because they would be doing two different jobs rather
+// than one job two ways. An off-by-one in binary or interpolation search is the
+// kind of bug you cannot see: it still returns a number, it still draws a pretty
+// picture.
 //
-// Từ khi có bảng code chạy song song, có thêm một nhóm bất biến: số dòng phải
-// trỏ vào dòng có thật, và khung nào khai là "đang so" thì phải thật sự đang so.
-// Sai chỗ đó là bảng code sáng nhầm dòng — vẫn chạy, vẫn đẹp, dạy sai.
+// Since the code panel runs alongside, there is a second group of invariants:
+// a line number must point at a line that exists, and a frame that declares
+// "comparing" must really be comparing. Getting that wrong lights up the wrong
+// line — still runs, still pretty, teaches the wrong thing.
 //
-// ponytail: assert của node, không framework — cùng lý do với sim.check.ts.
+// ponytail: node asserts, no framework — same reason as sim.check.ts.
 import assert from 'node:assert/strict'
 
 import {
@@ -24,121 +26,125 @@ import {
 const data = seedData()
 const n = data.length
 
-// ── Mảng ───────────────────────────────────────────────────────────────────
+// ── The array ──────────────────────────────────────────────────────────────
 
 assert.equal(n, 64)
 for (let i = 1; i < n; i++) {
-  assert.ok(data[i] > data[i - 1], `mảng phải tăng ngặt, hỏng ở ${i}`)
+  assert.ok(data[i] > data[i - 1], `the array must be strictly increasing, broken at ${i}`)
 }
-// Khoảng cách không đều — nếu đều thì nội suy trúng ngay phát đầu ở mọi mục
-// tiêu và bài học của nó biến mất.
+// The gaps must be uneven — if they were even, interpolation would hit on the
+// first probe for every target and its lesson would disappear.
 const gaps = new Set(data.slice(1).map((v, i) => v - data[i]))
-assert.ok(gaps.size > 1, 'khoảng cách phải không đều')
+assert.ok(gaps.size > 1, 'the gaps must be uneven')
 
-assert.ok(DEFAULT_TARGET_INDEX > n / 2, 'mục tiêu mặc định phải ở nửa sau')
+assert.ok(DEFAULT_TARGET_INDEX > n / 2, 'the default target must sit in the second half')
 
 const missing = missingValue(data)
-assert.equal(data.indexOf(missing), -1, 'giá trị "không có" phải thật sự không có')
+assert.equal(data.indexOf(missing), -1, 'the "absent" value must really be absent')
 assert.ok(
   missing > data[0] && missing < data[n - 1],
-  'phải nằm trong khoảng của mảng, không phải ngoài rìa — ngoài rìa thì nội suy ' +
-    'thoát ngay ở điều kiện vòng lặp và không diễn được gì',
+  'it must fall inside the array range, not past an edge — past an edge, interpolation ' +
+    'exits at the loop condition and demonstrates nothing',
 )
 
-// ── Cả bốn phải đồng ý, với MỌI mục tiêu ───────────────────────────────────
+// ── All four must agree, on EVERY target ───────────────────────────────────
 
 const targets = [
-  ...data, // mọi phần tử có thật
-  missing, // một khe ở giữa
-  data[0] - 1, // trước đầu mảng
-  data[n - 1] + 1, // sau cuối mảng
+  ...data, // every real element
+  missing, // a gap in the middle
+  data[0] - 1, // before the front of the array
+  data[n - 1] + 1, // past the end of the array
 ]
 
-/** Mục tiêu nằm ngoài `[data[0], data[n-1]]`. Nội suy loại thẳng trường hợp này
- *  ở điều kiện vòng lặp, **không so lần nào** — nó biết trước là vô vọng. Ba
- *  thuật toán kia vẫn phải mở ít nhất một ô ra xem. */
+/** A target outside `[data[0], data[n-1]]`. Interpolation rules this case out
+ *  at the loop condition, **without a single comparison** — it knows up front
+ *  it is hopeless. The other three still have to open at least one slot. */
 const outOfRange = (t: number) => t < data[0] || t > data[n - 1]
 
 for (const target of targets) {
   const want = data.indexOf(target)
   for (const a of ALGOS) {
     const t = a.run(data, target)
-    const where = `${a.cmd} với ${target}`
-    assert.equal(t.found, want, `${where}: ra ${t.found}, phải là ${want}`)
+    const where = `${a.cmd} with ${target}`
+    assert.equal(t.found, want, `${where}: returned ${t.found}, expected ${want}`)
 
-    // Không được so quá một lượt quét cả mảng. Vòng lặp vô hạn ở nội suy thì
-    // treo luôn bài kiểm; trần này biến nó thành một dòng lỗi đọc được.
-    assert.ok(t.comparisons <= n, `${where}: ${t.comparisons} phép so, quá nhiều`)
-    assert.ok(t.frames.length <= n * 4, `${where}: ${t.frames.length} khung, quá nhiều`)
+    // It must never compare more than one full sweep of the array. An infinite
+    // loop in interpolation would hang the check; this ceiling turns it into a
+    // readable error line instead.
+    assert.ok(t.comparisons <= n, `${where}: ${t.comparisons} comparisons, far too many`)
+    assert.ok(t.frames.length <= n * 4, `${where}: ${t.frames.length} frames, far too many`)
     if (!outOfRange(target)) {
-      assert.ok(t.comparisons > 0, `${where}: phải có ít nhất một phép so`)
+      assert.ok(t.comparisons > 0, `${where}: must make at least one comparison`)
     }
 
-    // `comparisons` phải đúng bằng số khung có so sánh. Hai chỗ đếm rời nhau là
-    // hai chỗ lệch nhau: bảng điểm nói một số, bảng code đếm ra số khác.
+    // `comparisons` must equal the number of frames that compare. Two separate
+    // counters are two counters that drift apart: the scoreboard says one
+    // number while the code panel counts another.
     assert.equal(
       t.comparisons,
       t.frames.filter((f) => f.cmp !== null).length,
-      `${where}: bộ đếm phép so lệch với số khung có so sánh`,
+      `${where}: comparison counter disagrees with the number of comparing frames`,
     )
 
     for (const f of t.frames) {
       assert.ok(
         f.line >= 1 && f.line <= a.code.length,
-        `${where}: dòng ${f.line} không có trong ${a.file} (${a.code.length} dòng)`,
+        `${where}: line ${f.line} does not exist in ${a.file} (${a.code.length} lines)`,
       )
-      // Đoạn RỖNG được phép — `lo = hi + 1` là trạng thái thật sau nhát cắt
-      // cuối, nghĩa là không còn ô nào chưa loại, và chỗ vẽ mờ hết cả lưới. Kẹp
-      // nó lại cho "đẹp" là nói dối đúng cái khoảnh khắc thuật toán kết thúc.
-      // Nhưng rỗng quá một ô thì là lỗi tính, không phải trạng thái.
+      // An EMPTY range is allowed — `lo = hi + 1` is the real state after the
+      // final cut, meaning no slot is left unruled-out, and the renderer dims
+      // the whole grid. Clamping it to look "nicer" would lie about the exact
+      // moment the algorithm ends. But emptier than one slot is an arithmetic
+      // bug, not a state.
       assert.ok(
         f.lo <= f.hi + 1,
-        `${where}: đoạn [${f.lo}..${f.hi}] rỗng quá một ô — lỗi tính, không phải trạng thái`,
+        `${where}: range [${f.lo}..${f.hi}] is more than one slot empty — arithmetic bug, not a state`,
       )
       assert.ok(
         f.lo >= 0 && f.lo <= n && f.hi >= -1 && f.hi < n,
-        `${where}: đoạn [${f.lo}..${f.hi}] ra ngoài mảng`,
+        `${where}: range [${f.lo}..${f.hi}] runs outside the array`,
       )
 
       if (f.probe === null) {
-        // Dòng không đọc phần tử nào thì không được khai kết quả so sánh.
-        assert.equal(f.cmp, null, `${where}: dòng ${f.line} không có ô mà vẫn có cờ so`)
+        // A line that reads no element must not declare a comparison result.
+        assert.equal(f.cmp, null, `${where}: line ${f.line} has no probe yet carries a compare flag`)
         continue
       }
       assert.ok(
         f.probe >= f.lo && f.probe <= f.hi,
-        `${where}: ô đang so (${f.probe}) nằm ngoài đoạn [${f.lo}..${f.hi}] — ` +
-          'chỗ vẽ sẽ tô ô đó ở ngoài vùng sáng, nhìn ra là lỗi vẽ',
+        `${where}: probed slot (${f.probe}) sits outside the range [${f.lo}..${f.hi}] — ` +
+          'the renderer would paint it outside the lit region, a visible drawing bug',
       )
       if (f.cmp !== null) {
-        // Cờ so sánh phải khớp dữ liệu thật: chỗ vẽ tô màu theo nó chứ không tự
-        // tính lại.
+        // The compare flag must match the real data: the renderer colours from
+        // it rather than recomputing.
         const want_cmp =
           data[f.probe] === target ? 'eq' : data[f.probe] < target ? 'lt' : 'gt'
-        assert.equal(f.cmp, want_cmp, `${where}: cờ so sánh ở ô ${f.probe} sai`)
+        assert.equal(f.cmp, want_cmp, `${where}: compare flag at slot ${f.probe} is wrong`)
       }
     }
 
-    // Tìm thấy thì khung cuối phải là dòng `return`, và ô nó đang chỉ phải đúng
-    // là ô tìm được — không phải tìm thấy rồi còn chỉ đi đâu khác.
+    // On a hit, the last frame must be the `return` line, and the slot it points
+    // at must be the one found — not found here, then pointing somewhere else.
     if (t.found !== -1) {
       const last = t.frames[t.frames.length - 1]
-      assert.equal(last.probe, t.found, `${where}: khung cuối không chỉ vào ô tìm được`)
+      assert.equal(last.probe, t.found, `${where}: the last frame does not point at the found slot`)
       assert.ok(
         a.code[last.line - 1].includes('return'),
-        `${where}: khung cuối phải dừng ở dòng return, đang ở "${a.code[last.line - 1].trim()}"`,
+        `${where}: the last frame must stop on a return line, currently "${a.code[last.line - 1].trim()}"`,
       )
       assert.ok(
         t.frames.some((f) => f.cmp === 'eq' && f.probe === t.found),
-        `${where}: phải có một phép so ra bằng ở ô ${t.found}`,
+        `${where}: there must be an equality comparison at slot ${t.found}`,
       )
     }
   }
 }
 
-// ── Chặn trên của từng thuật toán ──────────────────────────────────────────
+// ── Upper bound for each algorithm ─────────────────────────────────────────
 //
-// Con số trong phần "Vì sao đáng học" phải đúng, không phải nói cho hay.
+// The numbers in "Why it is worth learning" have to be true, not just well
+// phrased.
 {
   let worst = { linear: 0, binary: 0, jump: 0, interp: 0 }
   for (const target of targets) {
@@ -150,29 +156,30 @@ for (const target of targets) {
       interp: Math.max(worst.interp, ip),
     }
   }
-  // 64 phần tử: nhị phân nhiều nhất ⌈log₂(65)⌉ = 7.
-  assert.ok(worst.binary <= 7, `nhị phân tệ nhất ${worst.binary}, phải ≤ 7`)
-  // Nhảy bước: ⌈64/8⌉ nhảy + 8 quét, cộng một lần so lặp ở cuối khối.
-  assert.ok(worst.jump <= 17, `nhảy bước tệ nhất ${worst.jump}, phải ≤ 17`)
-  assert.ok(worst.linear <= n, `tuần tự tệ nhất ${worst.linear}, phải ≤ ${n}`)
-  // Nội suy KHÔNG được nhanh hơn ở trường hợp tệ nhất — đó là bài học của nó,
-  // và một mảng làm nó luôn thắng là một mảng nói dối.
+  // 64 elements: binary at most ⌈log₂(65)⌉ = 7.
+  assert.ok(worst.binary <= 7, `binary worst case ${worst.binary}, must be ≤ 7`)
+  // Jump: ⌈64/8⌉ jumps + 8 sweep steps, plus one repeated compare at the block end.
+  assert.ok(worst.jump <= 17, `jump worst case ${worst.jump}, must be ≤ 17`)
+  assert.ok(worst.linear <= n, `linear worst case ${worst.linear}, must be ≤ ${n}`)
+  // Interpolation must NOT be faster in the worst case — that is its lesson, and
+  // an array on which it always wins is an array that lies.
   assert.ok(
     worst.interp > worst.binary,
-    `nội suy tệ nhất ${worst.interp} mà nhị phân ${worst.binary}: mảng này quá ` +
-      'đều, không diễn được mặt xấu của nội suy',
+    `interpolation worst case ${worst.interp} against binary ${worst.binary}: this array is too ` +
+      'even to show interpolation at its worst',
   )
 }
 
-// Nội suy loại mục tiêu ngoài khoảng mà không so lần nào; ba cái kia thì phải so.
+// Interpolation rules out an out-of-range target without a single comparison;
+// the other three have to compare.
 {
   const above = data[n - 1] + 1
   const [linear, binary, jump, interp] = ALGOS.map((a) => a.run(data, above).comparisons)
-  assert.equal(interp, 0, 'nội suy phải thoát ngay, không so lần nào')
+  assert.equal(interp, 0, 'interpolation must exit immediately, with no comparison')
   assert.ok(linear > 0 && binary > 0 && jump > 0)
 }
 
-// ── Mục tiêu mặc định phải cho thấy khoảng cách ────────────────────────────
+// ── The default target must show the gap ───────────────────────────────────
 
 {
   const rows = scoreboard(data, data[DEFAULT_TARGET_INDEX])
@@ -180,33 +187,34 @@ for (const target of targets) {
   const [linear, binary] = rows
   assert.equal(linear.found, DEFAULT_TARGET_INDEX)
   assert.equal(binary.found, DEFAULT_TARGET_INDEX)
-  // Lượt chạy đầu tiên phải tự nói ra bài học. Chênh dưới 5 lần thì bảng điểm
-  // trông như sai số, không ra một sự khác biệt về bản chất.
+  // The first run has to state the lesson by itself. Under a 5× gap the
+  // scoreboard reads like measurement noise rather than a difference in kind.
   assert.ok(
     linear.comparisons >= binary.comparisons * 5,
-    `mục tiêu mặc định: tuần tự ${linear.comparisons} vs nhị phân ${binary.comparisons}, chênh chưa đủ`,
+    `default target: linear ${linear.comparisons} vs binary ${binary.comparisons}, the gap is too small`,
   )
 }
 
-// ── Bảng code ──────────────────────────────────────────────────────────────
+// ── The code panel ─────────────────────────────────────────────────────────
 //
-// Mỗi dòng code phải có lúc được chiếu sáng. Một dòng không khung nào trỏ tới là
-// một dòng người học nhìn thấy mà không bao giờ hiểu nó chạy khi nào — hoặc tệ
-// hơn, là dấu hiệu đoạn code trên màn hình đã lệch khỏi hàm đang chạy thật.
+// Every line of code must be highlighted at some point. A line no frame ever
+// points at is a line the learner sees without ever understanding when it runs —
+// or worse, a sign that the code on screen has drifted from the function that
+// actually runs.
 for (const a of ALGOS) {
-  assert.ok(a.code.length > 0, `${a.file}: rỗng`)
-  assert.ok(a.code[0].startsWith('def '), `${a.file}: dòng 1 phải là chữ ký hàm`)
+  assert.ok(a.code.length > 0, `${a.file}: empty`)
+  assert.ok(a.code[0].startsWith('def '), `${a.file}: line 1 must be the function signature`)
 
   const seen = new Set<number>()
   for (const target of targets) {
     for (const f of a.run(data, target).frames) seen.add(f.line)
   }
   for (let ln = 2; ln <= a.code.length; ln++) {
-    // Dòng `else:` không có gì để chạy — thân của nó mới là dòng sau.
+    // An `else:` line has nothing to execute — its body is the next line.
     if (a.code[ln - 1].trim() === 'else:') continue
     assert.ok(
       seen.has(ln),
-      `${a.file} dòng ${ln} (${a.code[ln - 1].trim()}) không bao giờ được chiếu sáng`,
+      `${a.file} line ${ln} (${a.code[ln - 1].trim()}) is never highlighted`,
     )
   }
 }

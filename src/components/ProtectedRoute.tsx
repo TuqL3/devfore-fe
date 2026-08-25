@@ -1,15 +1,13 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/context/AuthContext";
-import { useT } from "@/lib/i18n";
 
 export function ProtectedRoute({ adminOnly = false }: { adminOnly?: boolean }) {
   const { user, loading, isAdmin } = useAuth();
   const location = useLocation();
-  const t = useT();
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center text-fg-subtle">
-        {t("common.loading")}
+        Loading…
       </div>
     );
   }

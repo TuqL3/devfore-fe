@@ -6,49 +6,47 @@ import { Card, ErrorBox, Input } from '@/components/ui'
 import { SearchIcon } from '@/components/icons'
 import { formatWhen } from '@/lib/relativeTime'
 import type { AuditLog } from '@/lib/types'
-import { useT, type Key } from '@/lib/i18n'
 
 /** Vietnamese for each action, and the colour it reads as. Keyed by the exact
  *  strings the server writes — an action missing from here still renders, as its
  *  raw key, because a log that hides what it does not recognise is worse than an
  *  ugly one. */
-const ACTIONS: Record<string, { label: Key; tone: string }> = {
-  'user.ban': { label: 'audit.action.ban', tone: 'bg-danger/10 text-danger' },
-  'user.unban': { label: 'audit.action.unban', tone: 'bg-success-soft text-success' },
+const ACTIONS: Record<string, { label: string; tone: string }> = {
+  'user.ban': { label: 'Banned an account', tone: 'bg-danger/10 text-danger' },
+  'user.unban': { label: 'Unbanned an account', tone: 'bg-success-soft text-success' },
   'user.role_grant': {
-    label: 'audit.action.roleGrant',
+    label: 'Granted admin rights',
     tone: 'bg-violet-500/15 text-violet-500',
   },
   'user.role_revoke': {
-    label: 'audit.action.roleRevoke',
+    label: 'Revoked admin rights',
     tone: 'bg-amber-500/15 text-amber-500',
   },
   'lab_session.kill': {
-    label: 'audit.action.killSession',
+    label: 'Killed a container',
     tone: 'bg-amber-500/15 text-amber-500',
   },
   'auth.totp_enable': {
-    label: 'audit.action.totpEnable',
+    label: 'Turned two-factor on',
     tone: 'bg-success-soft text-success',
   },
   'auth.totp_disable': {
-    label: 'audit.action.totpDisable',
+    label: 'Turned two-factor off',
     tone: 'bg-danger/10 text-danger',
   },
 }
 
-const FILTERS: { key: string; label: Key }[] = [
-  { key: '', label: 'audit.filter.all' },
-  { key: 'user.ban', label: 'audit.filter.ban' },
-  { key: 'user.role_grant', label: 'audit.filter.grant' },
-  { key: 'lab_session.kill', label: 'audit.filter.kill' },
+const FILTERS: { key: string; label: string }[] = [
+  { key: '', label: 'All' },
+  { key: 'user.ban', label: 'Bans' },
+  { key: 'user.role_grant', label: 'Role grants' },
+  { key: 'lab_session.kill', label: 'Killed containers' },
 ]
 
 /** Read-only, by design. There is no endpoint that writes here from a client:
  *  entries are written by the code that performs the action, and an API a client
  *  could post to would make the whole table worthless as evidence. */
 export default function AdminAudit() {
-  const t = useT()
   const [actor, setActor] = useState('')
   const [action, setAction] = useState('')
   const q = useDeferredValue(actor)
@@ -64,9 +62,9 @@ export default function AdminAudit() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-fg-strong">{t('audit.title')}</h1>
+        <h1 className="text-2xl font-bold text-fg-strong">Admin audit log</h1>
         <p className="mt-1 text-sm text-fg-muted">
-          {t('audit.subtitle')}
+          {"Actions an admin performed on somebody else's account or container. Names are stored as they were at the time, so an old row still reads correctly after the account involved is deleted."}
         </p>
       </div>
 
@@ -76,7 +74,7 @@ export default function AdminAudit() {
           <Input
             value={actor}
             onChange={(e) => setActor(e.target.value)}
-            placeholder={t('audit.filterActor')}
+            placeholder="Filter by who performed it"
             className="pl-9"
           />
         </div>
@@ -92,33 +90,33 @@ export default function AdminAudit() {
                   : 'text-fg-muted hover:text-fg-strong')
               }
             >
-              {t(f.label)}
+              {f.label}
             </button>
           ))}
         </div>
       </div>
 
-      {logs.isError && <ErrorBox>{t('audit.loadError')}</ErrorBox>}
+      {logs.isError && <ErrorBox>Could not read the audit log.</ErrorBox>}
 
       <Card className="overflow-hidden">
         {logs.isLoading ? (
           <p className="px-5 py-8 text-center text-sm text-fg-subtle">
-            {t('common.loading')}
+            Loading…
           </p>
         ) : rows.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-fg-subtle">
-            {t('audit.empty')}
+            No action matches.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[44rem] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-fg-muted">
-                  <th className="px-5 py-2 font-medium">{t('audit.colWhen')}</th>
-                  <th className="px-3 py-2 font-medium">{t('audit.colActor')}</th>
-                  <th className="px-3 py-2 font-medium">{t('audit.colAction')}</th>
-                  <th className="px-3 py-2 font-medium">{t('audit.colTarget')}</th>
-                  <th className="px-5 py-2 font-medium">{t('audit.colDetail')}</th>
+                  <th className="px-5 py-2 font-medium">When</th>
+                  <th className="px-3 py-2 font-medium">Performed by</th>
+                  <th className="px-3 py-2 font-medium">Action</th>
+                  <th className="px-3 py-2 font-medium">Target</th>
+                  <th className="px-5 py-2 font-medium">Notes</th>
                 </tr>
               </thead>
               <tbody>
@@ -132,10 +130,7 @@ export default function AdminAudit() {
 
         {hidden > 0 && (
           <p className="border-t border-border px-5 py-2.5 text-xs text-fg-muted">
-            {t('audit.truncated', {
-              shown: rows.length,
-              total: logs.data?.total ?? 0,
-            })}
+            {`Showing ${rows.length} of ${logs.data?.total ?? 0} matching rows. Narrow the filter to see the rest.`}
           </p>
         )}
       </Card>
@@ -144,7 +139,6 @@ export default function AdminAudit() {
 }
 
 function Row({ log }: { log: AuditLog }) {
-  const t = useT()
   const a = ACTIONS[log.action]
 
   return (
@@ -160,7 +154,7 @@ function Row({ log }: { log: AuditLog }) {
             (a?.tone ?? 'bg-muted text-fg-muted')
           }
         >
-          {a ? t(a.label) : log.action}
+          {a ? a.label : log.action}
         </span>
       </td>
       <td className="px-3 py-2.5 text-fg">

@@ -6,9 +6,9 @@ import { sortEntry } from '@/sims/sort'
 
 /** Lời mở đầu trang danh sách. Một dòng chữ của cả trang, không thuộc mô phỏng
  *  nào — nên nó ở đây, cạnh danh sách nó giới thiệu. */
-export const SIM_INTRO = `Những thứ học bằng cách nghịch thì nhanh hơn học bằng cách đọc, nhưng dựng thật thì đắt hoặc nguy hiểm. Ở đây chúng được mô phỏng: mở ra là dùng, không đăng ký gì, không chấm điểm, không lưu gì.
+export const SIM_INTRO = `Some things are learned faster by poking at them than by reading about them, but building the real thing is expensive or dangerous. Here they are simulated: open one and use it — no sign-up, no grading, nothing saved.
 
-Chọn một mô phỏng bên dưới. Mỗi cái có bộ luật riêng và vài mẫu bấm-là-chạy để bắt đầu.`
+Pick a simulator below. Each one has its own rules and a few click-to-run examples to start from.`
 
 /** Mọi mô phỏng có kịch bản cố định, theo thứ tự hiện ra.
  *

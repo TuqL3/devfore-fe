@@ -8,7 +8,6 @@ import { ConfirmModal } from '@/components/ConfirmModal'
 import { ChevronRightIcon, TerminalIcon } from '@/components/icons'
 import { timeAgo } from '@/lib/relativeTime'
 import type { RunningSession, SystemEvent } from '@/lib/types'
-import { useT } from '@/lib/i18n'
 
 /** Đang diễn ra — màn đầu tiên của khu quản trị.
  *
@@ -20,7 +19,6 @@ import { useT } from '@/lib/i18n'
  *  Thứ tự trên xuống là thứ tự cần biết: sức chứa còn bao nhiêu (thứ duy nhất
  *  hỏng thì cả nền tảng dừng), rồi sự cố, rồi ai đang làm gì, rồi số liệu nền. */
 export default function AdminLive() {
-  const t = useT()
   const [hours, setHours] = useState(24)
   const q = useQuery({
     queryKey: ['admin-overview', hours],
@@ -31,9 +29,9 @@ export default function AdminLive() {
   })
 
   if (q.isLoading) {
-    return <p className="py-12 text-center text-sm text-fg-subtle">{t('common.loading')}</p>
+    return <p className="py-12 text-center text-sm text-fg-subtle">Loading…</p>
   }
-  if (q.isError || !q.data) return <ErrorBox>{t('dash.loadError')}</ErrorBox>
+  if (q.isError || !q.data) return <ErrorBox>Could not read the numbers. Try reloading the page.</ErrorBox>
 
   const d = q.data
   const used = d.counts.running
@@ -44,8 +42,8 @@ export default function AdminLive() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-fg-strong">{t('live.title')}</h1>
-          <p className="mt-1 text-sm text-fg-muted">{t('live.subtitle')}</p>
+          <h1 className="text-2xl font-bold text-fg-strong">Happening now</h1>
+          <p className="mt-1 text-sm text-fg-muted">What is running this minute, and what is failing.</p>
         </div>
         {/* Một cửa sổ thời gian cho mọi con số bên dưới. Trộn "hôm nay" với
             "tuần này" trên cùng một dải là mời người đọc cộng trừ sai. */}
@@ -61,7 +59,7 @@ export default function AdminLive() {
                   : 'border-border-strong text-fg-muted hover:text-fg')
               }
             >
-              {t('live.window', { n: h / 24 })}
+              {`${h / 24} days`}
             </button>
           ))}
         </div>
@@ -71,7 +69,7 @@ export default function AdminLive() {
           dừng: kín chỗ nghĩa là người mới bấm Bắt đầu và bị từ chối. */}
       <Card className="p-5">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-semibold text-fg-strong">{t('live.capacity')}</h2>
+          <h2 className="font-semibold text-fg-strong">Container capacity</h2>
           <span className="font-mono text-sm tabular-nums text-fg-strong">
             {used} / {d.max_slots}
           </span>
@@ -86,7 +84,7 @@ export default function AdminLive() {
           />
         </div>
         <p className="mt-2 text-xs text-fg-subtle">
-          {pct >= 90 ? t('live.capacityFull') : t('live.capacityHint')}
+          {pct >= 90 ? 'Nearly full — the next lab start may be refused.' : 'Full means the next person to press Start is turned away. It is the one thing here that stops the whole platform when it runs out.'}
         </p>
       </Card>
 
@@ -95,14 +93,14 @@ export default function AdminLive() {
       <RunningList rows={d.running} />
 
       <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <Num label={t('live.sessions')} value={d.counts.sessions} />
-        <Num label={t('live.submitted')} value={d.counts.submitted} />
-        <Num label={t('live.simRuns')} value={d.counts.sim_runs} />
-        <Num label={t('live.chat')} value={d.counts.chat_messages} />
-        <Num label={t('live.newUsers')} value={d.counts.new_users} />
-        <Num label={t('live.users')} value={d.counts.users} />
-        <Num label={t('live.banned')} value={d.counts.banned} tone={d.counts.banned > 0} />
-        <Num label={t('live.sharedReports')} value={d.counts.shared_reports} />
+        <Num label="lab starts" value={d.counts.sessions} />
+        <Num label="hand-ins" value={d.counts.submitted} />
+        <Num label="simulator runs" value={d.counts.sim_runs} />
+        <Num label="messages" value={d.counts.chat_messages} />
+        <Num label="new accounts" value={d.counts.new_users} />
+        <Num label="total accounts" value={d.counts.users} />
+        <Num label="banned" value={d.counts.banned} tone={d.counts.banned > 0} />
+        <Num label="public reports" value={d.counts.shared_reports} />
       </div>
     </div>
   )
@@ -113,7 +111,6 @@ export default function AdminLive() {
  *  Đếm trước, danh sách sau: câu hỏi đầu tiên là "có gì hỏng không", và bắt
  *  người ta cuộn một danh sách để tự đếm là trả lời sai câu đó. */
 function EventStrip({ summary, hours }: { summary: { kind: string; severity: string; n: number }[]; hours: number }) {
-  const t = useT()
   const [open, setOpen] = useState<string | null>(null)
   const feed = useQuery({
     queryKey: ['admin-events', open],
@@ -125,13 +122,13 @@ function EventStrip({ summary, hours }: { summary: { kind: string; severity: str
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-semibold text-fg-strong">{t('live.events')}</h2>
-        <span className="text-xs text-fg-subtle">{t('live.eventsWindow', { n: hours / 24 })}</span>
+        <h2 className="font-semibold text-fg-strong">System failures</h2>
+        <span className="text-xs text-fg-subtle">{`last ${hours / 24} days`}</span>
       </div>
 
       {summary.length === 0 ? (
         // Không có sự cố nào là một câu trả lời, không phải một khoảng trắng.
-        <p className="mt-2 text-sm text-success">{t('live.eventsNone')}</p>
+        <p className="mt-2 text-sm text-success">Nothing failed in this window.</p>
       ) : (
         <ul className="mt-3 flex flex-wrap gap-2">
           {summary.map((s) => (
@@ -153,12 +150,12 @@ function EventStrip({ summary, hours }: { summary: { kind: string; severity: str
       )}
 
       {errors.length === 0 && summary.length > 0 && (
-        <p className="mt-2 text-xs text-fg-subtle">{t('live.eventsWarnOnly')}</p>
+        <p className="mt-2 text-xs text-fg-subtle">Warnings only, no errors.</p>
       )}
 
       {open && (
         <div className="mt-4 border-t border-border pt-3">
-          {feed.isLoading && <p className="text-sm text-fg-subtle">{t('common.loading')}</p>}
+          {feed.isLoading && <p className="text-sm text-fg-subtle">Loading…</p>}
           <ul className="space-y-2">
             {(feed.data ?? []).map((e) => (
               <EventRow key={e.id} e={e} />
@@ -201,7 +198,6 @@ function EventRow({ e }: { e: SystemEvent }) {
  *  Giữ nguyên từ bản cũ vì nó vốn đúng: quyết định ở đây là "người này còn nên
  *  giữ cái này không", mà một cái id thì không trả lời được nửa nào của câu đó. */
 function RunningList({ rows }: { rows: RunningSession[] }) {
-  const t = useT()
   const qc = useQueryClient()
   const [target, setTarget] = useState<RunningSession | null>(null)
 
@@ -215,9 +211,9 @@ function RunningList({ rows }: { rows: RunningSession[] }) {
 
   return (
     <Card className="p-5">
-      <h2 className="font-semibold text-fg-strong">{t('live.running')}</h2>
+      <h2 className="font-semibold text-fg-strong">Live containers</h2>
       {rows.length === 0 ? (
-        <p className="mt-2 text-sm text-fg-subtle">{t('live.runningNone')}</p>
+        <p className="mt-2 text-sm text-fg-subtle">No containers running.</p>
       ) : (
         <ul className="mt-3 divide-y divide-border">
           {rows.map((s) => (
@@ -231,13 +227,13 @@ function RunningList({ rows }: { rows: RunningSession[] }) {
               </Link>
               <span className="min-w-0 flex-1 truncate text-fg-muted">{s.lab_title}</span>
               <span className="font-mono text-xs tabular-nums text-fg-subtle">
-                {t('live.leftMinutes', { n: minutesLeft(s.expires_at) })}
+                {`${minutesLeft(s.expires_at)} min left`}
               </span>
               <button
                 onClick={() => setTarget(s)}
                 className="rounded-md border border-border-strong px-2 py-1 text-xs text-danger transition hover:border-danger"
               >
-                {t('dash.kill')}
+                Kill
               </button>
             </li>
           ))}
@@ -246,14 +242,14 @@ function RunningList({ rows }: { rows: RunningSession[] }) {
 
       {target && (
         <ConfirmModal
-          title={t('dash.killTitle', { name: target.username })}
-          confirmLabel={kill.isPending ? t('dash.killing') : t('dash.killSession')}
+          title={`Kill “${target.username}”'s session?`}
+          confirmLabel={kill.isPending ? 'Killing…' : 'Kill the session'}
           tone="danger"
           busy={kill.isPending}
           onConfirm={() => kill.mutate(target.id)}
           onClose={() => setTarget(null)}
         >
-          {t('dash.killBody1')}
+          The container and everything unfinished inside it is deleted. Their terminal closes immediately, with no warning.
         </ConfirmModal>
       )}
     </Card>
@@ -284,13 +280,12 @@ function Num({ label, value, tone }: { label: string; value: number; tone?: bool
 
 /** Link sang màn phân tích, để màn này không phải gánh thêm bảng nào. */
 export function AnalysisLink() {
-  const t = useT()
   return (
     <Link
       to="/admin/analysis"
       className="inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
     >
-      {t('live.toAnalysis')}
+      See content analysis
       <ChevronRightIcon className="h-3.5 w-3.5" />
     </Link>
   )

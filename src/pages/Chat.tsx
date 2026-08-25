@@ -10,7 +10,6 @@ import { ChatSidebar, type Target } from '@/components/ChatSidebar'
 import { ChatThread } from '@/components/ChatThread'
 import { UsersIcon } from '@/components/icons'
 import type { ChatMessage } from '@/lib/types'
-import { useT } from '@/lib/i18n'
 
 /** The shared room and every direct thread.
  *
@@ -18,7 +17,6 @@ import { useT } from '@/lib/i18n'
  *  while somebody is on another page still counts. This screen only reads what
  *  the provider holds and fetches the history the socket cannot know about. */
 export default function Chat() {
-  const t = useT()
   const { user } = useAuth()
   const { status, live, unread, send, edit, remove, markRead } = useChat()
   const [target, setTarget] = useState<Target>(null)
@@ -94,10 +92,10 @@ export default function Chat() {
           )}
           <div className="min-w-0 flex-1">
             <p className="truncate font-semibold text-fg-strong">
-              {target === null ? t('chat.room') : (peer?.username ?? t('chat.dm'))}
+              {target === null ? 'Public room' : (peer?.username ?? 'Conversation')}
             </p>
             <p className="truncate text-xs text-fg-muted">
-              {target === null ? t('chat.roomSub') : t('chat.dmSub')}
+              {target === null ? 'Everyone on the platform can read this' : 'Only the two of you can read this'}
             </p>
           </div>
           <ConnBadge status={status} online={pages?.[0]?.online} />
@@ -115,7 +113,7 @@ export default function Chat() {
           onLoadOlder={history.fetchNextPage}
           canSend={status === 'open'}
           placeholder={
-            status === 'open' ? t('chat.placeholder') : t('chat.reconnecting')
+            status === 'open' ? 'Type a message…' : 'Reconnecting…'
           }
           // Notifications are on by default and there is no switch for them, so
           // the permission is asked for here rather than from a button: sending
@@ -151,7 +149,6 @@ function ConnBadge({
   status: 'connecting' | 'open' | 'closed'
   online?: number
 }) {
-  const t = useT()
   const tone =
     status === 'open'
       ? 'bg-success-soft text-success'
@@ -161,11 +158,11 @@ function ConnBadge({
   const label =
     status === 'open'
       ? online
-        ? t('chat.online', { n: online })
-        : t('chat.connected')
+        ? `${online} online`
+        : 'connected'
       : status === 'connecting'
-        ? t('chat.connecting')
-        : t('chat.disconnected')
+        ? 'connecting…'
+        : 'disconnected'
 
   return (
     <span

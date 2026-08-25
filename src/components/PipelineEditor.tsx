@@ -1,7 +1,6 @@
 import { useRef, useState } from 'react'
 
 import { indent } from '@/lib/sim'
-import { useT } from '@/lib/i18n'
 
 /** Ô soạn pipeline, dùng chung cho sân chơi và cho lab.
  *
@@ -31,7 +30,6 @@ export function PipelineEditor({
    *  theo dõi con trỏ, mà con trỏ thì đổi theo từng phím gõ. */
   inputRef?: React.RefObject<HTMLTextAreaElement | null>
 }) {
-  const t = useT()
   const own = useRef<HTMLTextAreaElement>(null)
   const ref = inputRef ?? own
   // Esc "tháo khoá" đúng một lần cho phím Tab ngay sau đó.
@@ -74,7 +72,7 @@ export function PipelineEditor({
       {/* Nói ra, vì một ô nuốt phím Tab mà không báo gì là một ô hỏng dưới mắt
           người dùng bàn phím. */}
       <p className="px-3 pb-1.5 text-[10px] text-fg-subtle">
-        {t('pipeline.tabHint')}
+        Tab indents · Shift+Tab outdents · Esc then Tab to leave the box
       </p>
     </>
   )

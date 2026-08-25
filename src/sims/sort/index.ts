@@ -19,66 +19,66 @@ import type { SimEntrySort } from '@/lib/types'
  *  **Mỗi đoạn văn nằm trên đúng một dòng nguồn, dù dài.** `Prose` chạy qua
  *  `hardBreaks`, thứ biến mọi xuống dòng đơn thành ngắt dòng thật. Xem chú thích
  *  ở `sims/linux/index.ts`. */
-export const SORT_SLUG = 'sap-xep-co-ban'
+export const SORT_SLUG = 'sorting-basics'
 
 export const sortEntry: SimEntrySort = {
   slug: SORT_SLUG,
-  title: 'Bốn thuật toán sắp xếp',
+  title: 'Four sorting algorithms',
   engine: 'sort',
-  category: 'Giải thuật',
-  tags: ['nổi bọt', 'chèn', 'chọn', 'quicksort'],
-  description: `Cùng một mảng 24 cột, bốn cách xếp chúng lại cho đúng thứ tự. Kết quả giống hệt nhau — thứ khác nhau là **tốn bao nhiêu phép so và bao nhiêu lần ghi**, và hai con số đó không đi cùng chiều: thuật toán so ít nhất lại là thuật toán ghi nhiều nhất.
+  category: 'Algorithms',
+  tags: ['bubble', 'insertion', 'selection', 'quicksort'],
+  description: `One array of 24 bars, four ways to put it in order. The result is identical every time — what differs is **how many comparisons and how many writes it costs**, and those two numbers do not move together: the algorithm that compares least is the one that writes most.
 
-Bấm **Chạy** để xem từng cột nhảy chỗ theo từng dòng code. Rồi đổi **thế mở đầu** ở cột phải và chạy lại: trên mảng đã sắp sẵn, thuật toán tên là "nhanh" tốn gấp 12 lần thuật toán tên là "nổi bọt".`,
-  guide: `## Cách dùng
+Press **Run** to watch each bar move, line of code by line of code. Then change the **starting arrangement** in the right column and run again: on an already-sorted array, the algorithm named "quick" costs 12× the one named "bubble".`,
+  guide: `## How to use it
 
-Chọn thuật toán ở cột trái, bấm **Chạy**. Bảng điểm bên phải giữ số phép so và số lần ghi của **cả bốn** trên thế mở đầu hiện tại — chạy một cái là đủ để so, vì ba cái kia được tính sẵn.
+Pick an algorithm in the left column and press **Run**. The scoreboard on the right holds the comparisons and writes for **all four** on the current starting arrangement — running one is enough to compare, because the other three are computed up front.
 
-Đổi thế mở đầu bằng bốn nút bên phải. Đó là biến quan trọng nhất của cả trang: cùng một thuật toán, đổi thế mở đầu là con số nhảy từ 23 lên 276.
+Change the starting arrangement with the four buttons on the right. That is the most important variable on the page: same algorithm, different arrangement, and the number jumps from 23 to 276.
 
-## Cột màu gì nghĩa là gì
+## What the bar colours mean
 
-| Màu | Nghĩa |
+| Colour | Meaning |
 |---|---|
-| xám nhạt | ngoài đoạn đang xét, lượt này không đụng tới |
-| cam | hai ô đang được đem ra so |
-| đỏ | ô vừa bị ghi đè |
-| đen / trắng | ô chốt của thuật toán nhanh |
-| xanh lá | **đã đứng đúng chỗ cuối cùng**, không bao giờ động vào nữa |
+| pale grey | outside the range under consideration, untouched this pass |
+| orange | the two slots being compared |
+| red | a slot that was just overwritten |
+| black / white | quicksort's pivot |
+| green | **in its final position**, never touched again |
 
-Xanh lá là màu đáng để ý nhất, và nó nghiêm hơn vẻ ngoài: nó **không** có nghĩa "đoạn này đã có thứ tự". Thuật toán chèn giữ cả một đoạn trái luôn có thứ tự với nhau ngay từ đầu, nhưng suốt lượt chạy của nó không ô nào xanh — vì một ô nhỏ chưa xét tới vẫn chen được vào giữa đoạn đó và đẩy tất cả sang phải. Nổi bọt xanh dần từ phải, chọn xanh dần từ trái, nhanh thì xanh từ giữa ra hai bên.
+Green is the colour worth watching, and it is stricter than it looks: it does **not** mean "this stretch is in order". Insertion sort keeps its whole left stretch in order with itself from the very first step, yet nothing turns green during its run — because a small value it has not reached yet can still slot into the middle of that stretch and push everything right. Bubble greens from the right, selection from the left, quicksort from the middle outwards.
 
-## Bảng code chạy song song
+## The code panel running alongside
 
-Dưới dải cột là mã nguồn của thuật toán đang chạy. Dòng đang thực thi được tô sáng theo từng nhịp, và mấy cái chip bên dưới là **biến đang giữ giá trị gì** ở đúng nhịp đó.
+Below the bars is the source of the algorithm currently running. The executing line is highlighted on every tick, and the chips underneath show **what each variable holds** at that exact tick.
 
-Đây là chỗ đáng nhìn nhất. Thấy \`a[j-1], a[j] = a[j], a[j-1]\` sáng lên **ngay sau khi** \`a[j-1] > a[j]\` cho ra đúng, và cùng lúc đó cột đang đi bộ lùi thêm một ô — ba thứ nối vào nhau trong một nhịp. Đọc code trên giấy thì phần nối đó người học phải tự dựng trong đầu, mà đó đúng là phần khó.
+This is the part worth looking at. Seeing \`a[j-1], a[j] = a[j], a[j-1]\` light up **right after** \`a[j-1] > a[j]\` came out true, while the bar walks back one more slot — three things joined in a single tick. Reading the code on paper leaves that join for the learner to build in their head, and that is exactly the hard part.
 
-Chiếu **đủ từng dòng code một**, không bỏ dòng nào, nhịp cố định — nên thời gian ngồi xem tỉ lệ thẳng với lượng việc thuật toán làm, và đó là một cái thước nữa chứ không phải chuyện trình chiếu. Nổi bọt từ thế đã sắp sẵn xong trong 4 giây; cũng nó từ thế ngẫu nhiên mất hơn một phút. Thuật toán nhanh từ thế đã sắp sẵn là vết dài nhất của cả trang: 1336 dòng code chạy, gần hai phút. Không cần xem hết — bảng điểm bên phải đã có số cuối, phần chiếu là để thấy *nó làm gì* chứ không phải để chờ.
+It plays **every line of code, one at a time**, skipping none, at a fixed tick — so the time you spend watching is proportional to the work the algorithm does, and that is another measuring stick rather than a presentation detail. Bubble sort from the already-sorted arrangement finishes in 4 seconds; the same algorithm from random takes over a minute. Quicksort from already-sorted is the longest trace on the page: 1336 lines of code executed, close to two minutes. There is no need to watch it all — the scoreboard on the right already has the final numbers; the playback is there to show *what it does*, not to be waited out.
 
-## Bốn thế mở đầu, và con số thật của chúng
+## Four starting arrangements, and their real numbers
 
-Số bên trái là **phép so**, số bên phải là **lần ghi**. Một lần đổi chỗ là hai lần ghi.
+The left number is **comparisons**, the right one is **writes**. One swap is two writes.
 
-| Thế mở đầu | Nổi bọt | Chèn | Chọn | Nhanh |
+| Starting arrangement | Bubble | Insertion | Selection | Quick |
 |---|---|---|---|---|
-| Ngẫu nhiên | 275 / 320 | 179 / 320 | 276 / **44** | **88** / 100 |
-| Gần sắp xếp | 45 / 6 | **26** / 6 | 276 / 6 | 244 / 522 |
-| Đã sắp sẵn | **23** / 0 | **23** / 0 | 276 / 0 | 276 / 598 |
-| Đảo ngược | 276 / 552 | 276 / 552 | 276 / **24** | 276 / 310 |
+| Random | 275 / 320 | 179 / 320 | 276 / **44** | **88** / 100 |
+| Nearly sorted | 45 / 6 | **26** / 6 | 276 / 6 | 244 / 522 |
+| Already sorted | **23** / 0 | **23** / 0 | 276 / 0 | 276 / 598 |
+| Reversed | 276 / 552 | 276 / 552 | 276 / **24** | 276 / 310 |
 
-Bốn dòng đó là bốn bài học, không phải bốn phép đo:
+Those four rows are four lessons, not four measurements:
 
-1. **Dòng 1** là lý do thuật toán nhanh tồn tại: 88 so với 179–276, và khoảng cách đó giãn ra theo n chứ không đứng yên.
-2. **Dòng 2** là lý do chèn chưa chết. Dữ liệu thật hầu hết là gần sắp — log mới nối vào cuối, danh sách vừa thêm một dòng — và chèn ăn đứt ở đó: 26 phép so, trong khi chọn vẫn cứ 276.
-3. **Dòng 3** là cái bẫy đáng giá nhất của cả trang: dạng dữ liệu đời thường nhất, đã sắp sẵn, lại là **trường hợp tệ nhất** của thuật toán nhanh. Chốt lấy ô cuối đoạn, mà ô cuối của mảng đã sắp chính là số lớn nhất, nên mỗi lần chia chỉ tách ra được một phần tử.
-4. **Dòng 4** là chỗ cột "lần ghi" tự nói: cùng 276 phép so như mọi cái khác, nhưng chọn chỉ ghi 24 lần còn nổi bọt ghi 552 — gấp 23 lần. Ghi vào flash hay vào bản ghi to thì đó mới là con số phải nhìn.
+1. **Row 1** is why quicksort exists: 88 against 179–276, and that gap widens with n rather than staying put.
+2. **Row 2** is why insertion sort is not dead. Real data is mostly nearly sorted — a new log line appended at the end, a list that just gained one row — and insertion wins outright there: 26 comparisons, while selection still spends 276.
+3. **Row 3** is the most valuable trap on the page: the most everyday shape of data, already sorted, is quicksort's **worst case**. The pivot is the last slot of the range, and the last slot of a sorted array is the largest value, so every partition peels off exactly one element.
+4. **Row 4** is where the "writes" column speaks for itself: the same 276 comparisons as everything else, but selection writes only 24 times while bubble writes 552 — 23× more. Writing to flash, or to large records, is when that becomes the number to look at.
 
-Để ý cột của **chọn**: 276 ở cả bốn dòng, không nhúc nhích. Nó không có trường hợp tốt, không có trường hợp xấu, và cũng không dừng sớm được — vì nó không có cách nào biết mảng đã sắp rồi.
+Watch selection's column: 276 on all four rows, unmoved. It has no best case, no worst case, and no way to stop early — because it has no way to find out the array is already sorted.
 
-## Ba thứ mô phỏng này KHÔNG làm
+## Three things this simulation does NOT do
 
-1. **Không đo thời gian thật.** Đơn vị ở đây là **phép so** và **lần ghi**, không phải mili giây. Cố ý: mili giây phụ thuộc máy, cache CPU, trình duyệt — còn hai con số kia là thuộc tính của chính thuật toán. Nhịp chiếu lại cũng không phải tốc độ thật: cả bốn chiếu xong trong khoảng thời gian bằng nhau, nên nổi bọt trông *gấp gáp* chứ không trông *lâu*.
-2. **Không diễn được tính ổn định.** Mảng ở đây là 24 giá trị khác nhau, nên không có hai phần tử bằng nhau để xem cái nào đứng trước — mà đó chính là định nghĩa của ổn định. Muốn thấy nó phải cho mỗi cột một nhãn phụ và vẽ thêm một hàng nhãn, tức là một bộ vẽ khác. Chip *ổn định* / *không ổn định* trên đầu mỗi thuật toán là chữ, không phải thứ chứng minh được trên màn hình này.
-3. **Không có trộn và vun đống.** Merge sort và heap sort cũng O(n log n) nhưng cần thứ một dải cột không vẽ được: trộn cần mảng phụ nằm song song, vun đống cần nhìn mảng như một cây nhị phân.`,
+1. **It does not measure real time.** The units here are **comparisons** and **writes**, not milliseconds. Deliberately: milliseconds depend on the machine, the CPU cache, the browser — while those two numbers are properties of the algorithm itself. The playback tick is not real speed either: all four finish playing in roughly the same span, so bubble sort looks *frantic* rather than *slow*.
+2. **It cannot demonstrate stability.** The array here is 24 distinct values, so there are no two equal elements to watch for which one comes first — and that is precisely the definition of stability. Showing it would need a second label on every bar and an extra row of labels, which is a different renderer. The *stable* / *unstable* chip on each algorithm is a claim in text, not something this screen proves.
+3. **No merge sort or heap sort.** Both are O(n log n) like quicksort but need something a strip of bars cannot draw: merge needs a second array running alongside, heap needs the array seen as a binary tree.`,
 }

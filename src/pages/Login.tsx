@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { useAuth } from '@/context/AuthContext'
-import { useT } from '@/lib/i18n'
 import { ApiError } from '@/lib/api'
 import { Input, PasswordInput } from '@/components/ui'
 import { GoogleButton } from '@/components/GoogleButton'
@@ -31,7 +30,6 @@ function useReturnTo(): string {
 
 export default function Login() {
   const { login } = useAuth()
-  const t = useT()
   const nav = useNavigate()
   const returnTo = useReturnTo()
   const [params] = useSearchParams()
@@ -68,7 +66,7 @@ export default function Login() {
   const error = mut.isError
     ? mut.error instanceof ApiError
       ? mut.error.message
-      : t('auth.loginFailed')
+      : 'sign-in failed'
     : (params.get('error') ?? '')
 
   if (challenge) {
@@ -80,7 +78,7 @@ export default function Login() {
       {/* Reset revokes every session, so they land back here — say why. */}
       {params.get('reset') === '1' && !mut.isError && (
         <p className="font-mono text-sm text-success">
-          ✓ {t('auth.resetDone')}
+          ✓ password changed, sign in again
         </p>
       )}
       <form onSubmit={onSubmit} className="space-y-4">
@@ -90,7 +88,7 @@ export default function Login() {
             value={form.login}
             onChange={(e) => setForm({ ...form, login: e.target.value })}
             autoComplete="username"
-            placeholder={t('auth.emailOrUsername')}
+            placeholder="email or username"
             required
           />
         </TermField>
@@ -101,7 +99,7 @@ export default function Login() {
               to="/forgot-password"
               className="text-accent-soft hover:underline"
             >
-              # {t('auth.forgotLink')}
+              # forgot password?
             </Link>
           }
         >
@@ -124,7 +122,7 @@ export default function Login() {
       <GoogleButton />
 
       <p className="font-mono text-sm text-fg-subtle">
-        # {t('auth.noAccount')}{' '}
+        # no account yet?{' '}
         <Link to="/register" className="text-accent-soft hover:underline">
           ./register
         </Link>
@@ -150,7 +148,6 @@ function MFAStep({
   onBack: () => void
 }) {
   const { loginMFA } = useAuth()
-  const t = useT()
   const nav = useNavigate()
   const returnTo = useReturnTo()
   const [code, setCode] = useState('')
@@ -163,13 +160,13 @@ function MFAStep({
   const error = mut.isError
     ? mut.error instanceof ApiError
       ? mut.error.message
-      : t('auth.verifyFailed')
+      : 'verification failed'
     : ''
 
   return (
     <AuthShell cmd="login --mfa">
       <p className="font-mono text-sm text-fg-subtle">
-        # {t('auth.mfaHint')}
+        # open your authenticator app and enter the 6-digit code, or paste a recovery code
       </p>
       <form
         onSubmit={(e) => {
@@ -203,7 +200,7 @@ function MFAStep({
         onClick={onBack}
         className="font-mono text-sm text-accent-soft hover:underline"
       >
-        # {t('auth.mfaWrong')}
+        # wrong code? go back to sign-in for a new one
       </button>
     </AuthShell>
   )

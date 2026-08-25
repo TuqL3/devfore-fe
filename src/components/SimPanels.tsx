@@ -1,5 +1,4 @@
 import type { SimScenario } from '@/lib/types'
-import { useT } from '@/lib/i18n'
 
 /** Hai mảnh mà cả bài lab lẫn sân chơi đều cần, tách ra ở đây thay vì nhét một
  *  cờ chế độ vào `SimEditor`. Hai màn hình khác nhau ở chỗ có phiên hay không,
@@ -21,13 +20,12 @@ export function SimCatalog({
   open?: boolean
   onPick?: (name: string) => void
 }) {
-  const t = useT()
   const steps = Object.entries(scenario.catalog).sort(([a], [b]) => a.localeCompare(b))
 
   return (
     <details className="rounded-xl border border-border bg-bg" open={open}>
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 text-sm text-fg-strong [&::-webkit-details-marker]:hidden">
-        {t('simPanel.steps')}
+        Available steps
         <span className="ml-auto font-mono text-xs text-fg-subtle">
           {scenario.runner_count} runner
           {scenario.cache_restore_seconds
@@ -37,7 +35,7 @@ export function SimCatalog({
       </summary>
       {onPick && (
         <p className="border-t border-border px-3 pt-2 text-xs text-fg-subtle">
-          {t('simPanel.pickHint')}
+          Click a step to insert it into the job you are editing — no need to remember the name.
         </p>
       )}
       <ul className="divide-y divide-border border-t border-border">
@@ -49,12 +47,12 @@ export function SimCatalog({
               {spec.cacheable && <Tag>cache {spec.cacheable}</Tag>}
               {spec.produces && (
                 <Tag>
-                  {t('simPanel.produces')} {spec.produces}
+                  produces {spec.produces}
                 </Tag>
               )}
               {spec.consumes && (
                 <Tag>
-                  {t('simPanel.consumes')} {spec.consumes}
+                  needs {spec.consumes}
                 </Tag>
               )}
               {/* Nói thẳng tỉ lệ hỏng. Giấu đi thì một lượt đỏ đọc thành "mình
@@ -68,7 +66,7 @@ export function SimCatalog({
                 <button
                   type="button"
                   onClick={() => onPick(name)}
-                  title={t('simPanel.insert', { name })}
+                  title={`Insert ${name} into the pipeline`}
                   className="flex w-full flex-wrap items-baseline gap-x-2 px-3 py-1.5 text-left transition hover:bg-muted"
                 >
                   {row}

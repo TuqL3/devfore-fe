@@ -1,48 +1,48 @@
-// Chạy: npm run check
+// Run: npm run check
 //
-// Hỏng ở đây không đỏ ở đâu cả — nó chỉ làm thẻ trong danh sách hiện một dòng
-// rác: nửa khối lệnh, hoặc đúng cái tiêu đề vừa in ngay bên trên, hoặc một câu
-// đứt giữa từ.
+// A break here turns nothing red — it only makes the card in the list show one
+// line of garbage: half a code block, or the very heading printed right above it,
+// or a sentence cut off mid-word.
 //
-// ponytail: assert của node, không framework — cùng lý do với json.check.ts.
+// ponytail: node asserts, no framework — same reason as json.check.ts.
 import assert from 'node:assert/strict'
 import { mdSummary } from './mdSummary.ts'
 
-// Tiêu đề bị bỏ qua, lấy đoạn văn đầu tiên.
+// The heading is skipped, the first paragraph is taken.
 assert.equal(
-  mdSummary('# Ca trực đầu tiên\n\n**23:41.** Điện thoại rung.\n'),
-  '23:41. Điện thoại rung.',
+  mdSummary('# First shift\n\n**23:41.** The phone buzzes.\n'),
+  '23:41. The phone buzzes.',
 )
 
-// Nhiều dòng liền nhau là một đoạn; đoạn thứ hai không lấy.
+// Consecutive lines are one paragraph; the second paragraph is not taken.
 assert.equal(
-  mdSummary('Dòng một\ndòng hai\n\nĐoạn sau không lấy.'),
-  'Dòng một dòng hai',
+  mdSummary('Line one\nline two\n\nThe next paragraph is not taken.'),
+  'Line one line two',
 )
 
-// Khối lệnh không được lọt vào tóm tắt, kể cả khi nó đứng trước đoạn văn.
+// A code block must never reach the summary, even when it precedes the paragraph.
 assert.equal(
-  mdSummary('```sh\nhttpd -p 8080\n```\n\nDịch vụ web chạy ở cổng 8080.'),
-  'Dịch vụ web chạy ở cổng 8080.',
+  mdSummary('```sh\nhttpd -p 8080\n```\n\nThe web service runs on port 8080.'),
+  'The web service runs on port 8080.',
 )
 
-// Dấu inline bị bóc, chữ giữ nguyên.
+// Inline markers are stripped, the text stays.
 assert.equal(
-  mdSummary('Xem `curl -i` và [tài liệu](https://x.dev) rồi **sửa**.'),
-  'Xem curl -i và tài liệu rồi sửa.',
+  mdSummary('Read `curl -i` and the [docs](https://x.dev) then **fix it**.'),
+  'Read curl -i and the docs then fix it.',
 )
 
-// Trích dẫn và gạch ngang không phải câu mở đầu.
-assert.equal(mdSummary('> ghi chú\n\n---\n\nCâu thật.'), 'Câu thật.')
+// Block quotes and horizontal rules are not the opening sentence.
+assert.equal(mdSummary('> a note\n\n---\n\nThe real sentence.'), 'The real sentence.')
 
-// Cắt ở ranh giới từ, có dấu ba chấm.
-const long = mdSummary('một hai ba bốn năm sáu bảy tám chín mười', 20)
-assert.ok(long.endsWith('…'), `phải kết bằng dấu ba chấm: ${long}`)
-assert.ok(long.length <= 21, `dài quá mức: ${long}`)
-assert.ok(!long.includes('mư'), `cắt giữa từ: ${long}`)
+// Truncation happens at a word boundary, with an ellipsis.
+const long = mdSummary('one two three four five six seven eight nine ten', 20)
+assert.ok(long.endsWith('…'), `must end with an ellipsis: ${long}`)
+assert.ok(long.length <= 21, `too long: ${long}`)
+assert.ok(!long.includes('sev'), `cut mid-word: ${long}`)
 
-// Không có gì để tóm tắt thì trả chuỗi rỗng, không phải "undefined".
+// Nothing to summarise returns an empty string, not "undefined".
 assert.equal(mdSummary(''), '')
-assert.equal(mdSummary('# Chỉ có tiêu đề'), '')
+assert.equal(mdSummary('# Heading only'), '')
 
 console.log('mdSummary.check: ok')

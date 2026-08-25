@@ -5,16 +5,15 @@ import { coursesApi } from '@/api/courses'
 import { CourseCard } from './Courses'
 import { useLevels } from '@/lib/levels'
 import { LevelMeter } from '@/components/LevelMeter'
-import { useT, type Key } from '@/lib/i18n'
 
 // Keys, not text: this array is built once at import time, so holding the
 // Vietnamese strings here would freeze the page in whatever language was
 // current when the module loaded.
 const chips = [
-  'home.chip.real',
-  'home.chip.grading',
-  'home.chip.timed',
-  'home.chip.sim',
+  'Real Linux containers',
+  'Graded from machine state',
+  'Timed challenges',
+  'Simulators that run in the browser',
 ] as const
 
 /** Bốn thứ làm được ở đây, và chỗ để đi tới từng cái.
@@ -27,35 +26,35 @@ const chips = [
  *  bốn ô giống hệt nhau thì không ô nào được nhìn trước. */
 const FEATURES: {
   to: string
-  title: Key
-  body: Key
-  bullets: Key[]
+  title: string
+  body: string
+  bullets: string[]
   highlight?: true
 }[] = [
   {
     to: '/war-room',
-    title: 'home.feat.war.title',
-    body: 'home.feat.war.body',
-    bullets: ['home.feat.war.b1', 'home.feat.war.b2', 'home.feat.war.b3'],
+    title: 'War Room — a timed challenge',
+    body: 'The system is already broken when you open it, and nobody says where. Find it and fix it before the clock runs out.',
+    bullets: ['A fault drawn at random every run', 'The clock and the number of affected users run right on screen', 'A report at the end: how long it took, what you typed'],
     highlight: true,
   },
   {
     to: '/courses',
-    title: 'home.feat.lab.title',
-    body: 'home.feat.lab.body',
-    bullets: ['home.feat.lab.b1', 'home.feat.lab.b2', 'home.feat.lab.b3'],
+    title: 'Labs on real containers',
+    body: 'Every lab opens its own Linux container, reached through a terminal in the browser. Nothing gets installed on your machine.',
+    bullets: ['A real terminal, not a video', 'Graded on machine state, not on the commands you typed', 'The container cleans itself up when time is up'],
   },
   {
     to: '/sim',
-    title: 'home.feat.sim.title',
-    body: 'home.feat.sim.body',
-    bullets: ['home.feat.sim.b1', 'home.feat.sim.b2'],
+    title: 'Runnable simulators',
+    body: 'What is expensive or dangerous to build for real is simulated here: CI/CD pipelines, Linux commands, search algorithms.',
+    bullets: ['Open and use, no sign-up, no grading', 'Build your own pipeline — describe it in a sentence, AI writes the scenario'],
   },
   {
     to: '/history',
-    title: 'home.feat.hist.title',
-    body: 'home.feat.hist.body',
-    bullets: ['home.feat.hist.b1', 'home.feat.hist.b2'],
+    title: 'History and reports',
+    body: 'Every run is recorded: what you got right, what you had to retry, and for an on-call shift the whole timeline of commands.',
+    bullets: ['Replay any run, including the ones you abandoned', 'Scores and per-course leaderboards'],
   },
 ]
 
@@ -135,7 +134,6 @@ function Terminal() {
 }
 
 function Hero() {
-  const t = useT()
   return (
     // Fills the first screen so the rest of the page starts below the fold.
     // 6.5rem is the sticky header plus <main>'s top padding; svh rather than
@@ -144,10 +142,10 @@ function Hero() {
       <div className="space-y-6">
         <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 text-xs text-fg-muted">
           <span className="term-dot bg-emerald-400" />
-          {t('home.hero.badge')}
+          Real container labs, running in your browser
         </span>
         <h1 className="text-4xl font-bold leading-tight text-fg-strong md:text-5xl">
-          {t('home.hero.h1')}{' '}
+          Master the workflow of{' '}
           {/* Gradient runs accent → accent-hover so it stays legible in both
               themes instead of washing out on white. */}
           <span className="bg-gradient-to-r from-accent to-accent-hover bg-clip-text text-transparent">
@@ -155,7 +153,7 @@ function Hero() {
           </span>
         </h1>
         <p className="text-lg text-fg-muted">
-          {t('home.hero.lead')}
+          Learn DevOps through hands-on labs. Every lab gives you a real Linux container, reached through a terminal in your browser.
         </p>
         <ul className="grid gap-y-2 gap-x-6 sm:grid-cols-2">
           {chips.map((c) => (
@@ -163,7 +161,7 @@ function Hero() {
               <span className="font-mono text-accent-soft" aria-hidden="true">
                 ✓
               </span>
-              {t(c)}
+              {c}
             </li>
           ))}
         </ul>
@@ -172,7 +170,7 @@ function Hero() {
             to="/courses"
             className="rounded-md bg-accent px-5 py-2.5 font-medium text-accent-fg shadow-lg shadow-accent/25 transition hover:bg-accent-hover"
           >
-            {t('home.hero.ctaCourses')}
+            Browse courses
           </Link>
           {/* Nút thứ hai trỏ vào War Room chứ không phải một mỏ neo cuộn xuống:
               thứ đáng thử ngay của trang này là một thử thách vào thẳng được,
@@ -181,13 +179,13 @@ function Hero() {
             to="/war-room"
             className="rounded-md border border-border-strong px-5 py-2.5 font-medium text-fg transition hover:border-accent hover:text-accent-soft"
           >
-            {t('home.hero.ctaWarRoom')} →
+            Try an on-call shift →
           </Link>
           <a
             href="#tinh-nang"
             className="self-center text-sm text-fg-muted underline-offset-4 transition hover:text-accent-soft hover:underline"
           >
-            {t('home.hero.seeMore')} ↓
+            See what is inside ↓
           </a>
         </div>
       </div>
@@ -197,12 +195,11 @@ function Hero() {
 }
 
 function Features() {
-  const t = useT()
   return (
     <Section
       id="tinh-nang"
-      title={t('home.features.title')}
-      subtitle={t('home.features.subtitle')}
+      title="What is in DevForge"
+      subtitle="Four ways to learn, sharing one container platform."
     >
       {/* Ba cột, và thẻ nổi bật chiếm trọn hàng đầu: bốn thẻ chia ba cột thì
           hàng dưới lẻ một ô trống. Cách này vừa lấp kín vừa cho War Room đúng
@@ -224,11 +221,11 @@ function Features() {
                 nhau, và một hàng chữ "xem thêm" ở bốn độ cao khác nhau đọc ra
                 là lệch chứ không ra bốn lối vào. */}
             <div className="flex items-start justify-between gap-3">
-              <h3 className="font-semibold text-fg-strong">{t(f.title)}</h3>
+              <h3 className="font-semibold text-fg-strong">{f.title}</h3>
               <span className="flex shrink-0 items-center gap-2">
                 {f.highlight && (
                   <span className="rounded-full bg-accent/12 px-2 py-0.5 text-[11px] font-medium text-accent-soft">
-                    {t('home.features.new')}
+                    new
                   </span>
                 )}
                 <span
@@ -240,7 +237,7 @@ function Features() {
               </span>
             </div>
             <p className={'mt-2 text-sm text-fg-muted' + (f.highlight ? ' max-w-3xl' : '')}>
-              {t(f.body)}
+              {f.body}
             </p>
             {/* Thẻ rộng thì gạch đầu dòng dàn ngang — xếp dọc trong một ô rộng
                 cả màn hình để lại một mảng trống bên phải. */}
@@ -255,7 +252,7 @@ function Features() {
                   <span className="font-mono text-accent-soft" aria-hidden="true">
                     ›
                   </span>
-                  <span className="min-w-0">{t(b)}</span>
+                  <span className="min-w-0">{b}</span>
                 </li>
               ))}
             </ul>
@@ -296,28 +293,28 @@ function Section({
   )
 }
 
-const STEPS: { title: Key; body: Key }[] = [
-  { title: 'home.step1.title', body: 'home.step1.body' },
-  { title: 'home.step2.title', body: 'home.step2.body' },
-  { title: 'home.step3.title', body: 'home.step3.body' },
+const STEPS: { title: string; body: string }[] = [
+  { title: 'Pick a lab', body: 'Each course is a set of short labs, ordered from fundamentals to advanced.' },
+  { title: 'A container starts', body: 'The platform gives you your own Linux container, with the tools the lab needs already installed.' },
+  { title: 'Work and submit tasks', body: 'Type commands straight into the browser terminal and complete each task to score points.' },
 ]
 
-const TOPICS: { dir: string; body: Key; cmd: string }[] = [
-  { dir: 'linux-shell/', body: 'home.topic.linux', cmd: 'systemctl status nginx' },
-  { dir: 'git/', body: 'home.topic.git', cmd: 'git rebase -i main' },
-  { dir: 'docker/', body: 'home.topic.docker', cmd: 'docker build -t api .' },
-  { dir: 'kubernetes/', body: 'home.topic.k8s', cmd: 'kubectl rollout status' },
-  { dir: 'ci-cd/', body: 'home.topic.cicd', cmd: 'gh workflow run deploy' },
-  { dir: 'observability/', body: 'home.topic.obs', cmd: 'journalctl -u api -f' },
+const TOPICS: { dir: string; body: string; cmd: string }[] = [
+  { dir: 'linux-shell/', body: 'Processes, permissions, systemd, writing bash scripts.', cmd: 'systemctl status nginx' },
+  { dir: 'git/', body: 'Branching, rebasing, resolving conflicts, pull-request workflow.', cmd: 'git rebase -i main' },
+  { dir: 'docker/', body: 'Writing Dockerfiles, multi-stage builds, multi-service compose.', cmd: 'docker build -t api .' },
+  { dir: 'kubernetes/', body: 'Pods, Deployments, Services, ConfigMaps and cluster debugging.', cmd: 'kubectl rollout status' },
+  { dir: 'ci-cd/', body: 'Build, test and deploy pipelines; secret management.', cmd: 'gh workflow run deploy' },
+  { dir: 'observability/', body: 'Logs, metrics, health checks and handling incidents in production.', cmd: 'journalctl -u api -f' },
 ]
 
-const FAQ: { q: Key; a: Key }[] = [
-  { q: 'home.faq.q1', a: 'home.faq.a1' },
-  { q: 'home.faq.q2', a: 'home.faq.a2' },
-  { q: 'home.faq.q3', a: 'home.faq.a3' },
-  { q: 'home.faq.q4', a: 'home.faq.a4' },
-  { q: 'home.faq.q5', a: 'home.faq.a5' },
-  { q: 'home.faq.q6', a: 'home.faq.a6' },
+const FAQ: { q: string; a: string }[] = [
+  { q: 'Do I need to install anything?', a: 'No. Labs run in containers on the server and you work through a terminal in the browser. All you need is a browser and a connection.' },
+  { q: 'I know nothing about Linux — where do I start?', a: 'Pick a course labelled "Beginner". The first labs start from the fundamental commands and assume no prior knowledge.' },
+  { q: 'Do I lose the lab if I close the tab?', a: 'Task progress is saved to your account. The container is a temporary environment and is recreated when you come back to the lab.' },
+  { q: 'Do I need an account to browse courses?', a: 'No, the course list is open. Create an account when you want to enrol and save your progress.' },
+  { q: 'How is War Room different from a normal lab?', a: 'A normal lab is about getting one job done. War Room is about rescuing an already broken system inside a fixed window, with nobody telling you what broke — working out the cause is the lesson. No enrolment needed, go straight in from the top bar.' },
+  { q: 'Are the simulators real machines?', a: 'No, and they do not pretend to be. The CI/CD pipelines, Linux commands and search algorithms there run on a model, and the seconds are set by whoever wrote the scenario. What is worth learning is the rules and the ratios — which is faster than which, and why — not the absolute numbers.' },
 ]
 
 // Same query key as /courses, so navigating between the two reuses the cache.
@@ -327,18 +324,17 @@ function useCourses() {
 
 /** Counted from the real course list — no invented numbers. */
 function Stats() {
-  const t = useT()
   const { data } = useCourses()
   if (!data || data.length === 0) return null
 
   const labs = data.reduce((n, c) => n + c.lab_count, 0)
   const students = data.reduce((n, c) => n + c.student_count, 0)
-  const cells: { n: number; label: Key }[] = [
-    { n: data.length, label: 'home.stats.courses' },
-    { n: labs, label: 'home.stats.labs' },
+  const cells: { n: number; label: string }[] = [
+    { n: data.length, label: 'courses' },
+    { n: labs, label: 'labs' },
     // Hidden until there is at least one — an empty platform should not say "0".
-    ...(students > 0 ? [{ n: students, label: 'home.stats.enrollments' as Key }] : []),
-    { n: TOPICS.length, label: 'home.stats.topics' },
+    ...(students > 0 ? [{ n: students, label: 'enrolments' as string }] : []),
+    { n: TOPICS.length, label: 'topics' },
   ]
 
   // Same terminal framing as the hero, but themed rather than always dark —
@@ -361,7 +357,7 @@ function Stats() {
           {cells.map((c) => (
             <div key={c.label} className="flex gap-2">
               <dt className="font-semibold text-accent-soft">{c.n}</dt>
-              <dd className="text-fg">{t(c.label)}</dd>
+              <dd className="text-fg">{c.label}</dd>
             </div>
           ))}
         </dl>
@@ -375,12 +371,11 @@ function Stats() {
 
 /** Counts come from /api/levels, so an empty level still renders with 0. */
 function Levels() {
-  const t = useT()
   const { levels } = useLevels()
   if (levels.length === 0) return null
 
   return (
-    <Section title={t('home.levels.title')} subtitle={t('home.levels.subtitle')}>
+    <Section title="Pick by level" subtitle="Go straight to the level that fits you.">
       {/* flex-1 instead of a fixed 3-column grid: with only two levels the
           cards stretch to fill the row rather than leaving a hole. */}
       <div className="reveal-stagger flex flex-wrap gap-4">
@@ -394,7 +389,7 @@ function Levels() {
             <div className="flex items-center justify-between">
               <LevelMeter level={l.slug} />
               <span className="font-mono text-xs text-fg-subtle">
-                {t('home.levels.count', { n: l.course_count })}
+                {`${l.course_count} courses`}
               </span>
             </div>
             <span className="mt-3 text-lg font-semibold text-fg-strong group-hover:text-accent-soft">
@@ -402,7 +397,7 @@ function Levels() {
             </span>
             <span className="mt-1 text-sm text-fg-muted">{l.hint}</span>
             <span className="mt-4 font-mono text-xs text-accent-soft">
-              {t('home.levels.view')}{' '}
+              view courses{' '}
               <span className="inline-block transition-transform group-hover:translate-x-1">
                 →
               </span>
@@ -415,7 +410,6 @@ function Levels() {
 }
 
 function FeaturedCourses() {
-  const t = useT()
   const { data, isLoading, isError } = useCourses()
   // Newest first, mirroring the "Latest content" rail on devops-daily.
   const featured = data
@@ -425,18 +419,18 @@ function FeaturedCourses() {
 
   return (
     <Section
-      title={t('home.featured.title')}
-      subtitle={t('home.featured.subtitle')}
+      title="Newest courses"
+      subtitle="Start from a ready-made path."
       action={
         <Link to="/courses" className="text-sm text-accent-soft hover:underline">
-          {t('home.featured.viewAll')} →
+          View all →
         </Link>
       }
     >
-      {isLoading && <p className="text-fg-subtle">{t('common.loading')}</p>}
-      {isError && <p className="text-danger">{t('home.featured.loadError')}</p>}
+      {isLoading && <p className="text-fg-subtle">Loading…</p>}
+      {isError && <p className="text-danger">Could not load the course list.</p>}
       {featured && featured.length === 0 && (
-        <p className="text-fg-subtle">{t('home.featured.empty')}</p>
+        <p className="text-fg-subtle">No courses have been published yet.</p>
       )}
       <div className="reveal-stagger grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {featured?.map((c) => (
@@ -448,7 +442,6 @@ function FeaturedCourses() {
 }
 
 export default function Home() {
-  const t = useT()
   return (
     <div className="space-y-12">
       <Hero />
@@ -459,8 +452,8 @@ export default function Home() {
 
       <Section
         id="how"
-        title={t('home.how.title')}
-        subtitle={t('home.how.subtitle')}
+        title="How it works"
+        subtitle="Three steps, nothing installed on your machine."
       >
         <div className="reveal-stagger grid gap-6 md:grid-cols-3">
           {STEPS.map((s, i) => (
@@ -477,9 +470,9 @@ export default function Home() {
               </span>
               <h3 className="font-semibold text-fg-strong">
                 <span className="font-mono text-accent-soft">0{i + 1}</span>{' '}
-                {t(s.title)}
+                {s.title}
               </h3>
-              <p className="mt-2 text-sm text-fg-muted">{t(s.body)}</p>
+              <p className="mt-2 text-sm text-fg-muted">{s.body}</p>
             </div>
           ))}
         </div>
@@ -488,7 +481,7 @@ export default function Home() {
       <Levels />
       <FeaturedCourses />
 
-      <Section title={t('home.topics.title')} subtitle={t('home.topics.subtitle')}>
+      <Section title="Topics you will learn" subtitle="Content that follows real work.">
         {/* One terminal listing instead of six flat boxes — same framing as the
             stats block, and directory names read better than card headings. */}
         <div className="overflow-hidden rounded-xl border border-border bg-surface">
@@ -509,7 +502,7 @@ export default function Home() {
                 <Fragment key={topic.dir}>
                   <dt className="font-mono text-accent-soft">{topic.dir}</dt>
                   <dd className="text-fg-muted sm:mt-0">
-                    {t(topic.body)}{' '}
+                    {topic.body}{' '}
                     <span className="hidden font-mono text-xs text-fg-subtle lg:inline">
                       # {topic.cmd}
                     </span>
@@ -524,7 +517,7 @@ export default function Home() {
         </div>
       </Section>
 
-      <Section title={t('home.faq.title')}>
+      <Section title="Frequently asked questions">
         <div className="divide-y divide-border overflow-hidden rounded-xl border border-border bg-surface">
           {FAQ.map((f) => (
             // ponytail: native <details>, no accordion state or library needed
@@ -536,12 +529,12 @@ export default function Home() {
                 >
                   ?
                 </span>
-                <span className="flex-1">{t(f.q)}</span>
+                <span className="flex-1">{f.q}</span>
                 <span className="text-lg leading-none text-fg-subtle transition group-open:rotate-45">
                   +
                 </span>
               </summary>
-              <p className="px-5 pb-5 pl-11 text-sm text-fg-muted">{t(f.a)}</p>
+              <p className="px-5 pb-5 pl-11 text-sm text-fg-muted">{f.a}</p>
             </details>
           ))}
         </div>
@@ -552,25 +545,25 @@ export default function Home() {
           aria-hidden="true"
           className="absolute -top-24 left-1/2 -z-10 h-56 w-[36rem] -translate-x-1/2 rounded-full bg-accent/20 blur-3xl"
         />
-        <p className="font-mono text-xs text-fg-subtle">// {t('home.cta.kicker')}</p>
+        <p className="font-mono text-xs text-fg-subtle">// get started</p>
         <h2 className="mt-2 text-2xl font-bold text-fg-strong sm:text-3xl">
-          {t('home.cta.title')}
+          Ready to open your first terminal?
         </h2>
         <p className="mx-auto mt-2 max-w-xl text-fg-muted">
-          {t('home.cta.body')}
+          Create an account to enrol in courses and save your progress on every lab.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <Link
             to="/register"
             className="rounded-md bg-accent px-5 py-2.5 font-medium text-accent-fg shadow-lg shadow-accent/25 transition hover:bg-accent-hover"
           >
-            {t('home.cta.register')}
+            Sign up free
           </Link>
           <Link
             to="/courses"
             className="rounded-md border border-border-strong px-5 py-2.5 font-medium text-fg transition hover:border-accent hover:text-accent-soft"
           >
-            {t('home.cta.courses')}
+            Browse courses
           </Link>
         </div>
       </section>

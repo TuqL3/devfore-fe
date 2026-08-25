@@ -10,7 +10,6 @@ import { Prose as Markdown } from '@/components/MarkdownEditor'
 import { clockLabel } from '@/lib/clock'
 import { track } from '@/lib/analytics'
 import { formatWhen } from '@/lib/relativeTime'
-import { locale, useT, type Key } from '@/lib/i18n'
 import type {
   IncidentReport,
   LabReport as Report,
@@ -21,7 +20,6 @@ import type {
  *  what was answered. Reached from the history list, and from handing a lab in —
  *  the second adds ?done=1, which is the only difference between the two. */
 export default function LabReport() {
-  const t = useT()
   const { id = '' } = useParams()
   const [params] = useSearchParams()
   const justSubmitted = params.get('done') === '1'
@@ -33,20 +31,20 @@ export default function LabReport() {
   })
 
   if (report.isLoading) {
-    return <p className="p-8 text-center text-sm text-fg-subtle">{t('common.loading')}</p>
+    return <p className="p-8 text-center text-sm text-fg-subtle">Loading…</p>
   }
 
   if (report.isError || !report.data) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-12 text-center">
         <p className="text-sm text-danger">
-          {t('report.loadError')}
+          This run cannot be viewed. The session may still be running, or it may not be yours.
         </p>
         <Link
           to="/history"
           className="mt-4 inline-block text-sm text-accent-soft hover:underline"
         >
-          ← {t('report.backHistory')}
+          ← Lab history
         </Link>
       </div>
     )
@@ -77,7 +75,7 @@ export default function LabReport() {
         className="inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
       >
         <ArrowLeftIcon className="h-3.5 w-3.5" />
-        {t('report.backHistory')}
+        Lab history
       </Link>
 
       <Card className="flex flex-wrap items-center justify-between gap-4 p-5">
@@ -85,20 +83,18 @@ export default function LabReport() {
           <h1 className="text-xl font-bold text-fg-strong">{r.lab_title}</h1>
           <p className="mt-1 text-xs text-fg-subtle">
             {r.submitted_at
-              ? t('report.submittedAt', { when: formatWhen(r.submitted_at) })
-              : t('report.startedNotSubmitted', {
-                  when: formatWhen(r.started_at),
-                })}
+              ? `Handed in ${formatWhen(r.submitted_at)}`
+              : `Started ${formatWhen(r.started_at)} — not handed in`}
           </p>
         </div>
 
         <div className="rounded-lg bg-muted px-4 py-3">
-          <p className="text-xs text-fg-muted">{t('report.result')}</p>
+          <p className="text-xs text-fg-muted">Result</p>
           <p className="mt-0.5 text-sm text-fg-muted">
             <span className="text-2xl font-bold tabular-nums text-fg-strong">
               {r.correct}
             </span>{' '}
-            / {r.total} {t('report.correctOf')}
+            / {r.total} correct
           </p>
           <div className="mt-2 h-1.5 w-40 overflow-hidden rounded-full bg-border">
             <div
@@ -128,7 +124,7 @@ export default function LabReport() {
         </ol>
 
         <Card className="self-start p-4 lg:sticky lg:top-8">
-          <p className="font-medium text-fg-strong">{t('report.questionList')}</p>
+          <p className="font-medium text-fg-strong">Question list</p>
           {/* Amber is a subset of green, not a fourth outcome: a question fixed
               on the third try is still a pass. Said this way rather than as a
               "Sai" tally, which counted only the questions left wrong at
@@ -136,24 +132,24 @@ export default function LabReport() {
           <p className="mt-2 flex flex-wrap gap-3 text-xs text-fg-muted">
             <span className="inline-flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 rounded-sm bg-success" />
-              {t('report.right', { n: r.correct })}
+              {`Correct (${r.correct})`}
             </span>
             {retried > 0 && (
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-amber-500" />
-                {t('report.retried', { n: retried })}
+                {`Needed a retry (${retried})`}
               </span>
             )}
             {wrong > 0 && (
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-danger" />
-                {t('report.wrong', { n: wrong })}
+                {`Wrong (${wrong})`}
               </span>
             )}
             {skipped > 0 && (
               <span className="inline-flex items-center gap-1.5">
                 <span className="h-2.5 w-2.5 rounded-sm bg-fg-subtle" />
-                {t('report.skipped', { n: skipped })}
+                {`Not attempted (${skipped})`}
               </span>
             )}
           </p>
@@ -167,8 +163,8 @@ export default function LabReport() {
                   href={`#cau-${i + 1}`}
                   title={
                     a.attempts && a.attempts > 1
-                      ? t('report.qTitleAttempts', { i: i + 1, n: a.attempts })
-                      : t('report.qTitle', { i: i + 1 })
+                      ? `Question ${i + 1} — graded ${a.attempts} times`
+                      : `Question ${i + 1}`
                   }
                   className={
                     'grid h-8 w-8 place-items-center rounded-md font-mono text-xs transition ' +
@@ -191,12 +187,12 @@ export default function LabReport() {
             <strong className="text-fg-strong">
               {r.correct}/{r.total}
             </strong>{' '}
-            {t('report.correctOf')}
+            correct
             {retried > 0 && (
               <>
-                {t('report.retriedTailBefore')}{' '}
+                , of which{' '}
                 <strong className="text-amber-500">{retried}</strong>{' '}
-                {t('report.retriedTailAfter')}
+                needed a retry
               </>
             )}
           </p>
@@ -226,7 +222,6 @@ function ShareRow({
   recovered: boolean
   downtimeSeconds: number
 }) {
-  const t = useT()
   const [token, setToken] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -256,9 +251,9 @@ function ShareRow({
             disabled={share.isPending}
             className="rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg-strong transition hover:border-accent disabled:opacity-40"
           >
-            {share.isPending ? t('share.publishing') : t('share.publish')}
+            {share.isPending ? 'Publishing…' : 'Share this result'}
           </button>
-          <p className="text-xs text-fg-subtle">{t('share.whatIsPublic')}</p>
+          <p className="text-xs text-fg-subtle">The public page carries your name, the fault, and your time. Not the commands you typed, and not the walkthrough.</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -278,7 +273,7 @@ function ShareRow({
               }}
               className="rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg-strong transition hover:border-accent"
             >
-              {copied ? t('share.copied') : t('share.copy')}
+              {copied ? 'Copied' : 'Copy link'}
             </button>
             <a
               href={url}
@@ -286,15 +281,15 @@ function ShareRow({
               rel="noreferrer"
               className="rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg-muted transition hover:border-accent hover:text-fg"
             >
-              {t('share.open')}
+              Open it
             </a>
           </div>
           <ShareTargets
             url={url}
             text={
               recovered
-                ? t('share.boast', { time: clockLabel(downtimeSeconds) })
-                : t('share.boastFailed')
+                ? `I brought this outage back in ${clockLabel(downtimeSeconds)} in the War Room. See if you can beat it:`
+                : 'This War Room shift ran out on me. See if you can do better:'
             }
           />
           <div className="flex flex-wrap items-center gap-3">
@@ -303,14 +298,14 @@ function ShareRow({
               disabled={unshare.isPending}
               className="text-xs text-danger hover:underline disabled:opacity-40"
             >
-              {t('share.takeDown')}
+              Take it down
             </button>
-            <p className="text-xs text-fg-subtle">{t('share.whatIsPublic')}</p>
+            <p className="text-xs text-fg-subtle">The public page carries your name, the fault, and your time. Not the commands you typed, and not the walkthrough.</p>
           </div>
         </div>
       )}
       {(share.isError || unshare.isError) && (
-        <p className="mt-2 text-sm text-danger">{t('share.failed')}</p>
+        <p className="mt-2 text-sm text-danger">That did not work. Try again.</p>
       )}
     </div>
   )
@@ -330,45 +325,44 @@ function IncidentPanel({
   startedAt: string
   sessionID: string
 }) {
-  const t = useT()
   const started = Date.parse(startedAt)
   const recovered = incident.recovered_at !== null
   return (
     <Card className="p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
-        <h2 className="font-semibold text-fg-strong">{t('report.incidentTitle')}</h2>
+        <h2 className="font-semibold text-fg-strong">The shift you just ran</h2>
         <span
           className={
             'rounded-full px-2.5 py-0.5 text-xs font-medium ' +
             (recovered ? 'bg-success-soft text-success' : 'bg-danger/10 text-danger')
           }
         >
-          {recovered ? t('report.recovered') : t('report.notRecovered')}
+          {recovered ? 'Recovered' : 'Time ran out, the service is still down'}
         </span>
       </div>
 
       <dl className="mt-4 grid gap-4 sm:grid-cols-3">
         <div>
-          <dt className="text-xs text-fg-muted">{t('report.mttr')}</dt>
+          <dt className="text-xs text-fg-muted">Time to recovery (MTTR)</dt>
           <dd className="mt-0.5 font-mono text-2xl font-bold tabular-nums text-fg-strong">
             {recovered ? clockLabel(incident.downtime_seconds) : '—'}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-fg-muted">{t('report.failedRequests')}</dt>
+          <dt className="text-xs text-fg-muted">Failed requests</dt>
           <dd className="mt-0.5 font-mono text-2xl font-bold tabular-nums text-fg-strong">
             {recovered
-              ? `~${incident.requests_failed.toLocaleString(locale())}`
+              ? `~${incident.requests_failed.toLocaleString('en-GB')}`
               : '—'}
           </dd>
           {/* Cùng câu cảnh báo với dải lúc đang làm bài: con số này suy ra từ
               một tỉ lệ do tác giả gõ, không đo từ hệ thống nào. */}
           <dd className="mt-0.5 text-xs text-fg-subtle">
-            {t('report.rpsNote', { rps: incident.rps })}
+            {`estimated at ${incident.rps} requests/second — a simulated number`}
           </dd>
         </div>
         <div>
-          <dt className="text-xs text-fg-muted">{t('report.cause')}</dt>
+          <dt className="text-xs text-fg-muted">Cause</dt>
           <dd className="mt-0.5 text-sm font-medium text-fg-strong">{incident.title}</dd>
         </div>
       </dl>
@@ -386,15 +380,15 @@ function IncidentPanel({
       )}
 
       <div className="mt-4 border-t border-border pt-4">
-        <p className="font-medium text-fg-strong">{t('report.whatYouTyped')}</p>
+        <p className="font-medium text-fg-strong">What you typed</p>
         {incident.timeline.length === 0 ? (
           <p className="mt-1 text-sm text-fg-subtle">
-            {t('report.noCommands')}
+            No commands were recorded for this session.
           </p>
         ) : (
           <>
             <p className="mt-1 text-xs text-fg-subtle">
-              {t('report.timelineNote')}
+              The command history inside your container, counted from the start. Only you and an admin can read it; it goes away with the session.
             </p>
             <ol className="mt-3 space-y-1 font-mono text-xs">
               {incident.timeline.map((entry, i) => (
@@ -418,7 +412,6 @@ function IncidentPanel({
 }
 
 function Congrats({ report, pct }: { report: Report; pct: number }) {
-  const t = useT()
   const all = report.total > 0 && report.correct === report.total
   return (
     <div
@@ -430,29 +423,23 @@ function Congrats({ report, pct }: { report: Report; pct: number }) {
       }
     >
       <p className="text-lg font-bold">
-        {all ? t('report.congratsAll') : t('report.congratsSome')}
+        {all ? '🎉 Congratulations, you finished the lab!' : 'Handed in'}
       </p>
       <p className="mt-1 text-sm text-white/90">
-        {t('report.congratsBody', {
-          lab: report.lab_title,
-          correct: report.correct,
-          total: report.total,
-          pct,
-        })}
+        {`You handed in “${report.lab_title}” with ${report.correct}/${report.total} correct (${pct}%).`}
       </p>
     </div>
   )
 }
 
-const KIND_LABEL: Record<ReportAnswer['kind'], Key> = {
-  script: 'lab.kind.script',
-  command: 'lab.kind.command',
-  choice: 'lab.kind.choice',
-  sim: 'lab.kind.sim',
+const KIND_LABEL: Record<ReportAnswer['kind'], string> = {
+  script: 'Hands-on',
+  command: 'Type a command',
+  choice: 'Theory',
+  sim: 'Pipeline',
 }
 
 function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) {
-  const t = useT()
   const right = answer.passed === true
   const wrong = answer.passed === false
   // Passed, but not on the first press. The card stays a pass — this only says
@@ -475,9 +462,9 @@ function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) 
       >
         <div className="flex items-center justify-between gap-3 border-b border-border px-5 py-3">
           <p className="text-sm text-fg-muted">
-            {t('report.questionWord')}{' '}
+            Question{' '}
             <strong className="text-fg-strong">{index + 1}</strong> /{' '}
-            {t(KIND_LABEL[answer.kind])} · {answer.points} {t('report.pointsWord')}
+            {KIND_LABEL[answer.kind]} · {answer.points} points
           </p>
           <span
             className={
@@ -492,12 +479,12 @@ function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) 
             }
           >
             {late
-              ? t('report.rightAfter', { n: answer.attempts ?? 0 })
+              ? `✓ Correct after ${answer.attempts ?? 0} tries`
               : right
-                ? t('report.rightShort')
+                ? '✓ Correct'
                 : wrong
-                  ? t('report.wrongShort')
-                  : t('report.skippedShort')}
+                  ? '✕ Wrong'
+                  : 'Not attempted'}
           </span>
         </div>
 
@@ -510,14 +497,14 @@ function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) 
             options to show either side of. */}
         {answer.passed === null && (
           <p className="px-5 pb-4 text-sm text-fg-subtle">
-            {t('report.notAnswered')}
+            You did not answer this question, so the correct answer is not shown.
           </p>
         )}
 
         {answer.passed !== null && answer.kind === 'choice' && answer.options.length > 0 && (
           <div className="space-y-2 px-5 pb-4">
             <p className="font-mono text-xs uppercase tracking-wide text-fg-subtle">
-              {t('report.options')}
+              Options
             </p>
             {answer.options.map((text, i) => (
               <Option
@@ -533,7 +520,7 @@ function AnswerCard({ answer, index }: { answer: ReportAnswer; index: number }) 
 
         {answer.answered_at && (
           <p className="border-t border-border px-5 py-2.5 text-xs text-fg-subtle">
-            {t('report.answeredAt', { when: formatWhen(answer.answered_at) })}
+            {`Answered ${formatWhen(answer.answered_at)}`}
           </p>
         )}
       </Card>
@@ -552,7 +539,6 @@ function Option({
   correct: boolean
   picked: boolean
 }) {
-  const t = useT()
   // Four states in two flags. The one that has to stand out is picked-and-wrong:
   // it is the only line the student needs to read twice.
   const tone = correct
@@ -578,7 +564,7 @@ function Option({
         <span className="mt-1 flex flex-wrap gap-1.5">
           {correct && (
             <span className="rounded bg-success-soft px-1.5 py-0.5 text-[10px] font-medium uppercase text-success">
-              {t('report.correctOption')}
+              Correct answer
             </span>
           )}
           {picked && (
@@ -588,7 +574,7 @@ function Option({
                 (correct ? 'bg-muted text-fg-muted' : 'bg-danger/15 text-danger')
               }
             >
-              {t('report.yourPick')}
+              Your pick
             </span>
           )}
         </span>

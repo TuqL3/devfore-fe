@@ -24,7 +24,6 @@ import {
   PlusIcon,
   TerminalIcon,
 } from '@/components/icons'
-import { useT, type Key } from '@/lib/i18n'
 
 const EMPTY_LAB: LabInput = {
   slug: '',
@@ -43,9 +42,9 @@ const EMPTY_REVIEW: ReviewInput = { title: '', content_md: '', order_idx: 0 }
 // Ids, not labels — the active tab is compared by value and also written to
 // the URL.
 const TABS = [
-  { id: 'labs', label: 'ac.tab.labs' },
-  { id: 'reviews', label: 'ac.tab.reviews' },
-] as const satisfies readonly { id: string; label: Key }[]
+  { id: 'labs', label: 'Labs' },
+  { id: 'reviews', label: 'Review' },
+] as const satisfies readonly { id: string; label: string }[]
 type Tab = (typeof TABS)[number]['id']
 
 // The tab in the URL is ascii, so a link survives being pasted somewhere that
@@ -71,11 +70,11 @@ const EMPTY_OPTIONS = [
   { text: '', correct: false },
 ]
 
-const KIND_CHOICES: { value: TaskInput['kind']; label: Key; hint: Key }[] = [
-  { value: 'script', label: 'lab.kind.script', hint: 'ac.kind.scriptHint' },
-  { value: 'command', label: 'lab.kind.command', hint: 'ac.kind.commandHint' },
-  { value: 'choice', label: 'lab.kind.choice', hint: 'ac.kind.choiceHint' },
-  { value: 'sim', label: 'lab.kind.sim', hint: 'ac.kind.simHint' },
+const KIND_CHOICES: { value: TaskInput['kind']; label: string; hint: string }[] = [
+  { value: 'script', label: 'Hands-on', hint: 'graded by a script inside the container' },
+  { value: 'command', label: 'Type a command', hint: 'graded by the command the student typed' },
+  { value: 'choice', label: 'Theory', hint: 'pick the correct answer' },
+  { value: 'sim', label: 'Pipeline', hint: 'graded by the simulated run' },
 ]
 
 // field-sizing grows the box with what is typed instead of leaving the author
@@ -118,7 +117,6 @@ const GOAL_EXAMPLE = `{
  *  right. One screen rather than two: writing a lab means writing its questions,
  *  and a page change between the two loses the thread every time. */
 export default function AdminCourse() {
-  const t = useT()
   const { id = '' } = useParams()
   const courseID = Number(id)
   const qc = useQueryClient()
@@ -174,7 +172,7 @@ export default function AdminCourse() {
   const selected = labs.data?.find((l) => l.id === selectedID) ?? null
 
   const fail = (e: unknown) =>
-    setError(e instanceof ApiError ? e.message : t('ac.saveFailed'))
+    setError(e instanceof ApiError ? e.message : 'could not save, try again')
 
   const afterLabs = () => {
     qc.invalidateQueries({ queryKey: ['admin-labs', courseID] })
@@ -205,7 +203,7 @@ export default function AdminCourse() {
   })
 
   if (!Number.isFinite(courseID) || courseID <= 0) {
-    return <p className="text-danger">{t('ac.badCourse')}</p>
+    return <p className="text-danger">Invalid course.</p>
   }
 
   const closeLabForm = () => {
@@ -239,13 +237,13 @@ export default function AdminCourse() {
         className="inline-flex items-center gap-1.5 text-sm text-accent-soft hover:underline"
       >
         <ArrowLeftIcon className="h-3.5 w-3.5" />
-        {t('ac.backList')}
+        Course list
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-fg-strong">
-        {course?.title ?? t('ac.title')}
+        {course?.title ?? 'Course content'}
       </h1>
       <p className="mt-1 text-sm text-fg-muted">
-        {tab === 'labs' ? t('ac.labsIntro') : t('ac.reviewsIntro')}
+        {tab === 'labs' ? "Every lab is one terminal session. Every task is a question graded by a script running inside the student's container." : "Course-wide material, shown on the student's Review tab. Not graded, no container needed."}
       </p>
 
       {/* Same tabs the student sees on the course page, so editing a course and
@@ -267,7 +265,7 @@ export default function AdminCourse() {
                   : 'border-b-2 border-transparent text-fg-muted hover:bg-muted hover:text-fg-strong')
               }
             >
-              {t(x.label)}
+              {x.label}
               {count !== undefined && count > 0 && (
                 <span className="ml-2 font-mono text-xs text-fg-subtle">{count}</span>
               )}
@@ -292,7 +290,7 @@ export default function AdminCourse() {
         <Card className="self-start lg:sticky lg:top-8">
           <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
             <h2 className="font-semibold text-fg-strong">
-              {t('ac.tab.labs')}
+              Labs
               {labs.data && labs.data.length > 0 && (
                 <span className="ml-1.5 font-normal text-fg-subtle">
                   {labs.data.length}
@@ -301,17 +299,17 @@ export default function AdminCourse() {
             </h2>
             <Button className="px-2.5 py-1.5 text-sm" onClick={() => openLabForm(null)}>
               <PlusIcon className="h-4 w-4" />
-              {t('ac.add')}
+              Add
             </Button>
           </div>
 
           <ul className="max-h-[70vh] divide-y divide-border overflow-y-auto">
             {labs.isLoading && (
-              <li className="px-4 py-6 text-sm text-fg-subtle">{t('common.loading')}</li>
+              <li className="px-4 py-6 text-sm text-fg-subtle">Loading…</li>
             )}
             {labs.data?.length === 0 && (
               <li className="px-4 py-6 text-center text-sm text-fg-subtle">
-                {t('ac.noLabs')}
+                This course has no labs yet.
               </li>
             )}
             {labs.data?.map((l) => {
@@ -345,7 +343,7 @@ export default function AdminCourse() {
                       <LayersIcon className="h-3.5 w-3.5" />
                       {l.task_count}
                       <span className="text-fg-subtle">·</span>
-                      {l.points} {t('ac.pointsWord')}
+                      {l.points} points
                       <span className="text-fg-subtle">·</span>
                       <ClockIcon className="h-3.5 w-3.5" />
                       {l.duration_minutes}′
@@ -355,11 +353,11 @@ export default function AdminCourse() {
                         missing an image — it is the other kind of lab. */}
                     {l.sim_scenario !== null ? (
                       <span className="mt-1.5 block rounded bg-muted px-2 py-0.5 text-xs text-fg-muted">
-                        {t('ac.simLabNoContainer')}
+                        sim lab — no container
                       </span>
                     ) : l.lab_image_id === null ? (
                       <span className="mt-1.5 block rounded bg-danger/10 px-2 py-0.5 text-xs text-danger">
-                        {t('ac.noImage')}
+                        no image assigned — cannot be started
                       </span>
                     ) : null}
                     {/* The only thing on this screen that tells a drill from an
@@ -367,7 +365,7 @@ export default function AdminCourse() {
                         IS what makes it one. */}
                     {l.incident_count > 0 && (
                       <span className="mt-1.5 block rounded bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">
-                        {t('ac.drillBadge', { n: l.incident_count })}
+                        {`War Room · ${l.incident_count} scenarios`}
                       </span>
                     )}
                   </button>
@@ -380,13 +378,13 @@ export default function AdminCourse() {
                       onClick={() => openLabForm(l)}
                       className="rounded px-2 py-0.5 text-xs text-accent-soft transition hover:bg-bg"
                     >
-                      {t('ac.edit')}
+                      Edit
                     </button>
                     <button
                       onClick={() => setDeletingLab(l)}
                       className="rounded px-2 py-0.5 text-xs text-danger transition hover:bg-danger/10"
                     >
-                      {t('ac.delete')}
+                      Delete
                     </button>
                   </div>
                 </li>
@@ -436,16 +434,16 @@ export default function AdminCourse() {
               <span className="grid h-12 w-12 place-items-center rounded-full bg-muted text-fg-subtle">
                 <TerminalIcon className="h-5 w-5" />
               </span>
-              <p className="mt-3 text-sm font-medium text-fg">{t('ac.noLabPicked')}</p>
+              <p className="mt-3 text-sm font-medium text-fg">No lab selected</p>
               <p className="mt-1 max-w-xs text-sm text-fg-subtle">
                 {labs.data?.length === 0
-                  ? t('ac.createFirstLab')
-                  : t('ac.pickLab')}
+                  ? 'Create the first lab to start adding tasks.'
+                  : 'Pick a lab on the left to see and edit its tasks.'}
               </p>
               {labs.data?.length === 0 && (
                 <Button className="mt-4 px-3 py-2 text-sm" onClick={() => openLabForm(null)}>
                   <PlusIcon className="h-4 w-4" />
-                  {t('ac.addLab')}
+                  Add a lab
                 </Button>
               )}
             </Card>
@@ -458,9 +456,9 @@ export default function AdminCourse() {
           những thứ mất theo mới là khác biệt giữa xác nhận và thủ tục. */}
       {deletingLab && (
         <ConfirmModal
-          title={t('ac.deleteLabTitle', { name: deletingLab.title })}
+          title={`Delete the lab "${deletingLab.title}"?`}
           confirmLabel={
-            removeLab.isPending ? t('ac.deleting') : t('ac.deleteLab')
+            removeLab.isPending ? 'Deleting…' : 'Delete the lab'
           }
           tone="danger"
           busy={removeLab.isPending}
@@ -471,11 +469,11 @@ export default function AdminCourse() {
           }}
         >
           <p>
-            {t('ac.lostWithBefore')}{' '}
+            This also removes{' '}
             <strong className="text-fg-strong">{deletingLab.task_count}</strong>{' '}
-            {t('ac.lostWithAfter')}
+            tasks and the progress students made on this lab.
           </p>
-          <p className="text-danger">{t('ac.notRecoverable')}</p>
+          <p className="text-danger">This cannot be undone.</p>
         </ConfirmModal>
       )}
     </div>
@@ -494,7 +492,6 @@ function ReviewPanel({
   onError: (e: unknown) => void
   clearError: () => void
 }) {
-  const t = useT()
   const qc = useQueryClient()
   const [form, setForm] = useState<ReviewInput | null>(null)
   const [editing, setEditing] = useState<AdminReview | null>(null)
@@ -542,14 +539,14 @@ function ReviewPanel({
         <h2 className="min-w-0 font-semibold text-fg-strong">
           {form
             ? editing
-              ? t('ac.editReview')
-              : t('ac.newReview')
-            : t('ac.reviewList')}
+              ? 'Edit the review note'
+              : 'New review note'
+            : 'Review notes'}
         </h2>
         {!form && (
           <Button className="shrink-0 px-2.5 py-1.5 text-sm" onClick={() => open(null)}>
             <PlusIcon className="h-4 w-4" />
-            {t('ac.add')}
+            Add
           </Button>
         )}
       </div>
@@ -562,28 +559,28 @@ function ReviewPanel({
           }}
           className="space-y-4 px-4 py-4"
         >
-          <Field label={t('ac.fieldTitle')}>
+          <Field label="Title">
             <Input
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              placeholder={t('ac.reviewTitlePlaceholder')}
+              placeholder="Commands worth remembering"
               autoFocus
               required
             />
           </Field>
 
-          <Field label={t('ac.fieldContent')}>
+          <Field label="Content">
             <MarkdownEditor
               value={form.content_md}
               onChange={(v) => setForm({ ...form, content_md: v })}
-              placeholder={t('ac.reviewContentPlaceholder')}
+              placeholder={"## Summary\n\n| Command | What it does |\n| --- | --- |"}
             />
           </Field>
 
           {/* Only when editing: a new note is appended to the end by the server,
               so offering a position on create would be a field that lies. */}
           {editing && (
-            <Field label={t('ac.fieldOrder')}>
+            <Field label="Order">
               <Input
                 type="number"
                 min={0}
@@ -598,10 +595,10 @@ function ReviewPanel({
           <div className="flex gap-2">
             <Button type="submit" disabled={save.isPending}>
               {save.isPending
-                ? t('ac.saving')
+                ? 'Saving…'
                 : editing
-                  ? t('ac.save')
-                  : t('ac.addReview')}
+                  ? 'Save'
+                  : 'Add the note'}
             </Button>
             <button
               type="button"
@@ -611,15 +608,15 @@ function ReviewPanel({
               }}
               className="rounded-md px-3 py-2 text-sm text-fg-muted transition hover:text-fg-strong"
             >
-              {t('common.cancel')}
+              Cancel
             </button>
           </div>
         </form>
       ) : reviews.isLoading ? (
-        <p className="px-4 py-6 text-sm text-fg-subtle">{t('common.loading')}</p>
+        <p className="px-4 py-6 text-sm text-fg-subtle">Loading…</p>
       ) : reviews.data?.length === 0 ? (
         <p className="px-4 py-8 text-center text-sm text-fg-subtle">
-          {t('ac.noReviews')}
+          This course has no review notes yet.
         </p>
       ) : (
         <ul className="divide-y divide-border">
@@ -637,13 +634,13 @@ function ReviewPanel({
                     onClick={() => open(r)}
                     className="rounded px-2 py-0.5 text-xs text-accent-soft transition hover:bg-muted"
                   >
-                    {t('ac.edit')}
+                    Edit
                   </button>
                   <button
                     onClick={() => setDeleting(r)}
                     className="rounded px-2 py-0.5 text-xs text-danger transition hover:bg-danger/10"
                   >
-                    {t('ac.delete')}
+                    Delete
                   </button>
                 </div>
               </div>
@@ -651,7 +648,7 @@ function ReviewPanel({
                   check is how the table or the code block comes out. */}
               <details className="mt-2">
                 <summary className="cursor-pointer text-xs text-fg-muted select-none">
-                  {t('ac.viewContent')}
+                  View the content
                 </summary>
                 <div className="mt-2 rounded-md border border-border bg-bg px-3 py-2">
                   <Prose>{r.content_md}</Prose>
@@ -664,8 +661,8 @@ function ReviewPanel({
 
       {deleting && (
         <ConfirmModal
-          title={t('ac.deleteReviewTitle')}
-          confirmLabel={remove.isPending ? t('ac.deleting') : t('ac.delete')}
+          title="Delete the review note?"
+          confirmLabel={remove.isPending ? 'Deleting…' : 'Delete'}
           tone="danger"
           busy={remove.isPending}
           onClose={() => setDeleting(null)}
@@ -675,16 +672,16 @@ function ReviewPanel({
           }}
         >
           <p>
-            {t('ac.reviewLostBefore')}{' '}
+            The note{' '}
             <strong className="text-fg-strong">{deleting.title}</strong>{' '}
-            {t('ac.reviewLostAfter')}
+            will be gone.
           </p>
           {/* Không chấm điểm nên không ai mất tiến độ — nói ra để người xoá khỏi
               phải đoán. */}
           <p>
-            {t('ac.reviewNoProgress')}
+            Nobody loses progress: a review note is reading material, not a graded task.
           </p>
-          <p className="text-danger">{t('ac.notRecoverable')}</p>
+          <p className="text-danger">This cannot be undone.</p>
         </ConfirmModal>
       )}
     </Card>
@@ -708,7 +705,6 @@ function LabForm({
   onCancel: () => void
   onSubmit: () => void
 }) {
-  const t = useT()
   const set = <K extends keyof LabInput>(k: K, v: LabInput[K]) =>
     onChange({ ...value, [k]: v })
 
@@ -723,15 +719,15 @@ function LabForm({
       className="rounded-xl border border-border bg-surface shadow-sm"
     >
       <h3 className="border-b border-border px-5 py-3 font-semibold text-fg-strong">
-        {editing ? t('ac.editLab') : t('ac.newLab')}
+        {editing ? 'Edit the lab' : 'New lab'}
       </h3>
 
       <div className="space-y-4 p-5">
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t('ac.fieldTitle')}>
+          <Field label="Title">
             <Input value={value.title} onChange={(e) => set('title', e.target.value)} />
           </Field>
-          <Field label="Slug" hint={t('ac.slugHint')}>
+          <Field label="Slug" hint="unique across the whole system">
             <Input
               value={value.slug}
               variant="terminal"
@@ -740,18 +736,18 @@ function LabForm({
             />
           </Field>
         </div>
-        <Field label={t('ac.fieldGuide')} hint={t('ac.guideHint')}>
+        <Field label="Instructions" hint="shown on the Instructions tab">
           <MarkdownEditor
             rows={6}
             value={value.description_md}
             onChange={(v) => set('description_md', v)}
-            placeholder={t('ac.guidePlaceholder')}
+            placeholder="Describe the lab. Use **bold**, `commands`, lists…"
           />
         </Field>
         {/* Same as the question form: a new lab is appended by the server, so
             its order box would be a control with no effect. */}
         <div className="grid gap-4 sm:grid-cols-3">
-          <Field label={t('ac.duration')}>
+          <Field label="Duration (minutes)">
             <Input
               type="number"
               min={1}
@@ -761,7 +757,7 @@ function LabForm({
             />
           </Field>
           {editing && (
-            <Field label={t('ac.fieldOrder')} hint={t('ac.orderHint')}>
+            <Field label="Order" hint="lower comes first">
               <Input
                 type="number"
                 min={0}
@@ -770,21 +766,21 @@ function LabForm({
               />
             </Field>
           )}
-          <Field label="Image" hint={t('ac.imageHint')}>
+          <Field label="Image" hint="the container students get">
             <select
               className={select}
               value={value.lab_image_id ?? ''}
               disabled={sim}
-              title={sim ? t('ac.simNoContainer') : undefined}
+              title={sim ? 'A sim lab has no container' : undefined}
               onChange={(e) =>
                 set('lab_image_id', e.target.value ? Number(e.target.value) : null)
               }
             >
-              <option value="">{t('ac.notPicked')}</option>
+              <option value="">— not selected —</option>
               {images.map((im) => (
                 <option key={im.id} value={im.id}>
                   {im.name}:{im.tag}
-                  {im.active ? '' : t('ac.imageRetired')}
+                  {im.active ? '' : ' (retired)'}
                 </option>
               ))}
             </select>
@@ -796,11 +792,11 @@ function LabForm({
             nội dung thì ô kia khoá lại, để tác giả không điền xong mới bị từ
             chối. */}
         <JsonField
-          label={t('ac.simScenario')}
+          label="Simulation scenario"
           hint={
             value.lab_image_id !== null
-              ? t('ac.simHasImage')
-              : t('ac.simEmptyIsContainer')
+              ? 'this lab already has an image — drop it to use this'
+              : 'empty = a container lab'
           }
           value={value.sim_scenario}
           onChange={(v) => set('sim_scenario', v)}
@@ -810,31 +806,31 @@ function LabForm({
             server refuses the pair anyway. Showing a box whose value would be
             rejected is worse than not showing it. */}
         {!sim && (
-          <Field label={t('ac.incidentSetup')} hint={t('ac.incidentSetupHint')}>
+          <Field label="Stand up the service (War Room)" hint="runs before the break script — leave empty for a normal lab">
             <textarea
               rows={3}
               value={value.incident_setup}
               onChange={(e) => set('incident_setup', e.target.value)}
               className={textarea + ' font-mono text-sm'}
-              placeholder={t('ac.incidentSetupPlaceholder')}
+              placeholder="systemctl enable --now nginx"
             />
           </Field>
         )}
         {!sim && value.incident_setup.trim() !== '' && (
           <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-            {t('ac.incidentSetupNote')}
+            Runs once as the container comes up, before the break script. Every scenario on this lab shares it — write it here instead of repeating it in each one.
           </p>
         )}
 
         {sim && (
           <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-            {t('ac.simNote1')}
+            Students can read this whole table — the pipeline is written against it, and hiding it leaves them guessing step names. Do not put the answer in there.
             <br />
-            {t('ac.simNote2Before')}{' '}
-            <strong className="text-fg-muted">{t('ac.simNote2Strong')}</strong>
-            {t('ac.simNote2After')}
+            The seconds are{' '}
+            <strong className="text-fg-muted">simulated time</strong>
+            , not measured from a real CI. The lesson is in the ratio between job layouts.
             <br />
-            {t('ac.simNote3')}
+            Only the JSON shape is checked on save. A wrong key name only surfaces when Run pipeline is pressed — do one run before publishing.
           </p>
         )}
       </div>
@@ -842,14 +838,14 @@ function LabForm({
       {/* Actions on their own bar, so a long form always ends the same way. */}
       <div className="flex items-center gap-3 border-t border-border px-5 py-3">
         <Button type="submit" disabled={saving} className="px-3 py-2 text-sm">
-          {saving ? t('ac.saving') : editing ? t('ac.save') : t('ac.createLab')}
+          {saving ? 'Saving…' : editing ? 'Save' : 'Create the lab'}
         </Button>
         <button
           type="button"
           onClick={onCancel}
           className="text-sm text-fg-muted transition hover:text-fg-strong"
         >
-          {t('common.cancel')}
+          Cancel
         </button>
       </div>
     </form>
@@ -866,7 +862,6 @@ function OptionsEditor({
   options: AdminOption[]
   onChange: (o: AdminOption[]) => void
 }) {
-  const t = useT()
   const patch = (i: number, o: Partial<AdminOption>) =>
     onChange(options.map((cur, j) => (i === j ? { ...cur, ...o } : cur)))
 
@@ -875,9 +870,9 @@ function OptionsEditor({
   return (
     <div className="space-y-2">
       <span className="flex items-baseline justify-between gap-2">
-        <span className="text-sm font-medium text-fg">{t('ac.options')}</span>
+        <span className="text-sm font-medium text-fg">Options</span>
         <span className="text-xs text-fg-subtle">
-          {t('ac.optionsHint')}
+          tick the correct ones — several ticks = a multi-answer question
         </span>
       </span>
 
@@ -895,7 +890,7 @@ function OptionsEditor({
           }
         >
           <label
-            title={t('ac.correctAnswer')}
+            title="correct answer"
             className="flex shrink-0 cursor-pointer items-center gap-2 pl-1"
           >
             <input
@@ -911,16 +906,16 @@ function OptionsEditor({
           <Input
             value={o.text}
             onChange={(e) => patch(i, { text: e.target.value })}
-            placeholder={t('ac.optionN', { n: i + 1 })}
+            placeholder={`Option ${i + 1}`}
           />
           <button
             type="button"
             onClick={() => onChange(options.filter((_, j) => j !== i))}
             disabled={options.length <= 2}
             title={
-              options.length <= 2 ? t('ac.needTwoOptions') : t('ac.deleteOption')
+              options.length <= 2 ? 'at least 2 options are needed' : 'remove the option'
             }
-            aria-label={t('ac.deleteOptionLabel')}
+            aria-label="Remove the option"
             className="shrink-0 rounded px-2 py-1 text-sm text-fg-subtle transition hover:bg-danger/10 hover:text-danger disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-subtle"
           >
             ✕
@@ -935,15 +930,15 @@ function OptionsEditor({
           disabled={options.length >= 10}
           className="rounded-md border border-border-strong px-3 py-1.5 text-sm text-fg transition hover:border-accent disabled:opacity-50"
         >
-          {t('ac.addOption')}
+          Add an option
         </button>
         {/* The two ways an author leaves a question that cannot be answered
             correctly, both of which the server also refuses. */}
         {correct === 0 && (
-          <span className="text-xs text-danger">{t('ac.noCorrect')}</span>
+          <span className="text-xs text-danger">no correct answer marked</span>
         )}
         {correct > 0 && correct === options.length && (
-          <span className="text-xs text-danger">{t('ac.allCorrect')}</span>
+          <span className="text-xs text-danger">everything is correct — nothing to grade</span>
         )}
       </div>
     </div>
@@ -959,7 +954,6 @@ function TaskPanel({
   onError: (e: unknown) => void
   clearError: () => void
 }) {
-  const t = useT()
   const qc = useQueryClient()
   const [form, setForm] = useState<TaskInput | null>(null)
   const [editing, setEditing] = useState<AdminTask | null>(null)
@@ -1026,14 +1020,14 @@ function TaskPanel({
           className="space-y-4 bg-muted/40 px-5 py-4"
         >
           <h3 className="text-sm font-semibold text-fg-strong">
-            {editing ? t('ac.editTask') : t('ac.newTask')}
+            {editing ? 'Edit the task' : 'New task'}
           </h3>
           {/* Three cards rather than a dropdown: the kind decides which half of
               this form appears, so it is worth seeing all three options and
               what each one means without opening anything. */}
           <fieldset>
             <legend className="mb-1.5 text-sm font-medium text-fg">
-              {t('ac.taskKind')}
+              Task kind
             </legend>
             <div className="grid gap-2 sm:grid-cols-3">
               {KIND_CHOICES.map((k) => (
@@ -1067,17 +1061,17 @@ function TaskPanel({
                     }}
                   />
                   <span className="block text-sm font-medium text-fg-strong">
-                    {t(k.label)}
+                    {k.label}
                   </span>
                   <span className="mt-0.5 block text-xs text-fg-muted">
-                    {t(k.hint)}
+                    {k.hint}
                   </span>
                 </label>
               ))}
             </div>
           </fieldset>
 
-          <Field label={t('ac.prompt')}>
+          <Field label="Question">
             <textarea
               rows={2}
               value={form.title}
@@ -1085,19 +1079,19 @@ function TaskPanel({
               className={textarea}
               placeholder={
                 form.kind === 'choice'
-                  ? t('ac.promptChoice')
+                  ? 'Which command lists the files in a directory?'
                   : form.kind === 'command'
-                    ? t('ac.promptCommand')
-                    : t('ac.promptScript')
+                    ? 'Show the kernel version the machine is running.'
+                    : 'Create a birds directory in the home directory.'
               }
             />
           </Field>
-          <Field label={t('ac.hintField')} hint={t('ac.hintFieldHint')}>
+          <Field label="Hint" hint="leave empty and the Hints tab hides itself">
             <MarkdownEditor
               rows={5}
               value={form.hint}
               onChange={(v) => set('hint', v)}
-              placeholder={t('ac.hintPlaceholder')}
+              placeholder="A hint for the student. Use **bold**, `commands`, lists…"
             />
           </Field>
           {form.kind === 'choice' && (
@@ -1113,38 +1107,38 @@ function TaskPanel({
                 // Cùng lý do như form lab: ô giữ văn bản bên trong, chuyển sang
                 // sửa nhiệm vụ khác phải dựng lại nó.
                 key={editing?.id ?? 'new'}
-                label={t('ac.goalField')}
-                hint={t('ac.goalHint')}
+                label="Pass condition"
+                hint="every clause inside all must hold"
                 value={form.sim_goal}
                 onChange={(v) => set('sim_goal', v)}
                 placeholder={GOAL_EXAMPLE}
               />
               <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-                {t('ac.simGoal1Before')}{' '}
-                <strong className="text-fg-muted">{t('ac.simGoal1Strong')}</strong>
-                {t('ac.simGoal1After')}
+                {"Graded on the student's"}{' '}
+                <strong className="text-fg-muted">latest run</strong>
+                , not on the text they typed — so the task accepts any pipeline that reaches that result.
                 <br />
-                {t('ac.simGoal2Before')}{' '}
+                Five clauses are available:{' '}
                 <code className="font-mono">run_status</code>,{' '}
                 <code className="font-mono">total_seconds_lte</code>,{' '}
                 <code className="font-mono">jobs_parallel</code>,{' '}
                 <code className="font-mono">cache_hit</code>,{' '}
                 <code className="font-mono">job_present</code>
-                {t('ac.simGoal2Mid')} <code className="font-mono">all</code>
-                {t('ac.simGoal2Mid2')} <code className="font-mono">any</code>
-                {t('ac.simGoal2After')}
+                . There is only <code className="font-mono">all</code>
+                , no <code className="font-mono">any</code>
+                : a task that accepts either of two answers is two tasks.
                 <br />
                 <code className="font-mono">jobs_parallel</code>{' '}
-                {t('ac.simGoal3')}
+                requires two jobs that genuinely overlap in time — touching edges do not count, that is a handover on one runner.
                 <br />
-                {t('ac.simGoal4')}
+                Leaving it empty saves, but no student can pass it — empty means the task is unfinished, not easy.
               </p>
             </>
           )}
 
           {form.kind === 'command' && (
             <>
-              <Field label={t('ac.expectedCommands')} hint={t('ac.expectedHint')}>
+              <Field label="Accepted commands" hint="one command per line">
                 <textarea
                   rows={3}
                   value={form.expected_commands}
@@ -1154,23 +1148,23 @@ function TaskPanel({
                 />
               </Field>
               <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-                {t('ac.cmdNote1Before')}{' '}
+                Passes once the student has typed one of the commands above. Extra whitespace is ignored, everything else matches literally —{' '}
                 <code className="font-mono">ls -la /</code>{' '}
-                {t('ac.cmdNote1Mid')} <code className="font-mono">ls -al /</code>{' '}
-                {t('ac.cmdNote1After')}
+                and <code className="font-mono">ls -al /</code>{' '}
+                are two different commands; to accept both, write both lines.
                 <br />
-                {t('ac.cmdNote2Before')}
+                Only for commands that change nothing on the machine (
                 <code className="font-mono">uname</code>,{' '}
                 <code className="font-mono">which</code>,{' '}
                 <code className="font-mono">cat /proc/…</code>
-                {t('ac.cmdNote2After')}
+                ). Anything that leaves a result behind belongs in the “Hands-on” kind — grading the result is safer than grading the wording.
               </p>
             </>
           )}
 
           {form.kind === 'script' && (
             <>
-          <Field label={t('ac.checkScript')} hint={t('ac.checkScriptHint')}>
+          <Field label="Grading script" hint="exit code 0 = correct">
             <textarea
               rows={3}
               value={form.check_script}
@@ -1182,35 +1176,35 @@ function TaskPanel({
           {/* The three rules an author needs to know before their script runs.
               Getting any of them wrong fails students who did the task right. */}
           <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-            {t('ac.scriptNote1')} <code className="font-mono">/bin/sh -c</code>
-            {t('ac.scriptNote2')} <code className="font-mono">student</code>
-            {t('ac.scriptNote3')} <code className="font-mono">/home/student</code>
-            {t('ac.scriptNote4')} <code className="font-mono">cd</code>{' '}
-            {t('ac.scriptNote5')}
+            Runs under <code className="font-mono">/bin/sh -c</code>
+            , as user <code className="font-mono">student</code>
+            , in <code className="font-mono">/home/student</code>
+            {", with a 10 second limit. It is a separate exec, so it does not see the student's"} <code className="font-mono">cd</code>{' '}
+            — use absolute paths. Grade the final state, do not inspect the commands they typed.
           </p>
 
           <div className="space-y-3 rounded-md border border-border-strong bg-bg p-3">
             <Field
-              label={t('ac.trial')}
-              hint={t('ac.trialHint')}
+              label="Dry run"
+              hint="a fresh container, nothing saved"
             >
               <textarea
                 rows={2}
                 value={setup}
                 onChange={(e) => setSetup(e.target.value)}
                 className={textarea + ' font-mono text-sm'}
-                placeholder={t('ac.setupPlaceholder')}
+                placeholder={'Setup command (optional) — e.g. mkdir -p "$HOME/birds"'}
               />
             </Field>
             {/* Both directions matter. Without a setup command the container is
                 untouched, so a correct script must FAIL — that is what catches
                 the scripts which pass no matter what the student did. */}
             <p className="text-xs leading-relaxed text-fg-subtle">
-              {t('ac.trialNoteBefore')}{' '}
-              <strong className="text-fg-muted">{t('ac.trialNoteFail')}</strong>
-              {t('ac.trialNoteMid')}{' '}
-              <strong className="text-fg-muted">{t('ac.trialNotePass')}</strong>
-              {t('ac.trialNoteAfter')}
+              With no setup command the container is untouched, so a correct script must{' '}
+              <strong className="text-fg-muted">fail</strong>
+              . Fill in the commands that do the task → a correct script must{' '}
+              <strong className="text-fg-muted">pass</strong>
+              . Passing only one way means the script is broken.
             </p>
             <button
               type="button"
@@ -1228,11 +1222,11 @@ function TaskPanel({
                   className="h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent"
                 />
               )}
-              {trial.isPending ? t('ac.running') : t('ac.runTrial')}
+              {trial.isPending ? 'Running…' : 'Dry-run the script'}
             </button>
             {lab.lab_image_id === null && (
               <p className="text-xs text-danger">
-                {t('ac.noImageYet')}
+                The lab has no image, so it cannot be dry-run — pick an image in the lab form on the left.
               </p>
             )}
 
@@ -1240,7 +1234,7 @@ function TaskPanel({
               <div className="space-y-2 text-xs">
                 {trial.data.setup_failed ? (
                   <p className="rounded border border-danger/40 bg-danger/10 px-2 py-1.5 text-danger">
-                    {t('ac.setupFailed', { code: trial.data.setup_exit_code })}
+                    {`The setup command failed (exit ${trial.data.setup_exit_code}) — the script was not run.`}
                   </p>
                 ) : (
                   <p
@@ -1251,8 +1245,8 @@ function TaskPanel({
                         : 'bg-muted text-fg-muted')
                     }
                   >
-                    {trial.data.passed ? t('ac.passed') : t('ac.failed')}{' '}
-                    {t('ac.exitCode')} {trial.data.exit_code}
+                    {trial.data.passed ? 'Passed' : 'Failed'}{' '}
+                    — exit code {trial.data.exit_code}
                   </p>
                 )}
                 {(trial.data.output || trial.data.setup_output) && (
@@ -1271,7 +1265,7 @@ function TaskPanel({
               question because the server ignores it there and appends: offering
               a box whose value is discarded is worse than not offering one. */}
           <div className="flex flex-wrap gap-4">
-            <Field label={t('ac.points')}>
+            <Field label="Points">
               <Input
                 type="number"
                 min={0}
@@ -1282,7 +1276,7 @@ function TaskPanel({
               />
             </Field>
             {editing && (
-              <Field label={t('ac.fieldOrder')} hint={t('ac.orderHint')}>
+              <Field label="Order" hint="lower comes first">
                 <Input
                   type="number"
                   min={0}
@@ -1296,17 +1290,17 @@ function TaskPanel({
           <div className="flex items-center gap-3 border-t border-border pt-4">
             <Button type="submit" disabled={save.isPending} className="px-3 py-2 text-sm">
               {save.isPending
-                ? t('ac.saving')
+                ? 'Saving…'
                 : editing
-                  ? t('ac.save')
-                  : t('ac.createTask')}
+                  ? 'Save'
+                  : 'Create the task'}
             </Button>
             <button
               type="button"
               onClick={closeForm}
               className="text-sm text-fg-muted transition hover:text-fg-strong"
             >
-              {t('common.cancel')}
+              Cancel
             </button>
           </div>
         </form>
@@ -1333,13 +1327,9 @@ function TaskPanel({
     <Card>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
         <div className="min-w-0">
-          <h2 className="truncate font-semibold text-fg-strong">{t('ac.tasks')}</h2>
+          <h2 className="truncate font-semibold text-fg-strong">Tasks</h2>
           <p className="truncate text-xs text-fg-muted">
-            {t('ac.taskSummary', {
-              lab: lab.title,
-              n: lab.task_count,
-              points: lab.points,
-            })}
+            {`${lab.title} · ${lab.task_count} tasks · ${lab.points} points`}
           </p>
         </div>
         <Button
@@ -1351,7 +1341,7 @@ function TaskPanel({
           }}
         >
           <PlusIcon className="h-4 w-4" />
-          {t('ac.addTask')}
+          Add a task
         </Button>
       </div>
 
@@ -1362,11 +1352,11 @@ function TaskPanel({
 
       <ol className="divide-y divide-border">
         {tasks.isLoading && (
-          <li className="px-5 py-6 text-sm text-fg-subtle">{t('common.loading')}</li>
+          <li className="px-5 py-6 text-sm text-fg-subtle">Loading…</li>
         )}
         {tasks.data?.length === 0 && !form && (
           <li className="px-5 py-10 text-center text-sm text-fg-subtle">
-            {t('ac.noTasks')}
+            This lab has no tasks yet.
           </li>
         )}
         {tasks.data?.map((task, i) => (
@@ -1394,7 +1384,7 @@ function TaskPanel({
                   <KindBadge kind={task.kind} />
                   <span className="shrink-0 rounded bg-muted px-2 py-0.5 font-mono text-xs text-accent-soft">
                     {task.points}
-                    {t('ac.pointsShort')}
+                    p
                   </span>
                   {/* preventDefault, or the click that hits a button also toggles
                       the row it lives in. */}
@@ -1406,7 +1396,7 @@ function TaskPanel({
                       }}
                       className="rounded px-2 py-1 text-xs text-accent-soft transition hover:bg-muted"
                     >
-                      {t('ac.edit')}
+                      Edit
                     </button>
                     <button
                       onClick={(e) => {
@@ -1417,7 +1407,7 @@ function TaskPanel({
                       }}
                       className="rounded px-2 py-1 text-xs text-danger transition hover:bg-danger/10"
                     >
-                      {t('ac.delete')}
+                      Delete
                     </button>
                   </span>
                 </summary>
@@ -1427,7 +1417,7 @@ function TaskPanel({
                     <pre className="overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
                       {task.sim_goal
                         ? JSON.stringify(task.sim_goal, null, 2)
-                        : t('ac.noGoal')}
+                        : '(no pass condition yet — no student can pass this task)'}
                     </pre>
                   ) : task.kind === 'command' ? (
                     <pre className="overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
@@ -1444,7 +1434,7 @@ function TaskPanel({
                   ) : (
                     <pre className="overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
                       {task.check_script ||
-                        t('ac.noScript')}
+                        '(no script yet — this task always counts as correct)'}
                     </pre>
                   )}
                   {/* The same renderer as the editor preview, so a hint reads
@@ -1452,7 +1442,7 @@ function TaskPanel({
                   {task.hint && (
                     <div className="mt-3 border-t border-border pt-3">
                       <p className="mb-1.5 text-xs font-medium text-fg-muted">
-                        {t('ac.hintField')}
+                        Hint
                       </p>
                       <Prose>{task.hint}</Prose>
                     </div>
@@ -1466,8 +1456,8 @@ function TaskPanel({
 
       {deleting && (
         <ConfirmModal
-          title={t('ac.deleteTaskTitle')}
-          confirmLabel={remove.isPending ? t('ac.deleting') : t('ac.deleteTask')}
+          title="Delete the task?"
+          confirmLabel={remove.isPending ? 'Deleting…' : 'Delete the task'}
           tone="danger"
           busy={remove.isPending}
           onClose={() => setDeleting(null)}
@@ -1477,28 +1467,27 @@ function TaskPanel({
           }}
         >
           <p className="text-fg-strong">{deleting.title}</p>
-          <p>{t('ac.taskPointsLost')}</p>
-          <p className="text-danger">{t('ac.notRecoverable')}</p>
+          <p>Points students already earned on this task go with it.</p>
+          <p className="text-danger">This cannot be undone.</p>
         </ConfirmModal>
       )}
     </Card>
   )
 }
 
-const KINDS: Record<AdminTask['kind'], Key> = {
-  script: 'lab.kind.script',
-  command: 'lab.kind.command',
-  choice: 'lab.kind.choice',
-  sim: 'lab.kind.sim',
+const KINDS: Record<AdminTask['kind'], string> = {
+  script: 'Hands-on',
+  command: 'Type a command',
+  choice: 'Theory',
+  sim: 'Pipeline',
 }
 
 /** How the question is marked. Four kinds are marked four different ways, and
  *  the body below only shows the answer key — not what it is. */
 function KindBadge({ kind }: { kind: AdminTask['kind'] }) {
-  const t = useT()
   return (
     <span className="rounded bg-muted px-2 py-0.5 text-xs text-fg-muted">
-      {t(KINDS[kind])}
+      {KINDS[kind]}
     </span>
   )
 }

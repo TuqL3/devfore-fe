@@ -5,7 +5,6 @@ import { adminApi } from '@/api/admin'
 import { Card, ErrorBox } from '@/components/ui'
 import { clockLabel } from '@/lib/clock'
 import type { CourseHealth, IncidentHealth, LabHealth, LabStat, TaskHealth } from '@/lib/types'
-import { useT } from '@/lib/i18n'
 
 /** Phân tích — nội dung nào đang hỏng.
  *
@@ -17,7 +16,6 @@ import { useT } from '@/lib/i18n'
  *  giờ nghĩa là "câu khó" — nó nghĩa là check script sai, và không có màn nào
  *  khác trên nền tảng nói được điều đó. */
 export default function AdminAnalysis() {
-  const t = useT()
   const q = useQuery({ queryKey: ['content-health'], queryFn: adminApi.contentHealth })
   // Số lần chấm lại chỉ có ở endpoint thống kê cũ. Giữ lại vì nó nói một chuyện
   // không cột nào khác nói được: một lab mà phần lớn câu phải bấm mấy lần mới
@@ -25,16 +23,16 @@ export default function AdminAnalysis() {
   const stats = useQuery({ queryKey: ['admin-stats'], queryFn: adminApi.stats })
 
   if (q.isLoading) {
-    return <p className="py-12 text-center text-sm text-fg-subtle">{t('common.loading')}</p>
+    return <p className="py-12 text-center text-sm text-fg-subtle">Loading…</p>
   }
-  if (q.isError || !q.data) return <ErrorBox>{t('dash.loadError')}</ErrorBox>
+  if (q.isError || !q.data) return <ErrorBox>Could not read the numbers. Try reloading the page.</ErrorBox>
   const d = q.data
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-fg-strong">{t('analysis.title')}</h1>
-        <p className="mt-1 max-w-3xl text-sm text-fg-muted">{t('analysis.subtitle')}</p>
+        <h1 className="text-2xl font-bold text-fg-strong">Analysis</h1>
+        <p className="mt-1 max-w-3xl text-sm text-fg-muted">Which content is not working. All four tables sort so the thing worth fixing rises to the top, rather than for looking things up.</p>
       </div>
 
       <Tasks rows={d.tasks} />
@@ -46,25 +44,24 @@ export default function AdminAnalysis() {
 }
 
 function Tasks({ rows }: { rows: TaskHealth[] }) {
-  const t = useT()
   const broken = rows.filter((r) => r.attempts >= 3 && r.pass_rate === 0)
   return (
     <Card className="p-5">
-      <h2 className="font-semibold text-fg-strong">{t('analysis.tasks')}</h2>
-      <p className="mt-1 text-sm text-fg-muted">{t('analysis.tasksHint')}</p>
+      <h2 className="font-semibold text-fg-strong">Tasks</h2>
+      <p className="mt-1 text-sm text-fg-muted">A 0% pass rate almost never means a hard question — it means the check script is wrong.</p>
 
       {/* Nghi vấn hỏng được kéo lên thành một câu, không để lẫn trong bảng: ba
           lượt thử mà không ai đậu là dấu hiệu script sai, và đó là thứ đáng sửa
           trước mọi thứ khác trên trang này. */}
       {broken.length > 0 && (
         <p className="mt-3 rounded-md border border-danger/40 bg-danger/5 px-3 py-2 text-sm text-danger">
-          {t('analysis.tasksBroken', { n: broken.length })}
+          {`${broken.length} tasks have been attempted and never passed. Check their scripts first.`}
         </p>
       )}
 
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[40rem] text-sm">
-          <Head cols={[t('analysis.colTask'), t('analysis.colLab'), t('analysis.colAttempts'), t('analysis.colPass')]} />
+          <Head cols={['Task', 'Lab', 'Attempts', 'Pass rate']} />
           <tbody>
             {rows.slice(0, 40).map((r) => (
               <tr key={r.task_id} className="border-t border-border">
@@ -75,7 +72,7 @@ function Tasks({ rows }: { rows: TaskHealth[] }) {
                 </td>
                 <td className="py-2 text-right">
                   {r.attempts === 0 ? (
-                    <span className="text-fg-subtle">{t('analysis.never')}</span>
+                    <span className="text-fg-subtle">never attempted</span>
                   ) : (
                     <Rate value={r.pass_rate} bad={r.pass_rate === 0} />
                   )}
@@ -90,21 +87,20 @@ function Tasks({ rows }: { rows: TaskHealth[] }) {
 }
 
 function Labs({ rows, retries }: { rows: LabHealth[]; retries: LabStat[] }) {
-  const t = useT()
   const retryOf = (labID: number) => retries.find((r) => r.lab_id === labID)
   return (
     <Card className="p-5">
-      <h2 className="font-semibold text-fg-strong">{t('analysis.labs')}</h2>
-      <p className="mt-1 text-sm text-fg-muted">{t('analysis.labsHint')}</p>
+      <h2 className="font-semibold text-fg-strong">Labs</h2>
+      <p className="mt-1 text-sm text-fg-muted">Drop rate: attempts that ended as anything but a hand-in. High means too long, broken in the middle, or asking for something the instructions never mentioned.</p>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[40rem] text-sm">
           <Head
             cols={[
-              t('analysis.colLab'),
-              t('analysis.colStarts'),
-              t('analysis.colSubmitted'),
-              t('analysis.colRetried'),
-              t('analysis.colDrop'),
+              'Lab',
+              'Starts',
+              'Handed in',
+              'Re-checked',
+              'Dropped',
             ]}
           />
           <tbody>
@@ -126,7 +122,7 @@ function Labs({ rows, retries }: { rows: LabHealth[]; retries: LabStat[] }) {
                 </td>
                 <td className="py-2 text-right">
                   {r.starts === 0 ? (
-                    <span className="text-fg-subtle">{t('analysis.never')}</span>
+                    <span className="text-fg-subtle">never attempted</span>
                   ) : (
                     <Rate value={r.drop_rate} bad={r.drop_rate >= 70} invert />
                   )}
@@ -141,14 +137,13 @@ function Labs({ rows, retries }: { rows: LabHealth[]; retries: LabStat[] }) {
 }
 
 function Incidents({ rows }: { rows: IncidentHealth[] }) {
-  const t = useT()
   return (
     <Card className="p-5">
-      <h2 className="font-semibold text-fg-strong">{t('analysis.incidents')}</h2>
-      <p className="mt-1 text-sm text-fg-muted">{t('analysis.incidentsHint')}</p>
+      <h2 className="font-semibold text-fg-strong">War Room scenarios</h2>
+      <p className="mt-1 text-sm text-fg-muted">Attempted but never recovered is the most suspicious row here: a break script that leaves a service unfixable looks exactly like a hard puzzle.</p>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[40rem] text-sm">
-          <Head cols={[t('analysis.colIncident'), t('analysis.colAttempts'), t('analysis.colSolved'), t('analysis.colBest')]} />
+          <Head cols={['Scenario', 'Attempts', 'Recovered', 'Fastest']} />
           <tbody>
             {rows.map((r) => (
               <tr key={r.incident_id} className="border-t border-border">
@@ -156,7 +151,7 @@ function Incidents({ rows }: { rows: IncidentHealth[] }) {
                   {r.incident_title}
                   {!r.active && (
                     <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] text-fg-muted">
-                      {t('analysis.retired')}
+                      retired
                     </span>
                   )}
                 </td>
@@ -184,14 +179,13 @@ function Incidents({ rows }: { rows: IncidentHealth[] }) {
 }
 
 function Courses({ rows }: { rows: CourseHealth[] }) {
-  const t = useT()
   return (
     <Card className="p-5">
-      <h2 className="font-semibold text-fg-strong">{t('analysis.courses')}</h2>
-      <p className="mt-1 text-sm text-fg-muted">{t('analysis.coursesHint')}</p>
+      <h2 className="font-semibold text-fg-strong">Courses</h2>
+      <p className="mt-1 text-sm text-fg-muted">Enrolment is one click. The gap between the three columns is what says whether the material is used.</p>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[36rem] text-sm">
-          <Head cols={[t('analysis.colCourse'), t('analysis.colEnrolled'), t('analysis.colStarted'), t('analysis.colFinished')]} />
+          <Head cols={['Course', 'Enrolled', 'Opened a lab', 'Handed one in']} />
           <tbody>
             {rows.map((r) => (
               <tr key={r.course_id} className="border-t border-border">

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useT } from '@/lib/i18n'
 
 /** Khung chung của mọi hộp thoại: nền mờ, thoát bằng Escape hoặc bấm ra ngoài.
  *
@@ -72,7 +71,6 @@ export function ConfirmModal({
   onConfirm: () => void
   onClose: () => void
 }) {
-  const t = useT()
   const cancelRef = useRef<HTMLButtonElement>(null)
 
   // Focus lands on Cancel, not Confirm: a dialog that appears under a finger
@@ -94,7 +92,7 @@ export function ConfirmModal({
           disabled={busy}
           className="rounded-md px-4 py-2 text-sm text-fg-muted transition hover:text-fg-strong disabled:opacity-50"
         >
-          {cancelLabel ?? t('common.cancel')}
+          {cancelLabel ?? 'Cancel'}
         </button>
         <button
           onClick={onConfirm}
@@ -144,7 +142,6 @@ export function PromptModal({
   onConfirm: (value: string) => void
   onClose: () => void
 }) {
-  const t = useT()
   const [value, setValue] = useState(initialValue)
   const ref = useRef<HTMLInputElement>(null)
 
@@ -182,14 +179,14 @@ export function PromptModal({
             onClick={onClose}
             className="rounded-md px-4 py-2 text-sm text-fg-muted transition hover:text-fg-strong"
           >
-            {t('common.cancel')}
+            Cancel
           </button>
           <button
             type="submit"
             disabled={!trimmed}
             className="rounded-md bg-accent px-4 py-2 text-sm font-medium text-accent-fg transition hover:bg-accent-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {confirmLabel ?? t('prompt.save')}
+            {confirmLabel ?? 'Save'}
           </button>
         </div>
       </form>

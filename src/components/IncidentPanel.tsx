@@ -10,7 +10,6 @@ import { Button, Card, Field, Input } from '@/components/ui'
 import { ConfirmModal } from '@/components/ConfirmModal'
 import { MarkdownEditor } from '@/components/MarkdownEditor'
 import { PlusIcon } from '@/components/icons'
-import { useT } from '@/lib/i18n'
 
 // Same box the admin forms use elsewhere. Copied rather than exported from
 // AdminCourse: one shared string constant across two screens is not worth an
@@ -51,7 +50,6 @@ export function IncidentPanel({
   onError: (e: unknown) => void
   clearError: () => void
 }) {
-  const t = useT()
   const qc = useQueryClient()
   const [form, setForm] = useState<IncidentInput | null>(null)
   const [editing, setEditing] = useState<AdminIncident | null>(null)
@@ -113,14 +111,14 @@ export function IncidentPanel({
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3">
         <div className="min-w-0">
           <h2 className="truncate font-semibold text-fg-strong">
-            {t('ac.incidents')}
+            Incident scenarios
           </h2>
-          <p className="mt-0.5 text-xs text-fg-muted">{t('ac.incidentsSummary')}</p>
+          <p className="mt-0.5 text-xs text-fg-muted">One active scenario is drawn at random per run. With none active, this lab does not appear in War Room at all.</p>
         </div>
         {!form && (
           <Button className="shrink-0 px-3 py-1.5 text-sm" onClick={() => open(null)}>
             <PlusIcon className="h-4 w-4" />
-            {t('ac.addIncident')}
+            Add a scenario
           </Button>
         )}
       </div>
@@ -134,43 +132,43 @@ export function IncidentPanel({
           className="space-y-4 bg-muted/40 px-5 py-4"
         >
           <h3 className="text-sm font-semibold text-fg-strong">
-            {editing ? t('ac.editIncident') : t('ac.newIncident')}
+            {editing ? 'Edit the scenario' : 'New scenario'}
           </h3>
 
-          <Field label={t('ac.incidentTitle')} hint={t('ac.incidentTitleHint')}>
+          <Field label="Cause" hint="shown only once the run is over">
             <Input
               value={form.title}
               onChange={(e) => set('title', e.target.value)}
-              placeholder={t('ac.incidentTitlePlaceholder')}
+              placeholder="nginx has the wrong port in its config"
               autoFocus
               required
             />
           </Field>
 
-          <Field label={t('ac.breakScript')} hint={t('ac.breakScriptHint')}>
+          <Field label="Break script" hint="runs in the student's container — this is the answer key">
             <textarea
               rows={3}
               value={form.break_script}
               onChange={(e) => set('break_script', e.target.value)}
               className={textarea + ' font-mono text-sm'}
-              placeholder={t('ac.breakScriptPlaceholder')}
+              placeholder={'sed -i "s/80/8080/" /etc/nginx/nginx.conf && systemctl restart nginx'}
             />
           </Field>
           <p className="rounded-md border border-dashed border-border-strong px-3 py-2 text-xs leading-relaxed text-fg-subtle">
-            {t('ac.breakScriptNote')}
+            Runs after the setup script. Break it for real rather than just stopping the service — the lesson is working out the cause, and a stopped service is obvious at a glance.
           </p>
 
-          <Field label={t('ac.revealMD')} hint={t('ac.revealHint')}>
+          <Field label="Explanation after the run" hint="the student reads this in the report">
             <MarkdownEditor
               rows={5}
               value={form.reveal_md}
               onChange={(v) => set('reveal_md', v)}
-              placeholder={t('ac.revealPlaceholder')}
+              placeholder="The port in the config does not match the port the service listens on. Usually found with `ss -tlnp` and a comparison…"
             />
           </Field>
 
           <div className="flex flex-wrap items-end gap-4">
-            <Field label={t('ac.rps')} hint={t('ac.rpsHint')}>
+            <Field label="Requests/second" hint={'an estimate, shown next to the word "estimated"'}>
               <Input
                 type="number"
                 min={0}
@@ -191,9 +189,9 @@ export function IncidentPanel({
                 className="h-4 w-4 accent-[var(--accent)]"
               />
               <span>
-                {t('ac.active')}
+                Active
                 <span className="ml-1.5 text-xs text-fg-subtle">
-                  {t('ac.activeHint')}
+                  off = kept for old reports, never drawn again
                 </span>
               </span>
             </label>
@@ -202,10 +200,10 @@ export function IncidentPanel({
           <div className="flex items-center gap-3 border-t border-border pt-4">
             <Button type="submit" disabled={save.isPending} className="px-3 py-2 text-sm">
               {save.isPending
-                ? t('ac.saving')
+                ? 'Saving…'
                 : editing
-                  ? t('ac.save')
-                  : t('ac.createIncident')}
+                  ? 'Save'
+                  : 'Create the scenario'}
             </Button>
             <button
               type="button"
@@ -215,17 +213,17 @@ export function IncidentPanel({
               }}
               className="text-sm text-fg-muted transition hover:text-fg-strong"
             >
-              {t('common.cancel')}
+              Cancel
             </button>
           </div>
         </form>
       )}
 
       {incidents.isLoading ? (
-        <p className="px-5 py-6 text-sm text-fg-subtle">{t('common.loading')}</p>
+        <p className="px-5 py-6 text-sm text-fg-subtle">Loading…</p>
       ) : incidents.data?.length === 0 && !form ? (
         <p className="px-5 py-8 text-center text-sm text-fg-subtle">
-          {t('ac.noIncidents')}
+          This lab has no scenarios — it is an ordinary lab.
         </p>
       ) : (
         <ul className="divide-y divide-border">
@@ -237,7 +235,7 @@ export function IncidentPanel({
                     <span className="truncate">{inc.title}</span>
                     {!inc.active && (
                       <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal uppercase text-fg-subtle">
-                        {t('ac.incidentOff')}
+                        off
                       </span>
                     )}
                   </p>
@@ -250,13 +248,13 @@ export function IncidentPanel({
                     onClick={() => open(inc)}
                     className="rounded px-2 py-0.5 text-xs text-accent-soft transition hover:bg-muted"
                   >
-                    {t('ac.edit')}
+                    Edit
                   </button>
                   <button
                     onClick={() => setDeleting(inc)}
                     className="rounded px-2 py-0.5 text-xs text-danger transition hover:bg-danger/10"
                   >
-                    {t('ac.delete')}
+                    Delete
                   </button>
                 </div>
               </div>
@@ -265,7 +263,7 @@ export function IncidentPanel({
               {inc.break_script.trim() !== '' && (
                 <details className="mt-2">
                   <summary className="cursor-pointer text-xs text-fg-muted select-none">
-                    {t('ac.viewScript')}
+                    View the script
                   </summary>
                   <pre className="mt-2 overflow-x-auto rounded bg-muted px-3 py-2 font-mono text-xs text-fg-muted">
                     {inc.break_script}
@@ -279,8 +277,8 @@ export function IncidentPanel({
 
       {deleting && (
         <ConfirmModal
-          title={t('ac.deleteIncidentTitle')}
-          confirmLabel={remove.isPending ? t('ac.deleting') : t('ac.deleteIncident')}
+          title="Delete this scenario?"
+          confirmLabel={remove.isPending ? 'Deleting…' : 'Delete the scenario'}
           tone="danger"
           busy={remove.isPending}
           onClose={() => setDeleting(null)}
@@ -290,7 +288,7 @@ export function IncidentPanel({
           }}
         >
           <p className="text-fg-strong">{deleting.title}</p>
-          <p>{t('ac.incidentDeleteNote')}</p>
+          <p>Only a scenario nobody has played can be deleted. If a session points at it the server refuses — turn it off instead, and old reports stay readable.</p>
         </ConfirmModal>
       )}
     </Card>

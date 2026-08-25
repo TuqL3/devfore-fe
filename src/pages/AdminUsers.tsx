@@ -11,19 +11,18 @@ import { SearchIcon } from '@/components/icons'
 import { useAuth } from '@/context/AuthContext'
 import { timeAgo } from '@/lib/relativeTime'
 import type { ManagedUser } from '@/lib/types'
-import { useT, type Key } from '@/lib/i18n'
 
-const STATUSES: { key: NonNullable<UserFilter['status']>; label: Key }[] = [
-  { key: '', label: 'users.filter.all' },
-  { key: 'active', label: 'users.filter.active' },
-  { key: 'pending', label: 'users.filter.pending' },
-  { key: 'banned', label: 'users.filter.banned' },
+const STATUSES: { key: NonNullable<UserFilter['status']>; label: string }[] = [
+  { key: '', label: 'All' },
+  { key: 'active', label: 'Active' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'banned', label: 'Banned' },
 ]
 
-const ROLES: { key: NonNullable<UserFilter['role']>; label: Key }[] = [
-  { key: '', label: 'users.role.any' },
-  { key: 'admin', label: 'users.role.admin' },
-  { key: 'student', label: 'users.role.student' },
+const ROLES: { key: NonNullable<UserFilter['role']>; label: string }[] = [
+  { key: '', label: 'Any role' },
+  { key: 'admin', label: 'Admin' },
+  { key: 'student', label: 'Student' },
 ]
 
 /** The account table. Two decisions live here — is this account allowed in, and
@@ -31,7 +30,6 @@ const ROLES: { key: NonNullable<UserFilter['role']>; label: Key }[] = [
  *  row by the server, because that is the one mistake nobody can undo from the
  *  screen they just locked themselves out of. */
 export default function AdminUsers() {
-  const t = useT()
   const qc = useQueryClient()
   const { user: me } = useAuth()
   const [query, setQuery] = useState('')
@@ -52,7 +50,7 @@ export default function AdminUsers() {
   })
 
   const fail = (e: unknown) =>
-    setError(e instanceof ApiError ? e.message : t('users.actionFailed'))
+    setError(e instanceof ApiError ? e.message : 'the action failed, try again')
   const done = () => {
     qc.invalidateQueries({ queryKey: ['admin-users'] })
     setError('')
@@ -83,9 +81,9 @@ export default function AdminUsers() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-fg-strong">{t('users.title')}</h1>
+        <h1 className="text-2xl font-bold text-fg-strong">Users</h1>
         <p className="mt-1 text-sm text-fg-muted">
-          {t('users.subtitle')}
+          {"Ban accounts and grant admin rights. Both revoke that account's sessions immediately."}
         </p>
       </div>
 
@@ -97,7 +95,7 @@ export default function AdminUsers() {
           <Input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('users.search')}
+            placeholder="Search by name or email"
             className="pl-9"
           />
         </div>
@@ -108,26 +106,26 @@ export default function AdminUsers() {
       <Card className="overflow-hidden">
         {users.isLoading ? (
           <p className="px-5 py-8 text-center text-sm text-fg-subtle">
-            {t('common.loading')}
+            Loading…
           </p>
         ) : users.isError ? (
           <p className="px-5 py-8 text-center text-sm text-danger">
-            {t('users.loadError')}
+            Could not read the list.
           </p>
         ) : rows.length === 0 ? (
           <p className="px-5 py-8 text-center text-sm text-fg-subtle">
-            {t('users.empty')}
+            No account matches.
           </p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[46rem] text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs text-fg-muted">
-                  <th className="px-5 py-2 font-medium">{t('users.colAccount')}</th>
-                  <th className="px-3 py-2 font-medium">{t('users.colStatus')}</th>
-                  <th className="px-3 py-2 font-medium">{t('users.colRole')}</th>
-                  <th className="px-3 py-2 font-medium">{t('users.colJoined')}</th>
-                  <th className="px-5 py-2 text-right font-medium">{t('users.colActions')}</th>
+                  <th className="px-5 py-2 font-medium">Account</th>
+                  <th className="px-3 py-2 font-medium">Status</th>
+                  <th className="px-3 py-2 font-medium">Role</th>
+                  <th className="px-3 py-2 font-medium">Joined</th>
+                  <th className="px-5 py-2 text-right font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -156,30 +154,30 @@ export default function AdminUsers() {
             looks complete is worse than one that admits it is not. */}
         {hidden > 0 && (
           <p className="border-t border-border px-5 py-2.5 text-xs text-fg-muted">
-            {t('users.truncated', { shown: rows.length, total: data?.total ?? 0 })}
+            {`Showing ${rows.length} of ${data?.total ?? 0} matching accounts. Narrow the search to see the rest.`}
           </p>
         )}
       </Card>
 
       {banning && (
         <ConfirmModal
-          title={t('users.banTitle', { name: banning.username })}
-          confirmLabel={ban.isPending ? t('users.banning') : t('users.ban')}
+          title={`Ban the account “${banning.username}”?`}
+          confirmLabel={ban.isPending ? 'Banning…' : 'Ban the account'}
           tone="danger"
           busy={ban.isPending}
           onClose={() => setBanning(null)}
           onConfirm={() => ban.mutate({ id: banning.id, banned: true, reason })}
         >
           <p>
-            {t('users.banBody')}
+            They are signed out of every device and cannot sign back in until you lift it. Their learning data is untouched.
           </p>
           <label className="block">
-            <span className="text-sm text-fg-muted">{t('users.banReason')}</span>
+            <span className="text-sm text-fg-muted">Reason (optional)</span>
             <Input
               value={reason}
               maxLength={500}
               onChange={(e) => setReason(e.target.value)}
-              placeholder={t('users.banReasonPlaceholder')}
+              placeholder="write it down so you know why later"
               className="mt-1"
             />
           </label>
@@ -194,11 +192,10 @@ function Chips<T extends string>({
   value,
   onChange,
 }: {
-  options: { key: T; label: Key }[]
+  options: { key: T; label: string }[]
   value: T | undefined
   onChange: (v: T) => void
 }) {
-  const t = useT()
   return (
     <div className="flex gap-1 rounded-lg bg-muted p-1">
       {options.map((o) => (
@@ -212,7 +209,7 @@ function Chips<T extends string>({
               : 'text-fg-muted hover:text-fg-strong')
           }
         >
-          {t(o.label)}
+          {o.label}
         </button>
       ))}
     </div>
@@ -236,10 +233,9 @@ function UserRow({
   onBan: () => void
   onUnban: () => void
 }) {
-  const t = useT()
   const admin = user.roles.includes('admin')
   const banned = user.status === 'banned'
-  const selfTitle = t('users.selfTitle')
+  const selfTitle = 'you cannot act on your own account'
 
   return (
     <tr className="border-b border-border last:border-0">
@@ -259,7 +255,7 @@ function UserRow({
               </Link>
               {isMe && (
                 <span className="ml-1.5 text-xs text-fg-subtle">
-                  {t('users.you')}
+                  (you)
                 </span>
               )}
             </p>
@@ -281,7 +277,7 @@ function UserRow({
               : 'bg-muted text-fg-muted')
           }
         >
-          {admin ? t('users.role.admin') : t('users.role.student')}
+          {admin ? 'Admin' : 'Student'}
         </span>
       </td>
 
@@ -296,11 +292,11 @@ function UserRow({
             title={isMe ? selfTitle : undefined}
             onClick={onToggleAdmin}
           >
-            {admin ? t('users.revokeAdmin') : t('users.grantAdmin')}
+            {admin ? 'Revoke' : 'Grant admin'}
           </RowButton>
           {banned ? (
             <RowButton tone="ok" disabled={isMe || busy} onClick={onUnban}>
-              {t('users.unban')}
+              Unban
             </RowButton>
           ) : (
             <RowButton
@@ -313,12 +309,12 @@ function UserRow({
                 isMe
                   ? selfTitle
                   : user.status !== 'active'
-                    ? t('users.onlyActive')
+                    ? 'only an active account can be banned'
                     : undefined
               }
               onClick={onBan}
             >
-              {t('users.banShort')}
+              Ban
             </RowButton>
           )}
         </div>
@@ -357,17 +353,16 @@ function RowButton({
 }
 
 function StatusBadge({ user }: { user: ManagedUser }) {
-  const t = useT()
   if (user.status === 'banned') {
     return (
       <div>
         <span className="rounded-full bg-danger/10 px-2 py-0.5 text-xs font-medium text-danger">
-          {t('users.banned')}
+          Banned
         </span>
         {/* The reason and who gave it, because "why is this person locked out"
             is the next question every time. */}
         <p className="mt-1 max-w-56 text-xs text-fg-subtle">
-          {user.banned_reason ?? t('users.noReason')}
+          {user.banned_reason ?? 'no reason recorded'}
           {user.banned_by && ` — ${user.banned_by}`}
         </p>
       </div>
@@ -376,13 +371,13 @@ function StatusBadge({ user }: { user: ManagedUser }) {
   if (user.status === 'pending') {
     return (
       <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-500">
-        {t('users.pending')}
+        Pending
       </span>
     )
   }
   return (
     <span className="rounded-full bg-success-soft px-2 py-0.5 text-xs font-medium text-success">
-      {t('users.active')}
+      Active
     </span>
   )
 }

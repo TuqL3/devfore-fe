@@ -18,10 +18,10 @@ export function parseJsonObject(text: string): JsonObjectResult {
   try {
     parsed = JSON.parse(text)
   } catch {
-    return { value: null, error: 'JSON chưa hợp lệ' }
+    return { value: null, error: 'invalid JSON' }
   }
   if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { value: null, error: 'cần một object JSON, không phải mảng hay giá trị đơn' }
+    return { value: null, error: 'expected a JSON object, not an array or a bare value' }
   }
   return { value: parsed as Record<string, unknown>, error: '' }
 }

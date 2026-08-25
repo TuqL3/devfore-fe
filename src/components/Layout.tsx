@@ -14,7 +14,6 @@ import {
   UsersIcon,
 } from '@/components/icons'
 import { useLevels } from '@/lib/levels'
-import { useT } from '@/lib/i18n'
 
 function navClass({ isActive }: { isActive: boolean }) {
   return (
@@ -58,9 +57,8 @@ function NavItem({
  *  up every time anyone says anything is a badge people learn to ignore. */
 function ChatLink() {
   const { dmUnread } = useChat()
-  const t = useT()
   return (
-    <NavLink to="/chat" className={navClass} title={t('nav.chat')}>
+    <NavLink to="/chat" className={navClass} title="Chat">
       <span className="relative">
         <UsersIcon className="h-4 w-4" />
         {dmUnread > 0 && (
@@ -73,10 +71,10 @@ function ChatLink() {
         )}
       </span>
       {/* Cùng luật với NavItem: chữ ẩn ở màn hẹp, icon và huy hiệu ở lại. */}
-      <span className="hidden lg:inline">{t('nav.chat')}</span>
-      <span className="sr-only lg:hidden">{t('nav.chat')}</span>
+      <span className="hidden lg:inline">Chat</span>
+      <span className="sr-only lg:hidden">Chat</span>
       {dmUnread > 0 && (
-        <span className="sr-only">{t('nav.unread', { count: dmUnread })}</span>
+        <span className="sr-only">{`${dmUnread} unread messages`}</span>
       )}
     </NavLink>
   )
@@ -85,7 +83,6 @@ function ChatLink() {
 export default function Layout() {
   const { user, isAdmin } = useAuth()
   const { pathname } = useLocation()
-  const t = useT()
 
   // BrowserRouter keeps the old scroll offset across navigations; a new page
   // should start at the top.
@@ -111,20 +108,20 @@ export default function Layout() {
                 Dev<span className="text-accent-soft">Forge</span>
               </span>
             </Link>
-            <NavItem to="/courses" label={t('nav.courses')} icon={<BookIcon className="h-4 w-4" />} />
+            <NavItem to="/courses" label="Courses" icon={<BookIcon className="h-4 w-4" />} />
             {/* Hiện cả khi chưa đăng nhập. Giấu đi thì khách không biết trang
                 này có gì, và "đăng ký để dùng cái gì?" là câu không ai trả lời
                 được từ một thanh nav trống. Bấm vào thì `ProtectedRoute` đưa
                 sang /login rồi quay lại đúng đây. */}
-            <NavItem to="/history" label={t('nav.history')} icon={<ClockIcon className="h-4 w-4" />} />
+            <NavItem to="/history" label="History" icon={<ClockIcon className="h-4 w-4" />} />
             {/* Trình mô phỏng không thuộc khoá nào, nên nó là mục riêng chứ
                 không nằm trong Khoá học — khoá học để dạy, chỗ này để nghịch. */}
-            <NavItem to="/sim" label={t('nav.sim')} icon={<LayersIcon className="h-4 w-4" />} />
+            <NavItem to="/sim" label="Simulator" icon={<LayersIcon className="h-4 w-4" />} />
             {/* Thử thách có hạn giờ, không thuộc khoá nào và không cần đăng ký
                 — nên nó đứng cạnh Mô phỏng, không nằm trong Khoá học. */}
             <NavItem
               to="/war-room"
-              label={t('nav.warRoom')}
+              label="War Room"
               icon={<TerminalIcon className="h-4 w-4" />}
             />
             <ChatLink />
@@ -136,14 +133,6 @@ export default function Layout() {
               bên trái trượt ngang được, khối này thì không — tên và nút đăng
               xuất bị bóp là hỏng hẳn. */}
           <div className="flex shrink-0 items-center gap-2 text-sm">
-            {/* ponytail: nút chọn ngôn ngữ tạm ẩn. Bộ máy i18n vẫn chạy đủ và
-                mặc định là tiếng Việt — bỏ ẩn bằng cách trả <LangToggle /> lại
-                đúng chỗ này, không phải dựng lại gì.
-
-                Chỗ của nó là ở ngoài với cả hai trạng thái đăng nhập, khác nút
-                giao diện: chọn nhầm ngôn ngữ thì menu tài khoản — chỗ để sửa
-                lại — cũng đã đổi chữ rồi, nên nó không được nằm sau một cú
-                bấm. */}
             {user ? (
               // Hồ sơ, quản trị, giao diện và đăng xuất gom vào một menu: cả
               // bốn đều là thứ bấm một lần rồi thôi, nên chúng không đáng chiếm
@@ -159,13 +148,13 @@ export default function Layout() {
                   to="/login"
                   className="rounded-md px-3 py-1.5 text-fg-muted transition hover:bg-muted hover:text-fg-strong"
                 >
-                  {t('nav.login')}
+                  Sign in
                 </Link>
                 <Link
                   to="/register"
                   className="rounded-md bg-accent px-3 py-1.5 font-medium text-accent-fg transition hover:bg-accent-hover"
                 >
-                  {t('nav.register')}
+                  Sign up
                 </Link>
               </>
             )}
@@ -208,7 +197,6 @@ function FooterCol({
 
 function Footer({ loggedIn }: { loggedIn: boolean }) {
   const { levels } = useLevels()
-  const t = useT()
   return (
     <footer className="mt-12 border-t border-border bg-bg">
       <div className="mx-auto grid max-w-6xl gap-8 px-4 py-8 sm:grid-cols-2 lg:grid-cols-4">
@@ -219,20 +207,20 @@ function Footer({ loggedIn }: { loggedIn: boolean }) {
               Dev<span className="text-accent-soft">Forge</span>
             </span>
           </Link>
-          <p className="mt-2 text-sm text-fg-muted">{t('footer.tagline')}</p>
+          <p className="mt-2 text-sm text-fg-muted">Learn DevOps through hands-on labs on real Linux containers, right in the browser.</p>
         </div>
 
         <FooterCol
           label="content"
-          title={t('footer.content')}
+          title="Content"
           links={[
-            { to: '/', text: t('footer.home') },
-            { to: '/courses', text: t('footer.allCourses') },
+            { to: '/', text: 'Home' },
+            { to: '/courses', text: 'All courses' },
           ]}
         />
         <FooterCol
           label="levels"
-          title={t('footer.levels')}
+          title="Levels"
           links={levels.map((l) => ({
             to: `/courses?level=${l.slug}`,
             text: l.label,
@@ -240,16 +228,16 @@ function Footer({ loggedIn }: { loggedIn: boolean }) {
         />
         <FooterCol
           label="account"
-          title={t('footer.account')}
+          title="Account"
           links={
             loggedIn
               ? [
-                  { to: '/profile', text: t('footer.profile') },
-                  { to: '/courses', text: t('nav.courses') },
+                  { to: '/profile', text: 'Profile' },
+                  { to: '/courses', text: 'Courses' },
                 ]
               : [
-                  { to: '/login', text: t('nav.login') },
-                  { to: '/register', text: t('nav.register') },
+                  { to: '/login', text: 'Sign in' },
+                  { to: '/register', text: 'Sign up' },
                 ]
           }
         />

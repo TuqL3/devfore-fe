@@ -145,27 +145,27 @@ function nearlySorted(n: number): number[] {
 
 export const LAYOUTS: Layout[] = [
   {
-    id: 'ngau-nhien',
-    name: 'Ngẫu nhiên',
-    hint: 'Trường hợp trung bình. Đây là con số hay được trích dẫn.',
+    id: 'random',
+    name: 'Random',
+    hint: 'The average case. This is the number people quote.',
     make: () => shuffled(N),
   },
   {
-    id: 'gan-sap',
-    name: 'Gần sắp xếp',
-    hint: 'Ba cặp bị đổi chỗ. Chèn gần như chạy không, ba cái kia không biết.',
+    id: 'nearly-sorted',
+    name: 'Nearly sorted',
+    hint: 'Three pairs swapped. Insertion barely works; the other three cannot tell.',
     make: () => nearlySorted(N),
   },
   {
-    id: 'da-sap',
-    name: 'Đã sắp sẵn',
-    hint: 'Không còn gì để làm. Nổi bọt dừng sau một lượt, nhanh thì tệ nhất.',
+    id: 'sorted',
+    name: 'Already sorted',
+    hint: 'Nothing left to do. Bubble stops after one pass; quicksort hits its worst case.',
     make: () => ascending(N),
   },
   {
-    id: 'dao-nguoc',
-    name: 'Đảo ngược',
-    hint: 'Mọi cặp đều sai chỗ. Trường hợp tệ nhất của chèn và của nổi bọt.',
+    id: 'reversed',
+    name: 'Reversed',
+    hint: 'Every pair is out of order. Worst case for insertion and for bubble.',
     make: () => ascending(N).reverse(),
   },
 ]
@@ -251,20 +251,20 @@ function bubble(input: number[]): Trace {
 
   for (let end = n - 1; end > 0; end--) {
     const v = () => [num('end', end)]
-    t.emit({ line: 2, lo: 0, hi: end, vars: v(), note: `lượt quét mới, tới ô ${end}` })
-    t.emit({ line: 3, lo: 0, hi: end, vars: v(), note: 'lượt này chưa đổi chỗ lần nào' })
+    t.emit({ line: 2, lo: 0, hi: end, vars: v(), note: `new pass, up to slot ${end}` })
+    t.emit({ line: 3, lo: 0, hi: end, vars: v(), note: 'no swap in this pass yet' })
 
     let swapped = false
     for (let j = 0; j < end; j++) {
       const vj = [...v(), num('j', j)]
-      t.emit({ line: 4, lo: 0, hi: end, vars: vj, note: `xét cặp kề nhau ${j} và ${j + 1}` })
+      t.emit({ line: 4, lo: 0, hi: end, vars: vj, note: `looking at the adjacent pair ${j} and ${j + 1}` })
       t.emit({
         line: 5,
         lo: 0,
         hi: end,
         cmp: [j, j + 1],
         vars: vj,
-        note: `so ${a[j]} với ${a[j + 1]}`,
+        note: `compare ${a[j]} with ${a[j + 1]}`,
       })
       if (a[j] > a[j + 1]) {
         ;[a[j], a[j + 1]] = [a[j + 1], a[j]]
@@ -274,10 +274,10 @@ function bubble(input: number[]): Trace {
           hi: end,
           wrote: [j, j + 1],
           vars: vj,
-          note: 'trái lớn hơn phải → đổi chỗ',
+          note: 'left is bigger than right → swap',
         })
         swapped = true
-        t.emit({ line: 7, lo: 0, hi: end, vars: vj, note: 'ghi nhận: lượt này có đổi chỗ' })
+        t.emit({ line: 7, lo: 0, hi: end, vars: vj, note: 'noted: this pass did swap' })
       }
     }
 
@@ -290,18 +290,18 @@ function bubble(input: number[]): Trace {
       hi: end - 1,
       vars: v(),
       note: swapped
-        ? `ô ${end} đã chốt, lượt này còn đổi chỗ nên quét tiếp`
-        : 'cả lượt không đổi chỗ lần nào',
+        ? `slot ${end} is settled; this pass still swapped, so keep going`
+        : 'the whole pass made no swap',
     })
     if (!swapped) {
       for (let i = 0; i < end; i++) t.fix(i)
-      t.emit({ line: 9, lo: 0, hi: -1, note: 'mảng đã có thứ tự — dừng sớm' })
+      t.emit({ line: 9, lo: 0, hi: -1, note: 'the array is in order — stop early' })
       return t.end()
     }
   }
 
   t.fix(0)
-  t.emit({ line: 2, lo: 0, hi: -1, note: 'hết lượt quét, xong' })
+  t.emit({ line: 2, lo: 0, hi: -1, note: 'no passes left, done' })
   return t.end()
 }
 
@@ -333,20 +333,20 @@ function insertion(input: number[]): Trace {
   const n = a.length
 
   for (let i = 1; i < n; i++) {
-    t.emit({ line: 2, lo: 0, hi: i, vars: [num('i', i)], note: `tới lượt ô ${i}` })
+    t.emit({ line: 2, lo: 0, hi: i, vars: [num('i', i)], note: `slot ${i} takes its turn` })
     let j = i
     t.emit({
       line: 3,
       lo: 0,
       hi: i,
       vars: [num('i', i), num('j', j)],
-      note: 'bắt đầu lùi từ chính nó',
+      note: 'start walking back from itself',
     })
 
     for (;;) {
       const vj = [num('i', i), num('j', j)]
       if (j === 0) {
-        t.emit({ line: 4, lo: 0, hi: i, vars: vj, note: 'đã tới đầu mảng, dừng' })
+        t.emit({ line: 4, lo: 0, hi: i, vars: vj, note: 'reached the front of the array, stop' })
         break
       }
       t.emit({
@@ -355,7 +355,7 @@ function insertion(input: number[]): Trace {
         hi: i,
         cmp: [j - 1, j],
         vars: vj,
-        note: `so ${a[j - 1]} bên trái với ${a[j]}`,
+        note: `compare ${a[j - 1]} on the left with ${a[j]}`,
       })
       if (a[j - 1] <= a[j]) break
 
@@ -366,10 +366,10 @@ function insertion(input: number[]): Trace {
         hi: i,
         wrote: [j - 1, j],
         vars: vj,
-        note: 'trái lớn hơn → lùi thêm một ô',
+        note: 'left is bigger → walk back one more slot',
       })
       j--
-      t.emit({ line: 6, lo: 0, hi: i, vars: [num('i', i), num('j', j)], note: `giờ đang ở ô ${j}` })
+      t.emit({ line: 6, lo: 0, hi: i, vars: [num('i', i), num('j', j)], note: `now at slot ${j}` })
     }
   }
 
@@ -377,7 +377,7 @@ function insertion(input: number[]): Trace {
   // nhau nhưng chưa ô nào đứng đúng chỗ cuối cùng — một ô nhỏ chưa xét tới vẫn
   // chen được vào giữa và đẩy cả đoạn sang phải. Xem chú thích ở `Frame.done`.
   for (let i = 0; i < n; i++) t.fix(i)
-  t.emit({ line: 2, lo: 0, hi: -1, note: 'hết mảng, xong' })
+  t.emit({ line: 2, lo: 0, hi: -1, note: 'end of the array, done' })
   return t.end()
 }
 
@@ -400,26 +400,26 @@ function selection(input: number[]): Trace {
   const n = a.length
 
   for (let i = 0; i < n - 1; i++) {
-    t.emit({ line: 2, lo: i, hi: n - 1, vars: [num('i', i)], note: `đi tìm số nhỏ nhất cho ô ${i}` })
+    t.emit({ line: 2, lo: i, hi: n - 1, vars: [num('i', i)], note: `go find the smallest value for slot ${i}` })
     let m = i
     t.emit({
       line: 3,
       lo: i,
       hi: n - 1,
       vars: [num('i', i), num('m', m)],
-      note: 'tạm coi ô đầu đoạn là nhỏ nhất',
+      note: 'assume the first slot of the range is the smallest for now',
     })
 
     for (let j = i + 1; j < n; j++) {
       const vj = [num('i', i), num('m', m), num('j', j)]
-      t.emit({ line: 4, lo: i, hi: n - 1, vars: vj, note: `xét ô ${j}` })
+      t.emit({ line: 4, lo: i, hi: n - 1, vars: vj, note: `look at slot ${j}` })
       t.emit({
         line: 5,
         lo: i,
         hi: n - 1,
         cmp: [j, m],
         vars: vj,
-        note: `so ${a[j]} với số nhỏ nhất đang giữ ${a[m]}`,
+        note: `compare ${a[j]} with the current smallest ${a[m]}`,
       })
       if (a[j] < a[m]) {
         m = j
@@ -428,7 +428,7 @@ function selection(input: number[]): Trace {
           lo: i,
           hi: n - 1,
           vars: [num('i', i), num('m', m), num('j', j)],
-          note: `nhỏ hơn → số nhỏ nhất giờ ở ô ${m}`,
+          note: `smaller → the smallest is now at slot ${m}`,
         })
       }
     }
@@ -438,7 +438,7 @@ function selection(input: number[]): Trace {
       lo: i,
       hi: n - 1,
       vars: [num('i', i), num('m', m)],
-      note: m === i ? 'nó vốn đã đứng đúng chỗ, khỏi đổi' : `số nhỏ nhất nằm ở ô ${m}`,
+      note: m === i ? 'it was already in the right place, no swap' : `the smallest sits at slot ${m}`,
     })
     if (m !== i) {
       ;[a[i], a[m]] = [a[m], a[i]]
@@ -448,7 +448,7 @@ function selection(input: number[]): Trace {
         hi: n - 1,
         wrote: [i, m],
         vars: [num('i', i), num('m', m)],
-        note: `đưa ${a[i]} về ô ${i} — một lần đổi chỗ cho cả lượt quét`,
+        note: `move ${a[i]} to slot ${i} — one swap for the whole pass`,
       })
     }
     t.fix(i)
@@ -456,7 +456,7 @@ function selection(input: number[]): Trace {
 
   // Ô cuối không cần lượt nào: mọi ô khác đã chốt thì nó chỉ còn một chỗ để nằm.
   t.fix(n - 1)
-  t.emit({ line: 2, lo: n - 1, hi: n - 2, note: 'còn đúng một ô, không cần xét' })
+  t.emit({ line: 2, lo: n - 1, hi: n - 2, note: 'one slot left, nothing to examine' })
   return t.end()
 }
 
@@ -498,7 +498,7 @@ function quick(input: number[]): Trace {
       hi,
       pivot: hi,
       vars: base(),
-      note: `lấy ô cuối đoạn làm chốt: ${pivot}`,
+      note: `take the last slot as pivot: ${pivot}`,
     })
     let i = lo
     t.emit({
@@ -507,12 +507,12 @@ function quick(input: number[]): Trace {
       hi,
       pivot: hi,
       vars: [...base(), num('i', i)],
-      note: 'i là ranh giới của phần nhỏ hơn chốt',
+      note: 'i is the boundary of the part below the pivot',
     })
 
     for (let j = lo; j < hi; j++) {
       const vj = [...base(), num('i', i), num('j', j)]
-      t.emit({ line: 11, lo, hi, pivot: hi, vars: vj, note: `xét ô ${j}` })
+      t.emit({ line: 11, lo, hi, pivot: hi, vars: vj, note: `look at slot ${j}` })
       t.emit({
         line: 12,
         lo,
@@ -520,7 +520,7 @@ function quick(input: number[]): Trace {
         pivot: hi,
         cmp: [j, hi],
         vars: vj,
-        note: `so ${a[j]} với chốt ${pivot}`,
+        note: `compare ${a[j]} with the pivot ${pivot}`,
       })
       if (a[j] < pivot) {
         ;[a[i], a[j]] = [a[j], a[i]]
@@ -533,8 +533,8 @@ function quick(input: number[]): Trace {
           vars: vj,
           note:
             i === j
-              ? 'nó vốn đã ở phía nhỏ hơn — vẫn tốn hai lệnh gán để đổi chỗ với chính nó'
-              : `nhỏ hơn chốt → đẩy về ô ${i}`,
+              ? 'it was already on the smaller side — still two assignments to swap it with itself'
+              : `below the pivot → push it to slot ${i}`,
         })
         i++
         t.emit({
@@ -543,7 +543,7 @@ function quick(input: number[]): Trace {
           hi,
           pivot: hi,
           vars: [...base(), num('i', i), num('j', j)],
-          note: `ranh giới sang ô ${i}`,
+          note: `boundary moves to slot ${i}`,
         })
       }
     }
@@ -556,7 +556,7 @@ function quick(input: number[]): Trace {
       pivot: i,
       wrote: [i, hi],
       vars: [...base(), num('i', i)],
-      note: `đưa chốt về đúng ranh giới, ô ${i}`,
+      note: `move the pivot onto the boundary, slot ${i}`,
     })
     t.fix(i)
     t.emit({
@@ -564,14 +564,14 @@ function quick(input: number[]): Trace {
       lo,
       hi,
       vars: [...base(), num('i', i)],
-      note: `ô ${i} chốt xong — trái nhỏ hơn, phải lớn hơn`,
+      note: `slot ${i} is settled — smaller on the left, bigger on the right`,
     })
     return i
   }
 
   const sort = (lo: number, hi: number) => {
     const v = [num('lo', lo), num('hi', hi)]
-    t.emit({ line: 2, lo, hi, vars: v, note: `đoạn [${lo}..${hi}]` })
+    t.emit({ line: 2, lo, hi, vars: v, note: `range [${lo}..${hi}]` })
     if (lo >= hi) {
       if (lo === hi) t.fix(lo)
       t.emit({
@@ -579,19 +579,19 @@ function quick(input: number[]): Trace {
         lo,
         hi,
         vars: v,
-        note: lo === hi ? `còn một ô → ô ${lo} đã đúng chỗ` : 'đoạn rỗng, quay về',
+        note: lo === hi ? `one slot left → slot ${lo} is in place` : 'empty range, return',
       })
       return
     }
 
     const p = partition(lo, hi)
-    t.emit({ line: 4, lo, hi, vars: [...v, num('p', p)], note: `chốt nằm ở ô ${p}` })
+    t.emit({ line: 4, lo, hi, vars: [...v, num('p', p)], note: `the pivot sits at slot ${p}` })
     t.emit({
       line: 5,
       lo,
       hi,
       vars: [...v, num('p', p)],
-      note: `xuống nửa trái [${lo}..${p - 1}]`,
+      note: `descend into the left half [${lo}..${p - 1}]`,
     })
     sort(lo, p - 1)
     t.emit({
@@ -599,7 +599,7 @@ function quick(input: number[]): Trace {
       lo,
       hi,
       vars: [...v, num('p', p)],
-      note: `xuống nửa phải [${p + 1}..${hi}]`,
+      note: `descend into the right half [${p + 1}..${hi}]`,
     })
     sort(p + 1, hi)
   }
@@ -615,75 +615,75 @@ export const ALGOS: Algo[] = [
     no: '01',
     cmd: 'bubble_sort(a)',
     file: 'bubble_sort.py',
-    name: 'Nổi bọt',
-    blurb: 'ĐỔI CHỖ HAI Ô KỀ NHAU',
+    name: 'Bubble',
+    blurb: 'SWAP TWO ADJACENT SLOTS',
     big_o: 'O(n²)',
     space: 'O(1)',
     stable: true,
     code: BUBBLE_CODE,
     run: bubble,
-    teach: `Quét từ trái sang, gặp cặp kề nhau sai thứ tự thì đổi chỗ. Hết một lượt thì số lớn nhất đã trôi về cuối — nên lượt sau ngắn hơn lượt trước đúng một ô.
+    teach: `Sweep left to right, and swap any adjacent pair that is out of order. After one pass the largest value has floated to the end — so the next pass is exactly one slot shorter.
 
-Cờ \`swapped\` là toàn bộ giá trị còn lại của nó. Một lượt không đổi chỗ lần nào nghĩa là mọi cặp kề nhau đều đúng thứ tự, tức là cả mảng đã có thứ tự — dừng luôn. Bấm thế **Đã sắp sẵn** để xem: 23 phép so, 0 lần ghi, xong. Đó là trường hợp duy nhất nó thắng, và nó thắng tuyệt đối.
+The \`swapped\` flag is the whole of its remaining value. A pass with no swap at all means every adjacent pair is in order, which means the entire array is in order — stop right there. Press the **Already sorted** arrangement and watch: 23 comparisons, 0 writes, done. That is the one case it wins, and it wins outright.
 
-Ngoài trường hợp đó thì đây là thuật toán tệ nhất trong bốn cái: cùng O(n²) phép so như chọn, nhưng số lần ghi thì gấp hàng chục lần vì nó đẩy từng ô một thay vì nhấc thẳng tới đích. Nó sống sót trong sách giáo khoa vì dễ giải thích, không phải vì đáng dùng.`,
+Outside that case this is the worst of the four: the same O(n²) comparisons as selection, but dozens of times the writes, because it nudges values one slot at a time instead of lifting them straight to their destination. It survives in textbooks because it is easy to explain, not because it is worth using.`,
   },
   {
     no: '02',
     cmd: 'insertion_sort(a)',
     file: 'insertion_sort.py',
-    name: 'Chèn',
-    blurb: 'LÙI VỀ CHỖ CỦA MÌNH',
-    big_o: 'O(n²) — O(n) nếu gần sắp',
+    name: 'Insertion',
+    blurb: 'WALK BACK TO ITS OWN PLACE',
+    big_o: 'O(n²) — O(n) when nearly sorted',
     space: 'O(1)',
     stable: true,
     code: INSERT_CODE,
     run: insertion,
-    teach: `Cách người ta xếp bài trên tay: cầm quân mới, lùi nó về bên trái tới khi gặp quân nhỏ hơn. Mỗi ô chỉ đi đúng quãng đường nó cần đi — và đó là chỗ khác biệt với ba cái kia, vốn quét cả đoạn dù có việc hay không.
+    teach: `The way people sort cards in their hand: pick up the new card and walk it left until you meet a smaller one. Each slot travels exactly as far as it needs to — and that is what sets it apart from the other three, which sweep the whole range whether there is work there or not.
 
-Bấm thế **Gần sắp xếp** rồi so cột "phép so": chèn tốn hơn 20 phép một chút, chọn vẫn tốn đủ 276. Dữ liệu thật hầu hết là gần sắp — log mới nối vào cuối, danh sách vừa thêm một dòng — nên đây là lý do mọi thư viện chuẩn vẫn gọi chèn cho những đoạn ngắn bên trong thuật toán nhanh.
+Press the **Nearly sorted** arrangement and compare the "comparisons" column: insertion spends a little over 20, selection still spends the full 276. Real data is mostly nearly sorted — a new log line appended at the end, a list that just gained a row — which is why every standard library still calls insertion sort for the short ranges inside quicksort.
 
-Chú ý đoạn trái **không** được tô xanh trong lúc chạy, dù nó đã có thứ tự. Vì đó mới là "có thứ tự với nhau", chưa phải "đúng chỗ cuối cùng": một ô nhỏ chưa xét tới vẫn chen vào giữa được và đẩy cả đoạn sang phải.
+Notice that the left stretch is **not** painted green while it runs, even though it is in order. That is only "in order with itself", not yet "in its final place": a small value not yet reached can still slot into the middle and push the whole stretch right.
 
-Bản ở đây đổi chỗ hai ô thật một nhịp. Bản sách giáo khoa cầm giá trị trên tay rồi dịch từng ô sang phải, ghi ít hơn một nửa — nhưng lúc đó cái đang so nằm ngoài mảng, không vẽ ra được. Số **phép so** thì hai bản giống hệt nhau.`,
+The version here swaps two real slots per tick. The textbook version holds the value in hand and shifts each slot right, writing less than half as much — but then the thing being compared lives outside the array and cannot be drawn. The **comparison** count is identical between the two.`,
   },
   {
     no: '03',
     cmd: 'selection_sort(a)',
     file: 'selection_sort.py',
-    name: 'Chọn',
-    blurb: 'QUÉT CẢ ĐOẠN, ĐỔI MỘT LẦN',
+    name: 'Selection',
+    blurb: 'SCAN THE RANGE, SWAP ONCE',
     big_o: 'O(n²)',
     space: 'O(1)',
     stable: false,
     code: SELECT_CODE,
     run: selection,
-    teach: `Quét cả đoạn còn lại để tìm số nhỏ nhất, rồi đổi nó về đầu đoạn. Đúng một lần đổi chỗ cho mỗi lượt quét.
+    teach: `Sweep the rest of the range to find the smallest value, then swap it to the front of the range. Exactly one swap per pass.
 
-Số phép so của nó là **hằng số**: 276 với mảng 24 ô, bất kể thế mở đầu là gì. Bấm lần lượt cả bốn thế mà xem — ba thuật toán kia nhảy số loạn lên, riêng dòng của chọn đứng im. Không có trường hợp tốt, không có trường hợp xấu, và cũng không dừng sớm được: nó không có cách nào biết mảng đã sắp rồi.
+Its comparison count is **constant**: 276 on a 24-slot array, whatever the starting arrangement. Click through all four arrangements and watch — the other three algorithms jump around, while selection's row does not move. No best case, no worst case, and no way to stop early: it has no way to find out the array is already sorted.
 
-Đổi lại, nó ghi **ít nhất**: nhiều nhất 23 lần đổi chỗ, tức 46 lần ghi, so với hàng trăm của nổi bọt. Con số đó mới là lý do nó tồn tại. Ghi vào bộ nhớ flash, vào ô EEPROM có hạn số lần ghi, hay vào một bản ghi to mà mỗi lần chép là chép cả trăm byte — chỗ đó thì đếm lần ghi mới đúng, và chọn thắng.
+In exchange, it writes the **least**: at most 23 swaps, so 46 writes, against hundreds for bubble. That number is the reason it exists. Writing to flash, to EEPROM cells with a limited write count, or to large records where every copy moves hundreds of bytes — that is where counting writes is the right measure, and selection wins.
 
-Nó **không ổn định**: cú đổi chỗ tầm xa nhấc một phần tử vượt qua những phần tử bằng nó, làm mất thứ tự cũ giữa chúng. Ba mươi phần trăm số lỗi "sắp xếp hai lần thì thứ tự nhảy loạn" đến từ đúng chỗ này.`,
+It is **not stable**: the long-range swap lifts an element past others equal to it, destroying their original order. Thirty percent of "sorting twice scrambles the order" bugs come from exactly here.`,
   },
   {
     no: '04',
     cmd: 'quicksort(a, 0, len(a) - 1)',
     file: 'quicksort.py',
-    name: 'Nhanh',
-    blurb: 'CHIA ĐÔI QUANH MỘT CHỐT',
-    big_o: 'O(n log n) — O(n²) nếu chốt xấu',
+    name: 'Quick',
+    blurb: 'SPLIT IN TWO AROUND A PIVOT',
+    big_o: 'O(n log n) — O(n²) on a bad pivot',
     space: 'O(log n)',
     stable: false,
     code: QUICK_CODE,
     run: quick,
-    teach: `Chọn một ô làm **chốt**, đẩy mọi số nhỏ hơn về bên trái nó và số lớn hơn về bên phải. Chốt đứng đúng chỗ vĩnh viễn ngay lúc đó — cột xanh đầu tiên hiện ra giữa mảng chứ không phải ở rìa, khác hẳn ba cái kia. Rồi làm lại đúng như thế với hai đoạn hai bên.
+    teach: `Pick one slot as the **pivot**, push everything smaller to its left and everything larger to its right. The pivot lands in its permanent place right then — the first green bar appears in the middle of the array rather than at an edge, unlike the other three. Then do exactly the same to the two ranges on either side.
 
-Với thế **Ngẫu nhiên** nó tốn 88 phép so, trong khi ba cái kia tốn từ 179 tới 276. Chênh lệch đó lớn dần theo n: 1000 phần tử thì là chừng 10.000 so với 500.000.
+On the **Random** arrangement it spends 88 comparisons, while the other three spend between 179 and 276. That gap widens with n: at 1000 elements it is roughly 10,000 against 500,000.
 
-Giờ bấm **Đã sắp sẵn** và nhìn lại. 276 phép so — bằng đúng thuật toán chọn, tệ nhất bảng. Vì chốt lấy ô cuối đoạn, mà ô cuối của một mảng đã sắp chính là **số lớn nhất**: mỗi lần chia tách ra được đúng một phần tử, và cây đệ quy sâu n tầng thay vì log n. Kiểu dữ liệu đời thường nhất — đã sắp sẵn — lại chính là trường hợp tệ nhất của nó. Bản thật chữa bằng cách lấy trung vị của ba ô, hoặc chọn chốt ngẫu nhiên.
+Now press **Already sorted** and look again. 276 comparisons — the same as selection sort, the worst on the board. Because the pivot is the last slot of the range, and the last slot of a sorted array is the **largest value**: every partition peels off exactly one element, and the recursion tree is n levels deep instead of log n. The most everyday shape of data — already sorted — is its worst case. Real implementations fix this by taking the median of three slots, or by picking the pivot at random.
 
-Cột "lần ghi" ở thế đó còn dựng đứng hơn nữa, và một nửa là ghi thừa: khi \`i\` và \`j\` trỏ cùng một ô, dòng \`a[i], a[j] = a[j], a[i]\` vẫn chạy hai lệnh gán để đổi chỗ một ô với chính nó. Bảng điểm đếm đúng cái máy làm, không đếm cái đáng lẽ phải làm.`,
+The "writes" column on that arrangement is steeper still, and half of it is wasted: when \`i\` and \`j\` point at the same slot, the line \`a[i], a[j] = a[j], a[i]\` still runs two assignments to swap a slot with itself. The scoreboard counts what the machine does, not what it ought to have done.`,
   },
 ]
 

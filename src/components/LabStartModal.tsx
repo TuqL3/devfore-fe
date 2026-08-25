@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import type { Lab } from '@/lib/types'
 import { ClockIcon, TerminalIcon } from '@/components/icons'
-import { useT } from '@/lib/i18n'
 
 /** idle → creating → (the caller navigates). `blocked` and `failed` are dead
  *  ends the student has to act on. */
@@ -33,7 +32,6 @@ export function LabStartModal({
   onStart,
   onClose,
 }: Props) {
-  const t = useT()
   const startRef = useRef<HTMLButtonElement>(null)
   const busy = phase === 'creating'
 
@@ -79,7 +77,7 @@ export function LabStartModal({
         className="w-full max-w-md rounded-xl border border-border bg-surface p-6 shadow-2xl"
       >
         <p className="font-mono text-xs uppercase tracking-wide text-fg-subtle">
-          {t('start.kicker')}
+          Lab
         </p>
         <h2 id="lab-start-title" className="mt-1 text-lg font-bold text-fg-strong">
           {lab.title}
@@ -88,7 +86,7 @@ export function LabStartModal({
         {phase === 'blocked' ? (
           <>
             <p className="mt-4 text-sm leading-relaxed text-fg-muted">
-              {t('start.blocked')}
+              You already have another lab session open. Only one container at a time — end that session before starting this lab.
             </p>
             {onStopRunning && (
               <button
@@ -97,7 +95,7 @@ export function LabStartModal({
                 className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-accent px-4 py-2.5 font-medium text-accent-fg transition hover:bg-accent-hover disabled:cursor-wait disabled:opacity-70"
               >
                 {stopping && <Spinner />}
-                {stopping ? t('start.stopping') : t('start.stopRunning')}
+                {stopping ? 'Closing…' : 'End the running session'}
               </button>
             )}
             {/* Only offered when the session still resolves to a route. A lab or
@@ -108,22 +106,22 @@ export function LabStartModal({
                 to={runningHref}
                 className="mt-2 block text-center text-sm text-accent-soft hover:underline"
               >
-                {t('start.reopenRunning')} →
+                Or reopen the running session →
               </Link>
             )}
           </>
         ) : (
           <>
             <div className="mt-4 flex flex-wrap gap-2 font-mono text-xs">
-              <Chip>{t('start.tasks', { n: lab.task_count })}</Chip>
-              <Chip>{t('start.minutes', { n: lab.duration_minutes })}</Chip>
-              <Chip accent>{t('start.points', { n: lab.points })}</Chip>
+              <Chip>{`${lab.task_count} tasks`}</Chip>
+              <Chip>{`${lab.duration_minutes} minutes`}</Chip>
+              <Chip accent>{`${lab.points} points`}</Chip>
             </div>
 
             {busy ? (
               <p className="mt-5 flex items-center gap-2.5 text-sm text-fg-strong">
                 <Spinner />
-                {lab.is_sim ? t('start.openingSim') : t('start.creating')}
+                {lab.is_sim ? 'Opening the lab…' : 'Creating your own container…'}
               </p>
             ) : (
               <p className="mt-4 flex items-start gap-2 text-sm leading-relaxed text-fg-muted">
@@ -134,15 +132,15 @@ export function LabStartModal({
                     thành vô nghĩa. */}
                 {lab.is_sim ? (
                   <span>
-                    {t('start.simBefore')}{' '}
-                    <strong className="text-fg">{t('start.simStrong')}</strong>
-                    {t('start.simAfter')}
+                    This lab has no container: you write the pipeline and the server simulates the schedule. The session{' '}
+                    <strong className="text-fg">closes itself after 60 minutes</strong>
+                    , and the runs you made stay readable.
                   </span>
                 ) : (
                   <span>
-                    {t('start.containerBefore')}{' '}
-                    <strong className="text-fg">{t('start.containerStrong')}</strong>
-                    {t('start.containerAfter')}
+                    Your own Linux container will be created and{' '}
+                    <strong className="text-fg">deleted after 60 minutes</strong>
+                    . Everything inside goes with it, so do not leave anything important there.
                   </span>
                 )}
               </p>
@@ -166,10 +164,10 @@ export function LabStartModal({
             >
               {busy ? <Spinner /> : <TerminalIcon className="h-4 w-4" />}
               {busy
-                ? t('start.preparing')
+                ? 'Preparing…'
                 : phase === 'failed'
-                  ? t('start.retry')
-                  : t('start.begin')}
+                  ? 'Try again'
+                  : 'Start the lab'}
             </button>
           )}
           {!busy && (
@@ -182,7 +180,7 @@ export function LabStartModal({
                   : '')
               }
             >
-              {phase === 'blocked' ? t('start.understood') : t('start.later')}
+              {phase === 'blocked' ? 'Got it' : 'Later'}
             </button>
           )}
         </div>

@@ -6,7 +6,6 @@ import { adminApi, type CourseInput } from '@/api/admin'
 import { coursesApi } from '@/api/courses'
 import { ApiError } from '@/lib/api'
 import { Button, ErrorBox, Field, Input } from '@/components/ui'
-import { useT } from '@/lib/i18n'
 
 const EMPTY: CourseInput = {
   slug: '',
@@ -22,7 +21,6 @@ const EMPTY: CourseInput = {
  *  Back left the admin area entirely and the list stayed on screen underneath
  *  competing for attention with the form. */
 export default function AdminCourseForm() {
-  const t = useT()
   const { id } = useParams()
   const editing = id !== undefined
   const courseID = Number(id)
@@ -51,7 +49,7 @@ export default function AdminCourseForm() {
   }, [course, form])
 
   const fail = (e: unknown) =>
-    setError(e instanceof ApiError ? e.message : t('form.saveFailed'))
+    setError(e instanceof ApiError ? e.message : 'could not save, try again')
 
   const save = useMutation({
     mutationFn: (input: CourseInput) =>
@@ -69,15 +67,15 @@ export default function AdminCourseForm() {
   if (editing && !courses.isLoading && !course) {
     return (
       <div className="space-y-3">
-        <p className="text-danger">{t('form.notFound')}</p>
+        <p className="text-danger">This course does not exist.</p>
         <Link to="/admin/courses" className="text-sm text-accent-soft hover:underline">
-          ← {t('form.backList')}
+          ← Course list
         </Link>
       </div>
     )
   }
 
-  if (!form) return <p className="text-sm text-fg-subtle">{t('common.loading')}</p>
+  if (!form) return <p className="text-sm text-fg-subtle">Loading…</p>
 
   const set = <K extends keyof CourseInput>(k: K, v: CourseInput[K]) =>
     setForm({ ...form, [k]: v })
@@ -85,10 +83,10 @@ export default function AdminCourseForm() {
   return (
     <div>
       <Link to="/admin/courses" className="text-sm text-accent-soft hover:underline">
-        ← {t('form.backList')}
+        ← Course list
       </Link>
       <h1 className="mt-2 text-2xl font-bold text-fg-strong">
-        {editing ? course?.title : t('form.newCourse')}
+        {editing ? course?.title : 'New course'}
       </h1>
 
       <form
@@ -99,34 +97,34 @@ export default function AdminCourseForm() {
         className="mt-6 max-w-3xl space-y-4 rounded-lg border border-border bg-surface p-5"
       >
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t('form.titleField')}>
+          <Field label="Title">
             <Input
               value={form.title}
               onChange={(e) => set('title', e.target.value)}
-              placeholder={t('form.titlePlaceholder')}
+              placeholder="Linux Basics"
             />
           </Field>
-          <Field label="Slug" hint={t('form.slugHint')}>
+          <Field label="Slug" hint="lowercase letters, digits, hyphens">
             <Input
               value={form.slug}
               onChange={(e) => set('slug', e.target.value)}
-              placeholder="linux-co-ban"
+              placeholder="linux-beginer"
               variant="terminal"
             />
           </Field>
         </div>
 
-        <Field label={t('form.description')}>
+        <Field label="Description">
           <textarea
             value={form.description}
             onChange={(e) => set('description', e.target.value)}
             rows={3}
             className="w-full rounded-md border border-border-strong bg-bg px-3 py-2.5 text-fg outline-none transition placeholder:text-fg-subtle focus:border-accent focus:ring-2 focus:ring-accent/25"
-            placeholder={t('form.descriptionPlaceholder')}
+            placeholder="What the course teaches, and who for."
           />
         </Field>
 
-        <Field label={t('form.cover')} hint={t('form.coverHint')}>
+        <Field label="Cover image" hint="png, jpg, gif, webp — 2MB max">
           <CoverPicker
             url={form.image_url}
             onChange={(url) => set('image_url', url)}
@@ -135,7 +133,7 @@ export default function AdminCourseForm() {
         </Field>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label={t('form.level')}>
+          <Field label="Level">
             <select
               value={form.level}
               onChange={(e) => set('level', e.target.value)}
@@ -148,14 +146,14 @@ export default function AdminCourseForm() {
               ))}
             </select>
           </Field>
-          <Field label={t('form.status')} hint={t('form.statusHint')}>
+          <Field label="Status" hint="a draft is not visible to students">
             <select
               value={form.status}
               onChange={(e) => set('status', e.target.value as CourseInput['status'])}
               className="w-full rounded-md border border-border-strong bg-bg px-3 py-2.5 text-fg outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/25"
             >
-              <option value="draft">{t('form.draft')}</option>
-              <option value="published">{t('form.published')}</option>
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
             </select>
           </Field>
         </div>
@@ -165,16 +163,16 @@ export default function AdminCourseForm() {
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={save.isPending}>
             {save.isPending
-              ? t('form.saving')
+              ? 'Saving…'
               : editing
-                ? t('form.saveChanges')
-                : t('form.createCourse')}
+                ? 'Save changes'
+                : 'Create the course'}
           </Button>
           <Link
             to="/admin/courses"
             className="rounded-md px-3 py-2.5 text-sm text-fg-muted transition hover:text-fg-strong"
           >
-            {t('common.cancel')}
+            Cancel
           </Link>
         </div>
       </form>
@@ -195,7 +193,6 @@ function CoverPicker({
   onChange: (url: string | null) => void
   onError: (e: unknown) => void
 }) {
-  const t = useT()
   const upload = useMutation({
     mutationFn: (file: File) => adminApi.uploadImage(file),
     onSuccess: (res) => onChange(res.url),
@@ -216,7 +213,7 @@ function CoverPicker({
             onClick={() => onChange(null)}
             className="text-sm text-danger transition hover:underline"
           >
-            {t('form.removeImage')}
+            Remove the image
           </button>
         </div>
       )}
@@ -235,7 +232,7 @@ function CoverPicker({
         className="block w-full text-sm text-fg-muted file:mr-3 file:rounded-md file:border file:border-border-strong file:bg-surface file:px-3 file:py-1.5 file:text-sm file:text-fg hover:file:border-accent"
       />
       {upload.isPending && (
-        <p className="text-xs text-fg-subtle">{t('form.uploading')}</p>
+        <p className="text-xs text-fg-subtle">Uploading the image…</p>
       )}
     </div>
   )

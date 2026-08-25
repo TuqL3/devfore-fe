@@ -28,13 +28,13 @@ export const CustomSeed: SimScenario = {
   },
   examples: [
     {
-      title: '① Một job làm hết',
-      note: 'mốc để so — mọi việc chờ nhau',
+      title: '① One job does everything',
+      note: 'the baseline — every step waits for the last',
       pipeline: 'jobs:\n  ci:\n    steps: [checkout, install, test, build]\n',
     },
     {
-      title: '② Tách đôi',
-      note: 'hai job, không needs — 2 runner cùng làm',
+      title: '② Split in two',
+      note: 'two jobs, no needs — 2 runners work at once',
       pipeline:
         'jobs:\n  test:\n    steps: [checkout, install, test]\n' +
         '  build:\n    steps: [checkout, install, build]\n',
@@ -97,23 +97,23 @@ export function customEntry(): SimEntry {
     // Tên nói đúng phạm vi. "Mô phỏng của bạn" hứa dựng được bất cứ thứ gì,
     // trong khi engine duy nhất nhận kịch bản tự dựng là CI/CD — và đó là kết
     // luận, không phải thiếu sót tạm thời; lý do ở chú thích của hàm này.
-    title: 'Pipeline CI/CD của bạn',
+    title: 'Your CI/CD pipeline',
     engine: 'cicd',
     // Chủ đề, không phải chế độ. `'Tự dựng'` trả lời câu "sửa được không", mà
     // cột này trả lời câu "về cái gì" — để lúc danh sách nhóm theo `category`
     // thì nó rơi đúng nhóm CI/CD, kể cả khi đang là mô phỏng CI/CD duy nhất.
     category: 'CI/CD',
-    tags: ['tự dựng'],
+    tags: ['your own'],
     scenario: loadCustom(),
     editable: true,
-    description: `Sân tập của riêng bạn: **bộ step ở đây do bạn đặt ra**, không phải do tác giả viết. Mô tả hệ thống của bạn bằng một câu để AI dựng catalog, hoặc sửa thẳng JSON.
+    description: `Your own practice ground: **the step catalog here is yours**, not the author's. Describe your system in one sentence and let the AI build the catalog, or edit the JSON directly.
 
-Là một **pipeline CI/CD** — đây là engine duy nhất nhận kịch bản tự dựng, vì kịch bản của nó là dữ liệu thuần và bài học nằm ở luật xếp job chứ không ở bộ step. Mấy mô phỏng khác dạy bằng chính nội dung cố định của chúng, nên không có gì để bạn dựng.
+It is a **CI/CD pipeline** — the only engine that accepts a scenario you build, because its scenario is plain data and the lesson lives in the job-scheduling rules rather than in the step list. The other simulations teach through their own fixed content, so there is nothing there for you to build.
 
-Một điểm phải nhớ: **số giây ở đây là bạn hoặc AI đoán**, không ai đo cả. Vẫn học được cách xếp job — đó là thứ mô phỏng này dạy — nhưng đừng mang con số ra so với CI thật.
+One thing to remember: **the seconds here are a guess, yours or the AI's**, nobody measured them. You still learn how to schedule jobs — that is what this simulation teaches — but do not hold those numbers up against a real CI.
 
-Mọi thứ nằm trong trình duyệt này. Đổi máy là mất.`,
-    guide: `Ba khoá, hết: \`steps\`, \`needs\`, \`cache\`.
+Everything lives in this browser. Switch machines and it is gone.`,
+    guide: `Three keys, that is all: \`steps\`, \`needs\`, \`cache\`.
 
 \`\`\`yaml
 jobs:
@@ -125,15 +125,15 @@ jobs:
     steps: [checkout, install, test]
 \`\`\`
 
-## Bốn luật
+## Four rules
 
-1. Job không có \`needs\` chạy ngay. Số job cùng lúc bị chặn bởi \`runner_count\`.
-2. \`needs\` là tự bắt mình xếp hàng.
-3. Step khai \`consumes\` cần artifact đó có sẵn: hoặc do step trước **trong cùng job** tạo, hoặc do một job trong chuỗi \`needs\`. Nhánh song song không tính.
-4. Cache **chỉ ấm sang lượt sau**, và job phải tự khai \`cache: [khoá]\` mới được giảm.
+1. A job with no \`needs\` starts immediately. How many run at once is capped by \`runner_count\`.
+2. \`needs\` is putting yourself in a queue.
+3. A step that declares \`consumes\` requires that artifact to exist: either produced by an earlier step **in the same job**, or by a job somewhere up the \`needs\` chain. A parallel branch does not count.
+4. Cache **only goes warm on the next run**, and a job has to declare \`cache: [key]\` itself to get the discount.
 
-## Bộ step khởi đầu
+## The starting catalog
 
-\`checkout\` 5s · \`install\` 90s (cache \`deps\`) · \`test\` 120s · \`build\` 60s (tạo \`dist\`). Đủ để thấy tách job ra thì nhanh hơn gộp. Gõ đè lên nó bất cứ lúc nào — ở phần **Sửa catalog** bên dưới ô soạn.`,
+\`checkout\` 5s · \`install\` 90s (cache \`deps\`) · \`test\` 120s · \`build\` 60s (produces \`dist\`). Enough to show that splitting jobs beats merging them. Overwrite it whenever you like — under **Edit catalog**, below the editor.`,
   }
 }

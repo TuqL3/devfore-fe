@@ -159,7 +159,7 @@ function linear(data: number[], target: number): Trace {
       probe: null,
       cmp: null,
       vars,
-      note: `lấy chỉ số i = ${i}`,
+      note: `take index i = ${i}`,
     })
     const cmp = cmpOf(data[i], target)
     t.emit({
@@ -169,7 +169,7 @@ function linear(data: number[], target: number): Trace {
       probe: i,
       cmp,
       vars: [...vars, { name: 'a[i]', value: String(data[i]) }],
-      note: `so a[${i}] = ${data[i]} với ${target}`,
+      note: `compare a[${i}] = ${data[i]} with ${target}`,
     })
     if (cmp === 'eq') {
       t.emit({
@@ -179,7 +179,7 @@ function linear(data: number[], target: number): Trace {
         probe: i,
         cmp: null,
         vars,
-        note: 'trả về chỉ số',
+        note: 'return the index',
       })
       return t.done(i)
     }
@@ -191,7 +191,7 @@ function linear(data: number[], target: number): Trace {
     probe: null,
     cmp: null,
     vars: [],
-    note: 'hết mảng, không có',
+    note: 'end of the array, not here',
   })
   return t.done(-1)
 }
@@ -228,7 +228,7 @@ function binary(data: number[], target: number): Trace {
     probe: null,
     cmp: null,
     vars: v(),
-    note: 'đặt hai đầu đoạn',
+    note: 'set both ends of the range',
   })
 
   while (lo <= hi) {
@@ -239,14 +239,14 @@ function binary(data: number[], target: number): Trace {
       probe: null,
       cmp: null,
       vars: v(),
-      note: `đoạn còn ${hi - lo + 1} ô`,
+      note: `${hi - lo + 1} slots left in the range`,
     })
     // `(lo + hi) >> 1` chứ không phải chia rồi làm tròn: cùng kết quả, và đây là
     // dạng mọi sách viết. Tràn số nguyên — cái bug nổi tiếng của nhị phân —
     // không xảy ra ở JS vì số ở đây là double.
     const mid = (lo + hi) >> 1
     const vm = [...v(), { name: 'mid', value: String(mid) }]
-    t.emit({ line: 4, lo, hi, probe: mid, cmp: null, vars: vm, note: `giữa là ô ${mid}` })
+    t.emit({ line: 4, lo, hi, probe: mid, cmp: null, vars: vm, note: `the middle is slot ${mid}` })
 
     const cmp = cmpOf(data[mid], target)
     t.emit({
@@ -256,10 +256,10 @@ function binary(data: number[], target: number): Trace {
       probe: mid,
       cmp,
       vars: [...vm, { name: 'a[mid]', value: String(data[mid]) }],
-      note: `so a[${mid}] = ${data[mid]} với ${target}`,
+      note: `compare a[${mid}] = ${data[mid]} with ${target}`,
     })
     if (cmp === 'eq') {
-      t.emit({ line: 6, lo, hi, probe: mid, cmp: null, vars: vm, note: 'trả về chỉ số' })
+      t.emit({ line: 6, lo, hi, probe: mid, cmp: null, vars: vm, note: 'return the index' })
       return t.done(mid)
     }
 
@@ -274,7 +274,7 @@ function binary(data: number[], target: number): Trace {
       probe: mid,
       cmp: null,
       vars: vm,
-      note: cmp === 'lt' ? `${data[mid]} < ${target} → đúng` : `${data[mid]} < ${target} → sai`,
+      note: cmp === 'lt' ? `${data[mid]} < ${target} → true` : `${data[mid]} < ${target} → false`,
     })
 
     if (cmp === 'lt') {
@@ -286,7 +286,7 @@ function binary(data: number[], target: number): Trace {
         probe: null,
         cmp: null,
         vars: v(),
-        note: 'nhỏ hơn → vứt nửa trái',
+        note: 'smaller → throw away the left half',
       })
     } else {
       hi = mid - 1
@@ -297,7 +297,7 @@ function binary(data: number[], target: number): Trace {
         probe: null,
         cmp: null,
         vars: v(),
-        note: 'lớn hơn → vứt nửa phải',
+        note: 'larger → throw away the right half',
       })
     }
   }
@@ -308,7 +308,7 @@ function binary(data: number[], target: number): Trace {
     probe: null,
     cmp: null,
     vars: [],
-    note: 'đoạn rỗng, không có',
+    note: 'empty range, not here',
   })
   return t.done(-1)
 }
@@ -346,7 +346,7 @@ function jump(data: number[], target: number): Trace {
     probe: null,
     cmp: null,
     vars: v(),
-    note: `bước nhảy √${n} = ${step}`,
+    note: `jump size √${n} = ${step}`,
   })
   t.emit({
     line: 3,
@@ -355,7 +355,7 @@ function jump(data: number[], target: number): Trace {
     probe: null,
     cmp: null,
     vars: v(),
-    note: 'bắt đầu từ khối đầu tiên',
+    note: 'start from the first block',
   })
 
   while (block < n) {
@@ -368,7 +368,7 @@ function jump(data: number[], target: number): Trace {
       probe: end,
       cmp,
       vars: [...v(), { name: 'a[end]', value: String(data[end]) }],
-      note: `so cuối khối, ô ${end}`,
+      note: `compare the end of the block, slot ${end}`,
     })
     if (cmp !== 'lt') break
     block += step
@@ -380,7 +380,7 @@ function jump(data: number[], target: number): Trace {
         probe: null,
         cmp: null,
         vars: v(),
-        note: 'nhảy sang khối sau',
+        note: 'jump to the next block',
       })
     }
   }
@@ -393,7 +393,7 @@ function jump(data: number[], target: number): Trace {
       probe: null,
       cmp: null,
       vars: [],
-      note: 'nhảy hết mảng, không có',
+      note: 'jumped past the whole array, not here',
     })
     return t.done(-1)
   }
@@ -408,7 +408,7 @@ function jump(data: number[], target: number): Trace {
       probe: null,
       cmp: null,
       vars: vi,
-      note: `quét trong khối [${block}..${end}]`,
+      note: `sweep inside the block [${block}..${end}]`,
     })
     const cmp = cmpOf(data[i], target)
     t.emit({
@@ -418,7 +418,7 @@ function jump(data: number[], target: number): Trace {
       probe: i,
       cmp,
       vars: [...vi, { name: 'a[i]', value: String(data[i]) }],
-      note: `so a[${i}] = ${data[i]} với ${target}`,
+      note: `compare a[${i}] = ${data[i]} with ${target}`,
     })
     if (cmp === 'eq') {
       t.emit({
@@ -428,7 +428,7 @@ function jump(data: number[], target: number): Trace {
         probe: i,
         cmp: null,
         vars: vi,
-        note: 'trả về chỉ số',
+        note: 'return the index',
       })
       return t.done(i)
     }
@@ -442,7 +442,7 @@ function jump(data: number[], target: number): Trace {
     probe: null,
     cmp: null,
     vars: [],
-    note: 'hết khối, không có',
+    note: 'end of the block, not here',
   })
   return t.done(-1)
 }
@@ -473,7 +473,7 @@ function interpolation(data: number[], target: number): Trace {
     { name: 'hi', value: String(hi) },
   ]
 
-  t.emit({ line: 2, lo, hi, probe: null, cmp: null, vars: v(), note: 'đặt hai đầu đoạn' })
+  t.emit({ line: 2, lo, hi, probe: null, cmp: null, vars: v(), note: 'set both ends of the range' })
 
   while (lo <= hi && target >= data[lo] && target <= data[hi]) {
     t.emit({
@@ -483,7 +483,7 @@ function interpolation(data: number[], target: number): Trace {
       probe: null,
       cmp: null,
       vars: v(),
-      note: `mục tiêu nằm trong [${data[lo]}..${data[hi]}]`,
+      note: `the target lies within [${data[lo]}..${data[hi]}]`,
     })
 
     // Đoán theo **giá trị**, không phải cắt đôi theo vị trí: mục tiêu nằm bao
@@ -496,7 +496,7 @@ function interpolation(data: number[], target: number): Trace {
       probe: null,
       cmp: null,
       vars: [...v(), { name: 'span', value: String(span) }],
-      note: 'độ rộng giá trị của đoạn',
+      note: 'the value span of the range',
     })
 
     const raw =
@@ -512,7 +512,7 @@ function interpolation(data: number[], target: number): Trace {
       probe: pos,
       cmp: null,
       vars: vp,
-      note: `đoán ô ${pos} theo giá trị`,
+      note: `guess slot ${pos} from the value`,
     })
 
     const cmp = cmpOf(data[pos], target)
@@ -523,10 +523,10 @@ function interpolation(data: number[], target: number): Trace {
       probe: pos,
       cmp,
       vars: [...vp, { name: 'a[pos]', value: String(data[pos]) }],
-      note: `so a[${pos}] = ${data[pos]} với ${target}`,
+      note: `compare a[${pos}] = ${data[pos]} with ${target}`,
     })
     if (cmp === 'eq') {
-      t.emit({ line: 7, lo, hi, probe: pos, cmp: null, vars: vp, note: 'trả về chỉ số' })
+      t.emit({ line: 7, lo, hi, probe: pos, cmp: null, vars: vp, note: 'return the index' })
       return t.done(pos)
     }
 
@@ -538,7 +538,7 @@ function interpolation(data: number[], target: number): Trace {
       probe: pos,
       cmp: null,
       vars: vp,
-      note: cmp === 'lt' ? `${data[pos]} < ${target} → đúng` : `${data[pos]} < ${target} → sai`,
+      note: cmp === 'lt' ? `${data[pos]} < ${target} → true` : `${data[pos]} < ${target} → false`,
     })
 
     if (cmp === 'lt') {
@@ -550,7 +550,7 @@ function interpolation(data: number[], target: number): Trace {
         probe: null,
         cmp: null,
         vars: v(),
-        note: 'nhỏ hơn → bỏ phần trái',
+        note: 'smaller → drop the left part',
       })
     } else {
       hi = pos - 1
@@ -561,7 +561,7 @@ function interpolation(data: number[], target: number): Trace {
         probe: null,
         cmp: null,
         vars: v(),
-        note: 'lớn hơn → bỏ phần phải',
+        note: 'larger → drop the right part',
       })
     }
   }
@@ -572,7 +572,7 @@ function interpolation(data: number[], target: number): Trace {
     probe: null,
     cmp: null,
     vars: [],
-    note: 'ra ngoài khoảng, không có',
+    note: 'outside the value range, not here',
   })
   return t.done(-1)
 }
@@ -584,71 +584,71 @@ export const ALGOS: Algo[] = [
     no: '01',
     cmd: 'linear_search(a, x)',
     file: 'linear_search.py',
-    name: 'Tuần tự',
-    blurb: 'ĐI TỪ ĐẦU TỚI CUỐI',
+    name: 'Linear',
+    blurb: 'WALK FROM START TO END',
     big_o: 'O(n)',
     space: 'O(1)',
     needs_sorted: false,
     code: LINEAR_CODE,
     run: linear,
-    teach: `Mở từng ô một, từ trái sang. Không cần mảng sắp xếp — và đó là ưu điểm duy nhất nhưng cũng là ưu điểm thật: dữ liệu chưa sắp thì ba thuật toán còn lại **không dùng được**, sắp nó lại tốn O(n log n), đắt hơn cả một lần quét.
+    teach: `Open one slot at a time, left to right. It does not need a sorted array — the only advantage it has, but a real one: on unsorted data the other three are **unusable**, and sorting first costs O(n log n), more than a single sweep.
 
-Tìm một lần trên mảng chưa sắp thì tuần tự là đúng. Tìm nghìn lần thì sắp trước rồi nhị phân.
+Searching once over unsorted data, linear is the right answer. Searching a thousand times, sort first and use binary search.
 
-Bản ở đây cố ý viết ngây thơ: gặp ô lớn hơn mục tiêu vẫn đi tiếp. Mảng đã sắp thì dừng được ngay tại đó — nhưng dừng sớm chỉ giúp lúc không tìm thấy, còn độ phức tạp vẫn là O(n).`,
+The version here is deliberately naive: it keeps going even after passing a slot larger than the target. On a sorted array it could stop right there — but stopping early only helps when the value is absent, and the complexity is still O(n).`,
   },
   {
     no: '02',
     cmd: 'binary_search(a, x)',
     file: 'binary_search.py',
-    name: 'Nhị phân',
-    blurb: 'CẮT ĐÔI MỖI BƯỚC',
+    name: 'Binary',
+    blurb: 'HALVE IT EVERY STEP',
     big_o: 'O(log n)',
     space: 'O(1)',
     needs_sorted: true,
     code: BINARY_CODE,
     run: binary,
-    teach: `So với ô giữa, rồi **vứt hẳn một nửa**. Vứt được vì mảng đã sắp: ô giữa nhỏ hơn mục tiêu thì cả nửa trái cũng nhỏ hơn, không cần nhìn.
+    teach: `Compare against the middle slot, then **throw away a whole half**. That is allowed because the array is sorted: if the middle is smaller than the target, the entire left half is smaller too, and there is nothing to look at.
 
-64 phần tử → nhiều nhất 6 lần so. 1 triệu phần tử → 20 lần. Gấp đôi dữ liệu chỉ tốn thêm **một** phép so; đó là ý nghĩa của log.
+64 elements → at most 6 comparisons. 1 million elements → 20. Doubling the data costs **one** more comparison; that is what log means.
 
-Đây là thuật toán bị viết sai nhiều nhất trong nghề. Hai chỗ chết người nằm ngay trong đoạn code bên trên: \`lo <= hi\` chứ không phải \`<\`, và \`mid + 1\` / \`mid - 1\` chứ không phải \`mid\` — để \`mid\` thì đoạn không co lại và vòng lặp chạy mãi.`,
+This is the most frequently miswritten algorithm in the trade. Both fatal spots are in the code above: \`lo <= hi\` rather than \`<\`, and \`mid + 1\` / \`mid - 1\` rather than \`mid\` — leave it at \`mid\` and the range stops shrinking and the loop runs forever.`,
   },
   {
     no: '03',
     cmd: 'jump_search(a, x)',
     file: 'jump_search.py',
-    name: 'Nhảy bước',
-    blurb: 'NHẢY √n RỒI QUÉT',
+    name: 'Jump',
+    blurb: 'JUMP √n THEN SWEEP',
     big_o: 'O(√n)',
     space: 'O(1)',
     needs_sorted: true,
     code: JUMP_CODE,
     run: jump,
-    teach: `Nhảy từng khối √n phần tử cho tới khi vượt qua mục tiêu, rồi quét tuần tự **trong đúng khối đó**. Với 64 phần tử thì khối rộng 8: nhiều nhất 8 lần nhảy cộng 8 lần quét.
+    teach: `Jump one √n-sized block at a time until you pass the target, then sweep linearly **inside that one block**. With 64 elements the block is 8 wide: at most 8 jumps plus 8 sweep steps.
 
-Chậm hơn nhị phân, nhanh hơn tuần tự. Vậy dùng làm gì? Vì nó chỉ đi **tới** chứ không nhảy lùi. Trên băng từ, trên danh sách liên kết, trên dữ liệu đọc theo dòng — nhảy về sau rất đắt hoặc không làm được, còn nhị phân thì nhảy qua nhảy lại liên tục.
+Slower than binary, faster than linear. So what is it for? Because it only ever moves **forward**, never backwards. On magnetic tape, on a linked list, on data read as a stream — seeking backwards is expensive or impossible, while binary search jumps back and forth constantly.
 
-Bước √n không phải chọn bừa: nhảy n/k lần rồi quét k ô, tổng nhỏ nhất đúng khi k = √n. \`end(lo)\` trong code là ô cuối của khối bắt đầu ở \`lo\`.`,
+The √n step is not arbitrary: jump n/k times then sweep k slots, and the total is smallest exactly when k = √n. \`end(lo)\` in the code is the last slot of the block starting at \`lo\`.`,
   },
   {
     no: '04',
     cmd: 'interpolation_search(a, x)',
     file: 'interpolation_search.py',
-    name: 'Nội suy',
-    blurb: 'ĐOÁN THEO GIÁ TRỊ',
-    big_o: 'O(log log n) — nếu đều',
+    name: 'Interpolation',
+    blurb: 'GUESS FROM THE VALUE',
+    big_o: 'O(log log n) — if evenly spread',
     space: 'O(1)',
     needs_sorted: true,
     code: INTERP_CODE,
     run: interpolation,
-    teach: `Nhị phân luôn cắt giữa. Nội suy thì **đoán**: tìm số 950 trong mảng từ 0 tới 1000 thì nhìn gần cuối, chứ ai lại mở giữa. Đúng cách bạn tra từ điển giấy.
+    teach: `Binary search always cuts in the middle. Interpolation **guesses**: looking for 950 in an array running 0 to 1000, you look near the end — nobody opens the middle. Exactly how you look a word up in a paper dictionary.
 
-Dữ liệu rải đều thì nó thắng đậm, O(log log n) — 1 triệu phần tử tra hết 4 lần. Nhưng cái "nếu đều" đó là điều kiện thật: dữ liệu lệch nặng (một cụm dày rồi một khoảng trống lớn) thì mỗi lần đoán chỉ bỏ được vài ô, và nó **tụt về O(n)**, chậm hơn cả nhị phân.
+On evenly spread data it wins decisively, O(log log n) — 1 million elements in 4 probes. But that "if evenly spread" is a real condition: on badly skewed data (a dense cluster then a large gap) each guess eliminates only a few slots, and it **degrades to O(n)**, slower than binary search.
 
-Mảng ở đây lệch đúng như thế, và lệch theo ba vùng để xem được cả hai kiểu đoán sai. Bấm ô có giá trị \`23\` ở vùng dày đầu: nội suy mất 11 phép so, nhị phân chỉ 6 — nó **thua**. Để ý dòng \`pos = ...\`: vùng thưa ở giữa làm \`span\` rất lớn, nên dự đoán bị kéo về sát \`lo\` và đoạn chỉ co được vài ô mỗi vòng.
+The array here is skewed in exactly that way, and skewed into three zones so both kinds of bad guess are visible. Click the slot holding \`23\` in the dense first zone: interpolation spends 11 comparisons, binary only 6 — it **loses**. Watch the \`pos = ...\` line: the sparse middle zone makes \`span\` very large, so the prediction is dragged close to \`lo\` and the range shrinks by only a few slots per round.
 
-Rồi bấm ô \`1261\` ở vùng dày cuối để xem kiểu sai ngược lại: dòng \`hi = pos - 1\` sáng lên — nó đoán **vượt** qua mục tiêu.`,
+Then click the slot holding \`1261\` in the dense last zone to see the opposite failure: the \`hi = pos - 1\` line lights up — it guessed **past** the target.`,
   },
 ]
 

@@ -2,7 +2,6 @@ import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '@/api/auth'
-import { useT } from '@/lib/i18n'
 import { ApiError } from '@/lib/api'
 import { Input } from '@/components/ui'
 import {
@@ -13,7 +12,6 @@ import {
 } from '@/components/AuthShell'
 
 export default function ForgotPassword() {
-  const t = useT()
   const [email, setEmail] = useState('')
 
   const mut = useMutation({
@@ -31,19 +29,19 @@ export default function ForgotPassword() {
   if (mut.isSuccess) {
     return (
       <AuthShell cmd="forgot-password">
-        <p className="font-mono text-sm text-success">✓ {t('auth.forgotDone')}</p>
+        <p className="font-mono text-sm text-success">✓ done</p>
         <p className="font-mono text-sm text-fg-muted">
-          # {t('auth.forgotSentBefore')}{' '}
+          # if{' '}
           <span className="text-fg-strong">{email}</span>{' '}
-          {t('auth.forgotSentAfter')}
+          has an account, a reset link was just sent there. The link expires in 1 hour.
         </p>
         <p className="font-mono text-sm text-fg-subtle">
-          # {t('auth.noMailOr')}{' '}
+          # no email? check your spam folder, or{' '}
           <button
             onClick={() => mut.reset()}
             className="text-accent-soft hover:underline"
           >
-            {t('auth.tryAnotherEmail')}
+            try another address
           </button>
           .
         </p>
@@ -59,13 +57,13 @@ export default function ForgotPassword() {
   const error = mut.isError
     ? mut.error instanceof ApiError
       ? mut.error.message
-      : t('auth.sendMailFailed')
+      : 'could not send the email'
     : ''
 
   return (
     <AuthShell cmd="forgot-password">
       <p className="font-mono text-sm text-fg-muted">
-        # {t('auth.forgotIntro')}
+        # enter your registered email and we will send a reset link.
       </p>
 
       <form onSubmit={onSubmit} className="space-y-4">
@@ -88,7 +86,7 @@ export default function ForgotPassword() {
       </form>
 
       <p className="font-mono text-sm text-fg-subtle">
-        # {t('auth.rememberedIt')}{' '}
+        # remembered it?{' '}
         <Link to="/login" className="text-accent-soft hover:underline">
           ./login
         </Link>
