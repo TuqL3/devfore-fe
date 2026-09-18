@@ -32,8 +32,16 @@ EXPOSE 5173
 CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 # ---------- runtime ----------
-# Caddy serves the SPA; no nginx needed since Caddy is already the edge proxy.
-FROM caddy:2-alpine AS prod
-COPY --from=build /src/dist /srv
-COPY Caddyfile.static /etc/caddy/Caddyfile
+# nginx, not Caddy. The line here used to read "no nginx needed since Caddy is
+# already the edge proxy" — true until devforge-be moved the edge to nginx, and
+# what was left was a base image chosen for a reason that had expired.
+#
+# Trivy is what made that visible: caddy:2-alpine is the newest Caddy there is,
+# and its binary still carries 17 HIGH CVEs from the Go modules it was built
+# against, none of which this container can reach — it serves files. nginx:alpine
+# has no Go binary to scan, so the finding goes away rather than being ignored,
+# and the box already pulls this image for the edge.
+FROM nginx:1.31-alpine AS prod
+COPY --from=build /src/dist /usr/share/nginx/html
+COPY nginx.static.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
