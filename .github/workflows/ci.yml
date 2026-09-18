@@ -5,7 +5,13 @@ on:
     # The default branch is master. Watching main meant every merge landed
     # without CI ever running; only the pull_request trigger was doing any work.
     branches: [master]
+    # A release tags this repo too. Nothing here deploys, but the tag is what
+    # promotes this repo's image to the version number devforge-be will look for.
+    tags: ["v*"]
   pull_request:
+
+env:
+  WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/devforge-web
 
 jobs:
   fe:
@@ -20,7 +26,7 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: npx tsc --noEmit
-      # The seven assert files under src/lib and src/sims. Without this line a
+      # The eight assert files under src/lib and src/sims. Without this line a
       # broken simulation engine keeps the build green.
       - run: npm run check
       - run: npm run build
@@ -40,24 +46,112 @@ jobs:
       - uses: gitleaks/gitleaks-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      # package-lock.json, mostly. A vulnerable transitive dependency is both
+      # more common and more directly ours than anything in the runtime base.
+      #
+      # --ignore-unfixed is not optional: without it CI goes red over CVEs with
+      # no patch to apply, and three weeks later somebody deletes the job.
+      - name: trivy fs
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
 
-  # Deploy runs only after lint/test/gitleaks are green on master. Images are
-  # built on the box (README §9.2), so this step is an ssh and nothing else —
-  # no registry, no QEMU, no artifacts. The env file lives on the server at
-  # chmod 600 and is not shipped from here.
-  deploy:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+  # Build once, on master. A tag builds nothing — it renames what master already
+  # produced, so the bits that were scanned are the bits that ship.
+  #
+  # The image is environment-free: the Dockerfile pins VITE_API_URL to the empty
+  # string, so the bundle calls relative paths and the same image serves staging
+  # and production. That is the only reason a frontend image can be promoted at
+  # all rather than rebuilt per environment.
+  image:
+    if: github.ref == 'refs/heads/master'
     needs: [fe, secrets]
     runs-on: ubuntu-latest
-    concurrency:
-      group: deploy-prod
-      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: write
     steps:
-      - name: ssh and release
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: lowercase image name
         run: |
-          install -d -m 700 ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
-          ssh -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
-            "cd /opt/devforge/devforge-be && git -C ../devforge-fe pull --ff-only && git pull --ff-only && ./deploy/up.sh"
+          {
+            echo "WEB_IMAGE=${WEB_IMAGE,,}"
+            echo "SHA_TAG=sha-$(git rev-parse --short HEAD)"
+          } >> "$GITHUB_ENV"
+      # --load, not --push: Trivy has to read the image locally, and nothing
+      # reaches the registry until it has been scanned. A scan after the push is
+      # a report, not a gate.
+      - name: build
+        run: docker build --target prod --load -t "$WEB_IMAGE:$SHA_TAG" .
+      - name: trivy image
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: ${{ env.WEB_IMAGE }}:${{ env.SHA_TAG }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: push
+        run: docker push "$WEB_IMAGE:$SHA_TAG"
+
+  # This is this repo's whole part in a release: put the version number on the
+  # image devforge-be will wait for. devforge-be's deploy job blocks until
+  # ghcr.io/<owner>/devforge-web:<tag> exists, so a tag that is never pushed here
+  # fails the release instead of silently shipping the wrong frontend.
+  promote:
+    if: github.ref_type == 'tag'
+    needs: [fe, secrets]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: retag sha to version
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # A tag on a commit that never reached master was never built and never
+          # scanned. Refuse it here rather than leaving devforge-be waiting ten
+          # minutes for an image that is never coming.
+          git fetch --depth=1 origin master
+          git merge-base --is-ancestor HEAD origin/master \
+            || { echo "tag $TAG is not on master"; exit 1; }
+
+          web=${WEB_IMAGE,,}
+          src="$web:sha-$(git rev-parse --short HEAD)"
+          docker buildx imagetools inspect "$src" >/dev/null \
+            || { echo "no image $src — the tagged commit was never built on master"; exit 1; }
+          # Copied by digest, server side: no pull, no rebuild, and the promoted
+          # image is bit-identical to the scanned one by construction.
+          docker buildx imagetools create -t "$web:$TAG" "$src"
+
+# There is deliberately NO deploy job here. A release is one `v*` tag pushed to
+# BOTH repos, and devforge-be's deploy step is the single thing that acts on it:
+# one ssh that checks out the be clone at that tag and runs up.sh, which pulls
+# this repo's image by the same tag. Two repos deploying to one box cannot be
+# serialised from here — a GitHub `concurrency` group is scoped to one
+# repository — so there is exactly one deploy job, and it does not live here.
+#
+# The job that used to live here did three wrong things at once, kept in the
+# history rather than the file: it released production on every master push; it
+# ran `git pull --ff-only` inside devforge-be, which both ships untagged BE code
+# and fails outright once CD has left that clone on a detached tag; and it
+# raced devforge-be's own deploy.
