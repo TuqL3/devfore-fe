@@ -101,7 +101,21 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
       - name: push
-        run: docker push "$WEB_IMAGE:$SHA_TAG"
+        run: |
+          set -euo pipefail
+          docker push "$WEB_IMAGE:$SHA_TAG"
+          # A moving :master tag as well. devforge-be's staging box deploys the
+          # whole stack under ONE IMAGE_TAG (its deploy/up.sh), and this repo's
+          # short sha is not that repo's — devforge-web:sha-<a be sha> does not
+          # exist and never will. :master is the one name both repos put on
+          # their newest master build, so it is the only thing that can name a
+          # stack. devforge-be pushes the same tag for api and the four lab
+          # images; staging deploys `master`.
+          #
+          # Production never uses it: it deploys :vX.Y.Z, which the promote job
+          # below copies from the exact sha Trivy passed.
+          docker tag "$WEB_IMAGE:$SHA_TAG" "$WEB_IMAGE:master"
+          docker push "$WEB_IMAGE:master"
 
   # This is this repo's whole part in a release: put the version number on the
   # image devforge-be will wait for. devforge-be's deploy job blocks until
