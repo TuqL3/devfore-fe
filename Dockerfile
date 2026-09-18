@@ -3,6 +3,21 @@
 # ---------- build ----------
 FROM node:22-alpine AS build
 WORKDIR /src
+# Empty on purpose, and not a build-arg. Vite bakes this value into the bundle,
+# so any non-empty value makes the image environment-bound: the one built for
+# staging can never be the one promoted to production, and "build once, promote
+# many" turns into a label rather than a fact.
+#
+# Empty means every call goes out relative — src/lib/api.ts does fetch(BASE +
+# "/api/...") and terminalURL resolves against location.origin — and the edge
+# already routes /api, /ws and /uploads to the API on the same origin
+# (deploy/nginx/devforge.conf in devforge-be). Same origin also means no CORS
+# and no cross-subdomain cookie problem.
+#
+# It is an ENV rather than an ARG so there is nothing left to forget: Docker
+# silently drops a build-arg a stage never declares, which is exactly how this
+# file once shipped a production bundle pointing at http://localhost:8080.
+ENV VITE_API_URL=""
 COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .

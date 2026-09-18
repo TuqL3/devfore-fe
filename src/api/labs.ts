@@ -107,9 +107,16 @@ export const labsApi = {
 
 /** The terminal lives on the API host, not the Vite dev server, and the scheme
  *  has to track https so a deployed page does not try to open ws:// from a
- *  secure origin — browsers refuse that outright. */
+ *  secure origin — browsers refuse that outright.
+ *
+ *  `||`, not `??`: in production VITE_API_URL is deliberately the empty string
+ *  so the bundle carries no environment in it and every call goes out relative
+ *  (the edge routes /api, /ws and /uploads to the API on the same origin). An
+ *  empty string is a fine base for fetch and a fatal one for URL —
+ *  `new URL(path, "")` throws TypeError: Invalid base URL — so it resolves
+ *  against the page's own origin here. */
 export function terminalURL(path: string): string {
-  const base = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+  const base = import.meta.env.VITE_API_URL || location.origin;
   const url = new URL(path, base);
   // A WebSocket opened from JavaScript cannot set request headers, so the
   // language rides in the query string instead. Without it the server would

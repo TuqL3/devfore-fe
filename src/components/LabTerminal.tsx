@@ -3,6 +3,7 @@ import { Terminal } from '@xterm/xterm'
 import { FitAddon } from '@xterm/addon-fit'
 import '@xterm/xterm/css/xterm.css'
 import { terminalURL } from '@/api/labs'
+import { RETRY_BACKOFF_MS, retryDelay, shouldRetry } from '@/lib/wsRetry'
 
 type Props = {
   terminalPath: string
@@ -73,53 +74,85 @@ export function LabTerminal({ terminalPath, onReady, onClosed }: Props) {
     term.open(el)
     fit.fit()
 
-    const ws = new WebSocket(terminalURL(terminalPath))
-    ws.binaryType = 'arraybuffer'
     const decoder = new TextDecoder()
     const encoder = new TextEncoder()
 
+    // The socket is replaced on every reconnect, so everything that writes to
+    // it reads this binding rather than closing over one instance.
+    let ws: WebSocket | null = null
+    let attempts = 0
+    let timer: number | undefined
+    let disposed = false
+
     const sendResize = () => {
       fit.fit()
-      if (ws.readyState === WebSocket.OPEN) {
+      if (ws?.readyState === WebSocket.OPEN) {
         ws.send(
           JSON.stringify({ type: 'resize', rows: term.rows, cols: term.cols }),
         )
       }
     }
 
-    ws.onopen = () => {
-      sendResize()
-      term.focus()
-      ready.current?.()
-    }
-    ws.onmessage = (e) => {
-      term.write(
-        typeof e.data === 'string' ? e.data : decoder.decode(e.data as ArrayBuffer),
-      )
-    }
-    ws.onclose = (e) => {
-      const reason = e.reason || 'connection lost'
-      term.write('\r\n\x1b[33m— ' + reason + ' —\x1b[0m\r\n')
-      closed.current(reason)
-    }
-    ws.onerror = () => {
-      term.write('\r\n\x1b[31m— ' + 'terminal connection error' + ' —\x1b[0m\r\n')
+    const note = (colour: string, text: string) =>
+      term.write('\r\n\x1b[' + colour + 'm— ' + text + ' —\x1b[0m\r\n')
+
+    // Attaching again is a fresh `docker exec` in the same container, not a
+    // resumed one: the handler checks the session is still live and opens a new
+    // shell (internal/labs/adapter/rest/terminal.go). Scrollback survives
+    // because the Terminal is never torn down here, but the shell starts clean,
+    // so the reconnect is announced rather than silent.
+    const connect = () => {
+      const sock = new WebSocket(terminalURL(terminalPath))
+      ws = sock
+      sock.binaryType = 'arraybuffer'
+
+      sock.onopen = () => {
+        if (attempts > 0) note('32', 'reconnected')
+        attempts = 0
+        sendResize()
+        term.focus()
+        ready.current?.()
+      }
+      sock.onmessage = (e) => {
+        term.write(
+          typeof e.data === 'string' ? e.data : decoder.decode(e.data as ArrayBuffer),
+        )
+      }
+      // No onerror handler: a failed connect fires it and then onclose anyway,
+      // and one red line per retry is noise on top of the line below.
+      sock.onclose = (e) => {
+        if (disposed) return
+        if (!shouldRetry(e.wasClean, attempts)) {
+          const reason = e.reason || 'connection lost'
+          note('33', reason)
+          closed.current(reason)
+          return
+        }
+        const wait = retryDelay(attempts)
+        attempts += 1
+        note('33', `connection lost, reconnecting (${attempts}/${RETRY_BACKOFF_MS.length})`)
+        timer = window.setTimeout(connect, wait)
+      }
     }
 
+    connect()
+
     const typed = term.onData((d) => {
-      if (ws.readyState === WebSocket.OPEN) ws.send(encoder.encode(d))
+      if (ws?.readyState === WebSocket.OPEN) ws.send(encoder.encode(d))
     })
 
     const observer = new ResizeObserver(sendResize)
     observer.observe(el)
 
     return () => {
+      // Set before anything is closed: a close that this cleanup caused is a
+      // page navigation, not the session ending, and must neither be reported
+      // as one nor answered with a reconnect.
+      disposed = true
+      if (timer !== undefined) window.clearTimeout(timer)
       observer.disconnect()
       typed.dispose()
-      // Detach the handler first: a close that this cleanup caused is a page
-      // navigation, not the session ending, and must not be reported as one.
-      ws.onclose = null
-      ws.close()
+      ws?.close()
       term.dispose()
     }
   }, [terminalPath])

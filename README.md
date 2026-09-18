@@ -1,32 +1,40 @@
-# React + TypeScript + Vite
+# devforge-fe
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+SPA của [DevForge](../devforge-be/README.md) — Vite + React + TypeScript + Tailwind.
+Repo này chỉ có frontend; API, database và toàn bộ phần triển khai nằm ở
+`devforge-be`: `README.md` là nguồn sự thật cho kiến trúc, `INFRA.md` cho hạ tầng
+và CI/CD.
 
-Currently, two official plugins are available:
+## Chạy local
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+cp .env.example .env      # VITE_API_URL=http://localhost:8080
+npm ci
+npm run dev               # :5173
+npx lefthook install      # git hook, 1 lần
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Cần backend chạy song song: `cd ../devforge-be && make migrate && make air`.
+
+## Kiểm trước khi push
+
+```bash
+npx tsc --noEmit && npx oxlint && npm run check
+```
+
+`npm run check` chạy 8 file assert bằng `node --experimental-strip-types`, không
+framework. Cả tám đều nằm trong CI.
+
+## Build và triển khai
+
+Image `devforge-web` build trong GitHub Actions, quét bằng Trivy, đẩy lên GHCR
+dưới `:sha-<short>`; tag `v*` đổi tên nó thành `:v1.2.0`. Repo này **không có job
+deploy** — chỉ tồn tại một đường vào máy chủ và nó nằm ở `devforge-be`.
+
+⚠️ `Dockerfile` ghim `ENV VITE_API_URL=""`, không phải `ARG`. Bundle vì thế không
+mang môi trường nào trong người và mọi lời gọi đi ra tương đối, nên **một image
+chạy được cả staging lẫn production**. Đừng biến nó lại thành build-arg: giá trị
+bake vào sẽ khoá image vào một môi trường, và đúng lớp lỗi đó từng đẩy một bản
+production gọi vào `http://localhost:8080`.
+
+Chi tiết: `devforge-be/INFRA.md` §8 (CI/CD) và §9.1.1 (vì sao cùng origin).
