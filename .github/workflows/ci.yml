@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    # The default branch is master. Watching main meant every merge landed
-    # without CI ever running; only the pull_request trigger was doing any work.
-    branches: [master]
+    # develop integrates, master is production. Both are watched, and the
+    # difference between them is not in this block — it is the `if:` guard on
+    # the `image` job. A push to develop checks the code and builds nothing.
+    #
+    # Watching `main` meant every merge landed without CI ever running, and
+    # only the pull_request trigger was doing any work. Neither branch is main.
+    branches: [master, develop]
     # A release tags this repo too. Nothing here deploys, but the tag is what
     # promotes this repo's image to the version number devforge-be will look for.
     tags: ["v*"]
@@ -98,61 +102,12 @@ jobs:
   # string, so the bundle calls relative paths and the same image serves staging
   # and production. That is the only reason a frontend image can be promoted at
   # all rather than rebuilt per environment.
+  # A tag is the only thing that builds. Pushes to develop and to master are
+  # checked and nothing else. This is also this repo's entire part in a release:
+  # devforge-be's deploy job blocks until ghcr.io/<owner>/devforge-web:<tag>
+  # exists, so a tag that never builds here fails the release rather than
+  # silently shipping the wrong frontend.
   image:
-    if: github.ref == 'refs/heads/master'
-    needs: [fe, secrets]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v4
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: lowercase image name
-        run: |
-          {
-            echo "WEB_IMAGE=${WEB_IMAGE,,}"
-            echo "SHA_TAG=sha-$(git rev-parse --short HEAD)"
-          } >> "$GITHUB_ENV"
-      # --load, not --push: Trivy has to read the image locally, and nothing
-      # reaches the registry until it has been scanned. A scan after the push is
-      # a report, not a gate.
-      - name: build
-        run: docker build --target prod --load -t "$WEB_IMAGE:$SHA_TAG" .
-      - name: trivy image
-        uses: aquasecurity/trivy-action@v0.36.0
-        with:
-          image-ref: ${{ env.WEB_IMAGE }}:${{ env.SHA_TAG }}
-          severity: HIGH,CRITICAL
-          ignore-unfixed: true
-          exit-code: "1"
-      - name: push
-        run: |
-          set -euo pipefail
-          docker push "$WEB_IMAGE:$SHA_TAG"
-          # A moving :master tag as well. devforge-be's staging box deploys the
-          # whole stack under ONE IMAGE_TAG (its deploy/up.sh), and this repo's
-          # short sha is not that repo's — devforge-web:sha-<a be sha> does not
-          # exist and never will. :master is the one name both repos put on
-          # their newest master build, so it is the only thing that can name a
-          # stack. devforge-be pushes the same tag for api and the four lab
-          # images; staging deploys `master`.
-          #
-          # Production never uses it: it deploys :vX.Y.Z, which the promote job
-          # below copies from the exact sha Trivy passed.
-          docker tag "$WEB_IMAGE:$SHA_TAG" "$WEB_IMAGE:master"
-          docker push "$WEB_IMAGE:master"
-
-  # This is this repo's whole part in a release: put the version number on the
-  # image devforge-be will wait for. devforge-be's deploy job blocks until
-  # ghcr.io/<owner>/devforge-web:<tag> exists, so a tag that is never pushed here
-  # fails the release instead of silently shipping the wrong frontend.
-  promote:
     if: github.ref_type == 'tag'
     needs: [fe, secrets]
     runs-on: ubuntu-latest
@@ -163,30 +118,56 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+      - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: retag sha to version
+      # Both refusals below used to live in the `promote` job, which is gone
+      # because there is no pre-built image left to promote. The rules it
+      # enforced are not gone, and they now run before the build instead of
+      # after it.
+      - name: check the tag, then name the image after it
         env:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
-          # A tag on a commit that never reached master was never built and never
-          # scanned. Refuse it here rather than leaving devforge-be waiting ten
-          # minutes for an image that is never coming.
-          git fetch --depth=1 origin master
+          # `tags: ["v*"]` filters names, not shell metacharacters, and this
+          # value becomes a docker tag.
+          case "$TAG" in
+            v[0-9]*) [ -z "${TAG//[A-Za-z0-9._-]/}" ] || { echo "refusing tag: $TAG"; exit 1; } ;;
+            *) echo "refusing tag: $TAG"; exit 1 ;;
+          esac
+          # A tag on a commit that never reached master was never reviewed.
+          git fetch origin master
           git merge-base --is-ancestor HEAD origin/master \
             || { echo "tag $TAG is not on master"; exit 1; }
-
-          web=${WEB_IMAGE,,}
-          src="$web:sha-$(git rev-parse --short HEAD)"
-          docker buildx imagetools inspect "$src" >/dev/null \
-            || { echo "no image $src — the tagged commit was never built on master"; exit 1; }
-          # Copied by digest, server side: no pull, no rebuild, and the promoted
-          # image is bit-identical to the scanned one by construction.
-          docker buildx imagetools create -t "$web:$TAG" "$src"
+          {
+            echo "WEB_IMAGE=${WEB_IMAGE,,}"
+            echo "TAG=$TAG"
+          } >> "$GITHUB_ENV"
+      # --load, not --push: Trivy has to read the image locally, and nothing
+      # reaches the registry until it has been scanned. A scan after the push is
+      # a report, not a gate.
+      - name: build
+        run: docker build --target prod --load -t "$WEB_IMAGE:$TAG" .
+      - name: trivy image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.WEB_IMAGE }}:${{ env.TAG }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: push
+        run: |
+          set -euo pipefail
+          # One name only. The moving :master tag written here used to exist so
+          # devforge-be could deploy a whole stack under a single IMAGE_TAG
+          # while this repo's short sha differed from that repo's. A version tag
+          # is already a name both repos share, so the moving tag has nothing
+          # left to do.
+          docker push "$WEB_IMAGE:$TAG"
 
 # There is deliberately NO deploy job here. A release is one `v*` tag pushed to
 # BOTH repos, and devforge-be's deploy step is the single thing that acts on it:
