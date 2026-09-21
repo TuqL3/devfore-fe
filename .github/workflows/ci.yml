@@ -31,6 +31,37 @@ jobs:
       - run: npm run check
       - run: npm run build
 
+  # Code quality, alongside oxlint and tsc. Self-skips without SONAR_TOKEN, the
+  # same way devforge-be's deploy jobs skip without their SSH secrets: the
+  # project does not exist on SonarQube Cloud yet, and a job that is red on
+  # every branch until someone signs up teaches people to stop reading CI.
+  #
+  # No artifact to collect, unlike devforge-be: there is no coverage report in
+  # this repo to hand over. sonar-project.properties says why.
+  sonar:
+    needs: [fe]
+    runs-on: ubuntu-latest
+    steps:
+      - id: gate
+        run: |
+          if [ -z "${{ secrets.SONAR_TOKEN }}" ]; then
+            echo "no SONAR_TOKEN — SonarQube Cloud project not set up yet, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/checkout@v7
+        if: steps.gate.outputs.skip != 'true'
+        with:
+          # Sonar reads git history to decide what counts as new code, and the
+          # gate judges the diff. A shallow clone makes every line look new.
+          fetch-depth: 0
+      # No SONAR_HOST_URL: that variable is for a self-hosted server and setting
+      # it points the scanner away from Cloud. sonar.qualitygate.wait in
+      # sonar-project.properties is what fails this job on a red gate.
+      - uses: SonarSource/sonarqube-scan-action@v8.2.2
+        if: steps.gate.outputs.skip != 'true'
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   secrets:
     runs-on: ubuntu-latest
     # gitleaks lists the commits on the pull request to decide what to scan, and
