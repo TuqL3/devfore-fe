@@ -42,6 +42,12 @@ CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 # has no Go binary to scan, so the finding goes away rather than being ignored,
 # and the box already pulls this image for the edge.
 FROM nginx:1.31-alpine AS prod
+# Alpine publishes package fixes days or weeks before nginx rebuilds its image,
+# and Trivy fails the build on any fixable HIGH (2026-10: libexpat, pcre2 in
+# nginx:1.31-alpine). Upgrading here ships those fixes now. It also means two
+# builds of the same commit can differ in patch versions — which is fine,
+# because a release promotes the image dev ran rather than rebuilding it.
+RUN apk upgrade --no-cache
 COPY --from=build /src/dist /usr/share/nginx/html
 COPY nginx.static.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
