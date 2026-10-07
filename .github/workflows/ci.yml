@@ -2,15 +2,19 @@ name: CI
 
 on:
   push:
-    # develop integrates, master is production. Both are watched, and the
-    # difference between them is not in this block — it is the `if:` guard on
-    # the `image` job. A push to develop checks the code and builds nothing.
+    # develop integrates and deploys to the dev box; master is what releases
+    # are cut from. The difference is in the `if:` guards, not in this block:
+    #
+    #   push develop → check → build + scan → dev-<sha> + :develop → dev box
+    #   push master  → check only
+    #   push tag v*  → check → promote dev-<sha> to :v* (no build)
     #
     # Watching `main` meant every merge landed without CI ever running, and
     # only the pull_request trigger was doing any work. Neither branch is main.
     branches: [master, develop]
-    # A release tags this repo too. Nothing here deploys, but the tag is what
-    # promotes this repo's image to the version number devforge-be will look for.
+    # A release tags this repo too. Production is deployed from devforge-be, but
+    # the tag is what promotes this repo's image to the version number
+    # devforge-be's deploy job waits for.
     tags: ["v*"]
   pull_request:
 
@@ -36,7 +40,7 @@ jobs:
       - run: npm run build
 
   # Code quality, alongside oxlint and tsc. Self-skips without SONAR_TOKEN, the
-  # same way devforge-be's deploy jobs skip without their SSH secrets: the
+  # same way the deploy jobs skip without their SSH secrets: the
   # project does not exist on SonarQube Cloud yet, and a job that is red on
   # every branch until someone signs up teaches people to stop reading CI.
   #
@@ -95,19 +99,106 @@ jobs:
           ignore-unfixed: true
           exit-code: "1"
 
-  # Build once, on master. A tag builds nothing — it renames what master already
-  # produced, so the bits that were scanned are the bits that ship.
+  # The only build. Every push to develop builds the image ONCE, scans it, and
+  # pushes it as dev-<full sha> (never moves; what a release promotes) and
+  # :develop (moves; what the dev box deploys). The revision label is how the
+  # dev box records which commit it serves, and that record is what
+  # devforge-be's scripts/release.sh tags.
   #
   # The image is environment-free: the Dockerfile pins VITE_API_URL to the empty
-  # string, so the bundle calls relative paths and the same image serves staging
-  # and production. That is the only reason a frontend image can be promoted at
-  # all rather than rebuilt per environment.
-  # A tag is the only thing that builds. Pushes to develop and to master are
-  # checked and nothing else. This is also this repo's entire part in a release:
-  # devforge-be's deploy job blocks until ghcr.io/<owner>/devforge-web:<tag>
-  # exists, so a tag that never builds here fails the release rather than
-  # silently shipping the wrong frontend.
-  image:
+  # string, so the bundle calls relative paths and one image serves dev and
+  # production. That is the only reason a frontend image can be promoted at all
+  # rather than rebuilt per environment.
+  image-dev:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/develop'
+    needs: [fe, secrets]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: name the image
+        run: |
+          {
+            echo "WEB_IMAGE=${WEB_IMAGE,,}"
+            echo "TAG=dev-$GITHUB_SHA"
+          } >> "$GITHUB_ENV"
+      # --load, not --push: Trivy has to read the image locally, and nothing
+      # reaches the registry until it has been scanned. A scan after the push is
+      # a report, not a gate.
+      - name: build
+        run: |
+          docker build --target prod --load \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            -t "$WEB_IMAGE:$TAG" .
+      - name: trivy image
+        uses: aquasecurity/trivy-action@v0.36.0
+        with:
+          image-ref: ${{ env.WEB_IMAGE }}:${{ env.TAG }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+      - name: push
+        run: |
+          set -euo pipefail
+          docker tag "$WEB_IMAGE:$TAG" "$WEB_IMAGE:develop"
+          docker push --quiet "$WEB_IMAGE:$TAG"
+          docker push --quiet "$WEB_IMAGE:develop"
+
+  # Dev only. Production is still deployed from devforge-be and nowhere else:
+  # a release must wait for both repos' images, and only that repo's deploy job
+  # does. Dev has no such gate — each push ships what it changed — so this repo
+  # deploys there too, on its own pushes.
+  #
+  # Both repos deploy to the same box and a `concurrency` group cannot span
+  # repositories, so the box serialises them: DEPLOY_WAIT makes devforge-be's
+  # up.sh queue on its flock instead of refusing.
+  deploy-dev:
+    needs: [image-dev]
+    runs-on: ubuntu-latest
+    # SSH_HOST / SSH_USER / SSH_KEY for the dev box, as environment secrets.
+    # This repo holds no production secret at all.
+    environment: development
+    concurrency:
+      group: deploy-dev
+      cancel-in-progress: false
+    steps:
+      - id: gate
+        run: |
+          if [ -z "${{ secrets.SSH_HOST }}" ]; then
+            echo "no SSH_HOST in the development environment — dev box not provisioned yet, skipping"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: ssh and deploy
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          install -d -m 700 ~/.ssh
+          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "${{ secrets.SSH_HOST }}" >> ~/.ssh/known_hosts
+          # The be clone follows origin/develop here: this push changed only
+          # the frontend, and the backend on dev should be develop's newest.
+          timeout 1800 ssh -o ConnectTimeout=10 -o BatchMode=yes \
+            -i ~/.ssh/id_ed25519 "${{ secrets.SSH_USER }}@${{ secrets.SSH_HOST }}" \
+            "set -e
+             cd /opt/devforge/devforge-be
+             git fetch --force origin
+             git checkout --force --detach origin/develop
+             IMAGE_TAG=develop DEPLOY_WAIT=900 ./deploy/up.sh"
+
+  # A release builds nothing. devforge-be's scripts/release.sh tagged the commit
+  # the dev box was serving, and its image already exists as dev-<sha>: built
+  # once, scanned, run on dev. This re-scans it (CVEs published since then
+  # count) and gives the same image the version name devforge-be's deploy job
+  # is waiting for.
+  promote:
     if: github.ref_type == 'tag'
     needs: [fe, secrets]
     runs-on: ubuntu-latest
@@ -118,23 +209,18 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-      - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      # Both refusals below used to live in the `promote` job, which is gone
-      # because there is no pre-built image left to promote. The rules it
-      # enforced are not gone, and they now run before the build instead of
-      # after it.
-      - name: check the tag, then name the image after it
+      - name: check the tag
         env:
           TAG: ${{ github.ref_name }}
         run: |
           set -euo pipefail
           # `tags: ["v*"]` filters names, not shell metacharacters, and this
-          # value becomes a docker tag.
+          # value becomes a docker tag. Same rule as devforge-be's release-guard.sh.
           case "$TAG" in
             v[0-9]*) [ -z "${TAG//[A-Za-z0-9._-]/}" ] || { echo "refusing tag: $TAG"; exit 1; } ;;
             *) echo "refusing tag: $TAG"; exit 1 ;;
@@ -146,38 +232,27 @@ jobs:
           {
             echo "WEB_IMAGE=${WEB_IMAGE,,}"
             echo "TAG=$TAG"
+            echo "SRC=dev-$GITHUB_SHA"
           } >> "$GITHUB_ENV"
-      # --load, not --push: Trivy has to read the image locally, and nothing
-      # reaches the registry until it has been scanned. A scan after the push is
-      # a report, not a gate.
-      - name: build
-        run: docker build --target prod --load -t "$WEB_IMAGE:$TAG" .
+      - name: pull what dev ran
+        run: |
+          docker pull --quiet "$WEB_IMAGE:$SRC" || {
+            echo "$WEB_IMAGE:$SRC does not exist — this commit was never built on develop, so it never ran on dev" >&2
+            exit 1
+          }
       - name: trivy image
         uses: aquasecurity/trivy-action@v0.36.0
         with:
-          image-ref: ${{ env.WEB_IMAGE }}:${{ env.TAG }}
+          image-ref: ${{ env.WEB_IMAGE }}:${{ env.SRC }}
           severity: HIGH,CRITICAL
           ignore-unfixed: true
           exit-code: "1"
-      - name: push
+      # A re-tag of a pulled image: the layers are already in the registry, so
+      # the push uploads only the new name. The digest is printed so the log
+      # shows the version and dev-<sha> are the same image.
+      - name: promote
         run: |
           set -euo pipefail
-          # One name only. The moving :master tag written here used to exist so
-          # devforge-be could deploy a whole stack under a single IMAGE_TAG
-          # while this repo's short sha differed from that repo's. A version tag
-          # is already a name both repos share, so the moving tag has nothing
-          # left to do.
-          docker push "$WEB_IMAGE:$TAG"
-
-# There is deliberately NO deploy job here. A release is one `v*` tag pushed to
-# BOTH repos, and devforge-be's deploy step is the single thing that acts on it:
-# one ssh that checks out the be clone at that tag and runs up.sh, which pulls
-# this repo's image by the same tag. Two repos deploying to one box cannot be
-# serialised from here — a GitHub `concurrency` group is scoped to one
-# repository — so there is exactly one deploy job, and it does not live here.
-#
-# The job that used to live here did three wrong things at once, kept in the
-# history rather than the file: it released production on every master push; it
-# ran `git pull --ff-only` inside devforge-be, which both ships untagged BE code
-# and fails outright once CD has left that clone on a detached tag; and it
-# raced devforge-be's own deploy.
+          docker tag "$WEB_IMAGE:$SRC" "$WEB_IMAGE:$TAG"
+          docker push --quiet "$WEB_IMAGE:$TAG"
+          docker image inspect -f "$WEB_IMAGE {{index .RepoDigests 0}}" "$WEB_IMAGE:$TAG"
