@@ -1,7 +1,7 @@
 # syntax=docker/dockerfile:1
 
 # ---------- build ----------
-FROM node:22-alpine AS build
+FROM node:26-alpine AS build
 WORKDIR /src
 # Empty on purpose, and not a build-arg. Vite bakes this value into the bundle,
 # so any non-empty value makes the image environment-bound: the one built for
@@ -24,7 +24,7 @@ COPY . .
 RUN npm run build
 
 # ---------- dev ----------
-FROM node:22-alpine AS dev
+FROM node:26-alpine AS dev
 WORKDIR /src
 COPY package.json package-lock.json ./
 RUN npm ci
