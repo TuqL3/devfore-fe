@@ -1,9 +1,0 @@
-# Same reason as the backend's: `COPY . .` would otherwise pull local env files
-# into a builder layer. node_modules and dist are also just slow — npm ci and
-# npm run build recreate both inside the image.
-.env*
-.git
-.github
-node_modules/
-dist/
-.DS_Store
